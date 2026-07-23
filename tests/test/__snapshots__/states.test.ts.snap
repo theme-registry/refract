@@ -1,0 +1,232 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`states — CSS output > full css snapshot 1`] = `
+":root {
+  --dt-colors-primary: rgb(77, 171, 247);
+  --dt-colors-primary-text: rgb(255, 255, 255);
+  --dt-colors-primary-lighter: rgb(230, 244, 255);
+  --dt-colors-primary-darker: rgb(0, 96, 172);
+  --dt-colors-primary-dark: rgb(28, 126, 214);
+  --dt-colors-primary-light: rgb(165, 216, 255);
+  --dt-colors-shadow: rgb(0, 0, 0);
+  --dt-colors-shadow-light: rgb(3, 3, 3);
+  --dt-colors-shadow-lighter: rgb(21, 21, 21);
+  --dt-colors-shadow-dark: rgb(0, 0, 0);
+  --dt-colors-shadow-darker: rgb(0, 0, 0);
+  --dt-colors-shadow-a10: rgba(0, 0, 0, 0.1);
+}
+
+.dt-colors-solid-primary {
+  background: var(--dt-colors-primary);
+  color: var(--dt-colors-primary-text);
+}
+
+.dt-colors-solid-primary:hover {
+  background: var(--dt-colors-primary-dark);
+}
+
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .dt-colors-solid-primary:hover {
+    background: var(--dt-colors-primary-light);
+  }
+}
+
+.dt-colors-solid-primary[disabled] {
+  background: var(--dt-colors-primary-light);
+  color: var(--dt-colors-primary);
+}
+
+:root {
+  --dt-layout-container-inset: var(--dt-layout-spacing);
+}
+
+.dt-layout-container-container {
+  box-sizing: border-box;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--dt-layout-container-inset);
+  padding-right: var(--dt-layout-container-inset);
+  max-width: 576px;
+}
+
+@media (min-width: 768px) {
+  .dt-layout-container-container {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dt-layout-container-container {
+    max-width: 1024px;
+  }
+}
+
+:root {
+  --dt-effects-shadow: 0px 1px 3px var(--dt-colors-shadow-a10);
+  --dt-effects-shadow-lg: 0px 10px 20px var(--dt-colors-shadow-a10);
+}
+
+.dt-effects-card-default {
+  box-shadow: var(--dt-effects-shadow);
+}
+
+.dt-effects-card-default:hover {
+  box-shadow: var(--dt-effects-shadow-lg);
+}
+
+:root {
+  --dt-borders-radius: 6px;
+  --dt-borders-radius-lg: 12px;
+}
+
+.dt-borders-box-default {
+  border-radius: var(--dt-borders-radius);
+}
+
+.dt-components-buttons-primary {
+  cursor: pointer;
+  border: none;
+}
+
+.dt-components-buttons-primary:hover {
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}"
+`;
+
+exports[`states — CSS output > recipesCss snapshot 1`] = `
+".dt-colors-solid-primary {
+  background: var(--dt-colors-primary);
+  color: var(--dt-colors-primary-text);
+}
+
+.dt-colors-solid-primary:hover {
+  background: var(--dt-colors-primary-dark);
+}
+
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .dt-colors-solid-primary:hover {
+    background: var(--dt-colors-primary-light);
+  }
+}
+
+.dt-colors-solid-primary[disabled] {
+  background: var(--dt-colors-primary-light);
+  color: var(--dt-colors-primary);
+}
+
+.dt-layout-container-container {
+  box-sizing: border-box;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--dt-layout-container-inset);
+  padding-right: var(--dt-layout-container-inset);
+  max-width: 576px;
+}
+
+@media (min-width: 768px) {
+  .dt-layout-container-container {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dt-layout-container-container {
+    max-width: 1024px;
+  }
+}
+
+.dt-effects-card-default {
+  box-shadow: var(--dt-effects-shadow);
+}
+
+.dt-effects-card-default:hover {
+  box-shadow: var(--dt-effects-shadow-lg);
+}
+
+.dt-borders-box-default {
+  border-radius: var(--dt-borders-radius);
+}
+
+.dt-components-buttons-primary {
+  cursor: pointer;
+  border: none;
+}
+
+.dt-components-buttons-primary:hover {
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}"
+`;
+
+exports[`states — Model > colors solid.primary rule-set (states + cross-product) snapshot 1`] = `
+{
+  "declarations": {
+    "background": {
+      "ref": "colors.primary",
+    },
+    "color": {
+      "ref": "colors.primary.text",
+    },
+  },
+  "kind": "recipe",
+  "overrides": [
+    {
+      "declarations": {
+        "background": {
+          "ref": "colors.primary.dark",
+        },
+      },
+      "state": "hover",
+    },
+    {
+      "declarations": {
+        "background": {
+          "ref": "colors.primary.light",
+        },
+        "color": {
+          "ref": "colors.primary",
+        },
+      },
+      "state": "disabled",
+    },
+    {
+      "breakpoint": "md",
+      "declarations": {
+        "background": {
+          "ref": "colors.primary.light",
+        },
+      },
+      "query": "exact",
+      "state": "hover",
+    },
+  ],
+}
+`;
+
+exports[`states — Model > component buttons.primary rule-set (own hover delta + references) snapshot 1`] = `
+{
+  "declarations": {
+    "border": {
+      "value": "none",
+    },
+    "cursor": {
+      "value": "pointer",
+    },
+  },
+  "kind": "recipe",
+  "overrides": [
+    {
+      "declarations": {
+        "box-shadow": {
+          "value": "0 6px 16px rgba(0,0,0,0.2)",
+        },
+      },
+      "state": "hover",
+    },
+  ],
+  "references": [
+    "colors:solid.primary",
+  ],
+}
+`;

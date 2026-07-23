@@ -1,0 +1,28 @@
+dist
+node_modules
+*.log
+.idea
+
+# Example apps typecheck with `tsc && vite build`; tsc emits .js next to the .ts sources.
+examples/**/src/**/*.js
+examples/**/src/**/*.js.map
+
+# Docs site build outputs (regenerate with `npm run docs:build`)
+website/out
+website/refract-showcase.html
+
+# macOS
+.DS_Store
+
+# Local build scratch (has node_modules; regenerate locally)
+tmp-build-example
+theme-authoring-kit.zip
+
+# Vite site (generated from template.html by site:gen)
+website/site/index.html
+website/site/src
+website/site/dist
+test.raw.ts
+
+# Docs kit — maintained out of tree (untracked by decision 2026-07-23)
+theme-authoring-kit/

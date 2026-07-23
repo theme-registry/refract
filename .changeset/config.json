@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@theme-registry/refract",
+      "@theme-registry/refract-css",
+      "@theme-registry/refract-scss",
+      "@theme-registry/refract-json",
+      "@theme-registry/refract-styled-components",
+      "@theme-registry/refract-mcp"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}

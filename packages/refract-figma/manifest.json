@@ -1,0 +1,12 @@
+{
+  "name": "refract → Figma variables",
+  "id": "refract-figma-poc",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  }
+}

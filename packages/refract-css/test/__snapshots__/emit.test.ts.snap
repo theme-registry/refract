@@ -1,0 +1,520 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`emitTheme — CSS adapter \`components\` mode, inline (9d) > renders states (:hover / [disabled]) and responsive (@media) inline > components-inline-states.css 1`] = `
+".dt-components-buttons-primary {
+  background: rgb(77, 171, 247);
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  border: none;
+}
+
+.dt-components-buttons-primary:hover {
+  background: rgb(28, 126, 214);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+.dt-components-buttons-primary[disabled] {
+  background: rgb(165, 216, 255);
+  color: rgb(77, 171, 247);
+}
+
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .dt-components-buttons-primary:hover {
+    background: rgb(165, 216, 255);
+  }
+}"
+`;
+
+exports[`emitTheme — CSS adapter \`components\` mode, inline (9d) > writes one self-contained file per component variant (default filenames), zero var( > components-inline-buttons-primary.css 1`] = `
+".dt-components-buttons-primary {
+  background: rgb(77, 171, 247);
+  color: rgb(255, 255, 255);
+  font-size: 20px;
+  font-weight: 500;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  padding-left: 24px;
+  padding-right: 24px;
+  box-shadow: rgba(0, 0, 0, 0.1);
+  transition: all 150ms ease;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}"
+`;
+
+exports[`emitTheme — CSS adapter \`components\` mode, inline (9d) > writes one self-contained file per component variant (default filenames), zero var( > components-inline-files 1`] = `
+[
+  "badges-default.css",
+  "badges-success.css",
+  "buttons-danger.css",
+  "buttons-primary-sm.css",
+  "buttons-primary.css",
+  "cards-default.css",
+  "cards-elevated.css",
+]
+`;
+
+exports[`emitTheme — CSS adapter \`components\` mode, non-inline (9e) > styles files use var(--…) refs (NOT baked literals) + a tree-shaken variables.css, no @import > components-noninline-buttons-primary.css 1`] = `
+".dt-components-buttons-primary {
+  background: var(--dt-colors-primary);
+  color: var(--dt-colors-primary-text);
+  font-size: var(--dt-typography-fontsize-lg);
+  font-weight: var(--dt-typography-fontweight-medium);
+  padding-top: var(--dt-layout-spacing-md);
+  padding-bottom: var(--dt-layout-spacing-md);
+  padding-left: var(--dt-layout-spacing-xl);
+  padding-right: var(--dt-layout-spacing-xl);
+  box-shadow: var(--dt-effects-shadow);
+  transition: var(--dt-effects-transitions);
+  border-radius: var(--dt-borders-radius);
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}"
+`;
+
+exports[`emitTheme — CSS adapter \`components\` mode, non-inline (9e) > styles files use var(--…) refs (NOT baked literals) + a tree-shaken variables.css, no @import > components-noninline-files 1`] = `
+[
+  "badges-default.css",
+  "badges-success.css",
+  "buttons-danger.css",
+  "buttons-primary-sm.css",
+  "buttons-primary.css",
+  "cards-default.css",
+  "cards-elevated.css",
+  "variables.css",
+]
+`;
+
+exports[`emitTheme — CSS adapter \`components\` mode, non-inline (9e) > styles files use var(--…) refs (NOT baked literals) + a tree-shaken variables.css, no @import > components-noninline-variables.css 1`] = `
+":root {
+  --dt-colors-primary: rgb(77, 171, 247);
+  --dt-colors-primary-text: rgb(255, 255, 255);
+  --dt-typography-fontsize-lg: 20px;
+  --dt-typography-fontweight-medium: 500;
+  --dt-layout-spacing-md: 12px;
+  --dt-layout-spacing-xl: 24px;
+  --dt-effects-shadow: rgba(0, 0, 0, 0.1);
+  --dt-effects-transitions: all 150ms ease;
+  --dt-borders-radius: 6px;
+  --dt-typography-fontsize-sm: 14px;
+  --dt-layout-spacing-sm: 6px;
+  --dt-colors-danger: rgb(255, 107, 107);
+  --dt-colors-danger-text: rgb(255, 255, 255);
+  --dt-effects-shadow-lg: rgba(0, 0, 0, 0.1);
+  --dt-borders-radius-lg: 12px;
+  --dt-colors-neutral-light: rgb(241, 243, 245);
+  --dt-colors-neutral-dark: rgb(52, 58, 64);
+  --dt-typography-lineheight: 1.5;
+  --dt-colors-success: rgb(81, 207, 102);
+  --dt-colors-success-text: rgb(255, 255, 255);
+}"
+`;
+
+exports[`emitTheme — CSS adapter \`components\` mode, non-inline (9e) — responsive :root overrides (§11.5) > tree-shaken variables.css carries the referenced property's responsive @media :root overrides > components-noninline-responsive-variables.css 1`] = `
+":root {
+  --dt-layout-spacing-relaxed: 32px;
+}
+
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  :root {
+    --dt-layout-spacing-relaxed: 40px;
+  }
+}"
+`;
+
+exports[`emitTheme — CSS adapter \`split\` mode (9b) > writes styles.css + variables.css (defaults), no @import > split-styles.css 1`] = `
+":where(*,::before,::after) {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+}
+
+:where(body) {
+  margin: 0;
+  line-height: inherit;
+}
+
+:where(h1,h2,h3,h4,h5,h6) {
+  font-size: inherit;
+  font-weight: inherit;
+  margin: 0;
+}
+
+:where(p,figure,blockquote,dl,dd) {
+  margin: 0;
+}
+
+:where(ul,ol) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+:where(img,picture,video,canvas,svg) {
+  display: block;
+  max-width: 100%;
+}
+
+:where(button,input,select,textarea) {
+  font: inherit;
+  color: inherit;
+}
+
+:where(a) {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+:where(h2) {
+  font-size: var(--dt-typography-fontsize-3xl);
+}
+
+:where(h3) {
+  font-size: var(--dt-typography-fontsize-2xl);
+}
+
+:where(h4) {
+  font-size: var(--dt-typography-fontsize-xl);
+}
+
+:where(h5) {
+  font-size: var(--dt-typography-fontsize-lg);
+}
+
+a {
+  color: var(--dt-colors-primary);
+  text-decoration: underline;
+}
+
+@media (min-width: 768px) {
+  a {
+    font-size: var(--dt-typography-fontsize-lg);
+  }
+}
+
+a:hover {
+  color: var(--dt-colors-primary-dark);
+}
+
+a.subtle {
+  color: var(--dt-colors-neutral);
+}
+
+a.subtle:hover {
+  color: var(--dt-colors-primary);
+}
+
+.dt-colors-solid-primary {
+  background: var(--dt-colors-primary);
+  color: var(--dt-colors-primary-text);
+}
+
+.dt-colors-solid-danger {
+  background: var(--dt-colors-danger);
+  color: var(--dt-colors-danger-text);
+}
+
+.dt-colors-solid-success {
+  background: var(--dt-colors-success);
+  color: var(--dt-colors-success-text);
+}
+
+.dt-colors-solid-neutral {
+  background: var(--dt-colors-neutral-light);
+  color: var(--dt-colors-neutral-dark);
+}
+
+.dt-colors-outline-primary {
+  border-color: var(--dt-colors-primary);
+  color: var(--dt-colors-primary-dark);
+}
+
+.dt-typography-heading-h1 {
+  font-family: var(--dt-typography-fontfamily-heading);
+  font-size: var(--dt-typography-fontsize-3xl);
+  font-weight: var(--dt-typography-fontweight-bold);
+  line-height: var(--dt-typography-lineheight-tight);
+  letter-spacing: var(--dt-typography-letterspacing-tight);
+}
+
+.dt-typography-heading-h2 {
+  font-family: var(--dt-typography-fontfamily-heading);
+  font-size: var(--dt-typography-fontsize-2xl);
+  font-weight: var(--dt-typography-fontweight-bold);
+  line-height: var(--dt-typography-lineheight-tight);
+}
+
+.dt-typography-heading-h3 {
+  font-family: var(--dt-typography-fontfamily-heading);
+  font-size: var(--dt-typography-fontsize-xl);
+  font-weight: var(--dt-typography-fontweight-semibold);
+}
+
+.dt-typography-body-base {
+  font-size: var(--dt-typography-fontsize);
+  line-height: var(--dt-typography-lineheight);
+}
+
+.dt-typography-body-small {
+  font-size: var(--dt-typography-fontsize-sm);
+  line-height: var(--dt-typography-lineheight);
+}
+
+.dt-typography-body-large {
+  font-size: var(--dt-typography-fontsize-lg);
+  line-height: var(--dt-typography-lineheight-loose);
+}
+
+.dt-typography-button-large {
+  font-size: var(--dt-typography-fontsize-lg);
+  font-weight: var(--dt-typography-fontweight-medium);
+}
+
+.dt-typography-button-small {
+  font-size: var(--dt-typography-fontsize-sm);
+  font-weight: var(--dt-typography-fontweight-medium);
+}
+
+.dt-typography-code-inline {
+  font-family: var(--dt-typography-fontfamily-mono);
+  font-size: var(--dt-typography-fontsize-sm);
+}
+
+.dt-layout-container-container {
+  box-sizing: border-box;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--dt-layout-container-inset);
+  padding-right: var(--dt-layout-container-inset);
+  max-width: 576px;
+}
+
+@media (min-width: 768px) {
+  .dt-layout-container-container {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dt-layout-container-container {
+    max-width: 1024px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .dt-layout-container-container {
+    max-width: 1280px;
+  }
+}
+
+.dt-layout-padding-card {
+  padding-top: var(--dt-layout-spacing-xl);
+  padding-bottom: var(--dt-layout-spacing-xl);
+  padding-left: var(--dt-layout-spacing-xl);
+  padding-right: var(--dt-layout-spacing-xl);
+}
+
+.dt-layout-padding-section {
+  padding-top: var(--dt-layout-spacing-3xl);
+  padding-bottom: var(--dt-layout-spacing-3xl);
+  padding-left: var(--dt-layout-spacing-lg);
+  padding-right: var(--dt-layout-spacing-lg);
+}
+
+.dt-layout-padding-button-lg {
+  padding-top: var(--dt-layout-spacing-md);
+  padding-bottom: var(--dt-layout-spacing-md);
+  padding-left: var(--dt-layout-spacing-xl);
+  padding-right: var(--dt-layout-spacing-xl);
+}
+
+.dt-layout-padding-button-sm {
+  padding-top: var(--dt-layout-spacing-sm);
+  padding-bottom: var(--dt-layout-spacing-sm);
+  padding-left: var(--dt-layout-spacing-md);
+  padding-right: var(--dt-layout-spacing-md);
+}
+
+.dt-effects-card-default {
+  box-shadow: var(--dt-effects-shadow);
+  transition: var(--dt-effects-transitions);
+}
+
+.dt-effects-card-elevated {
+  box-shadow: var(--dt-effects-shadow-lg);
+}
+
+.dt-effects-card-flat {
+  box-shadow: var(--dt-effects-shadow-none);
+}
+
+.dt-borders-box-default {
+  border-radius: var(--dt-borders-radius);
+}
+
+.dt-borders-box-elevated {
+  border-radius: var(--dt-borders-radius-lg);
+}
+
+.dt-borders-box-flat {
+  border-radius: var(--dt-borders-radius-sm);
+}
+
+.dt-components-buttons-primary {
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dt-components-buttons-primary-sm {
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dt-components-buttons-danger {
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dt-components-cards-default {
+  background: #fff;
+  overflow: hidden;
+}
+
+.dt-components-cards-elevated {
+  background: #fff;
+  overflow: hidden;
+}
+
+.dt-components-badges-default {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.dt-components-badges-success {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}"
+`;
+
+exports[`emitTheme — CSS adapter \`split\` mode (9b) > writes styles.css + variables.css (defaults), no @import > split-variables.css 1`] = `
+":root {
+  --dt-colors-primary: rgb(77, 171, 247);
+  --dt-colors-primary-text: rgb(255, 255, 255);
+  --dt-colors-primary-lighter: rgb(230, 244, 255);
+  --dt-colors-primary-darker: rgb(0, 96, 172);
+  --dt-colors-primary-dark: rgb(28, 126, 214);
+  --dt-colors-primary-light: rgb(165, 216, 255);
+  --dt-colors-neutral: rgb(134, 142, 150);
+  --dt-colors-neutral-text: rgb(255, 255, 255);
+  --dt-colors-neutral-lighter: rgb(255, 255, 255);
+  --dt-colors-neutral-darker: rgb(28, 33, 39);
+  --dt-colors-neutral-light: rgb(241, 243, 245);
+  --dt-colors-neutral-dark: rgb(52, 58, 64);
+  --dt-colors-danger: rgb(255, 107, 107);
+  --dt-colors-danger-text: rgb(255, 255, 255);
+  --dt-colors-danger-light: rgb(255, 166, 161);
+  --dt-colors-danger-lighter: rgb(255, 215, 212);
+  --dt-colors-danger-dark: rgb(219, 74, 78);
+  --dt-colors-danger-darker: rgb(184, 37, 49);
+  --dt-colors-success: rgb(81, 207, 102);
+  --dt-colors-success-text: rgb(255, 255, 255);
+  --dt-colors-success-light: rgb(117, 240, 134);
+  --dt-colors-success-lighter: rgb(212, 255, 215);
+  --dt-colors-success-dark: rgb(39, 174, 70);
+  --dt-colors-success-darker: rgb(0, 141, 47);
+  --dt-colors-shadow: rgb(0, 0, 0);
+  --dt-colors-shadow-light: rgb(3, 3, 3);
+  --dt-colors-shadow-lighter: rgb(21, 21, 21);
+  --dt-colors-shadow-dark: rgb(0, 0, 0);
+  --dt-colors-shadow-darker: rgb(0, 0, 0);
+  --dt-colors-shadow-a7: rgba(0, 0, 0, 0.07);
+  --dt-colors-shadow-a10: rgba(0, 0, 0, 0.1);
+  --dt-colors-shadow-a12: rgba(0, 0, 0, 0.12);
+  --dt-typography-fontfamily: system-ui, -apple-system, sans-serif;
+  --dt-typography-fontfamily-heading: Georgia, serif;
+  --dt-typography-fontfamily-mono: 'Fira Code', monospace;
+  --dt-typography-fontsize: 16px;
+  --dt-typography-fontsize-xs: 12px;
+  --dt-typography-fontsize-sm: 14px;
+  --dt-typography-fontsize-lg: 20px;
+  --dt-typography-fontsize-xl: 24px;
+  --dt-typography-fontsize-2xl: 32px;
+  --dt-typography-fontsize-3xl: 40px;
+  --dt-typography-fontweight: 400;
+  --dt-typography-fontweight-medium: 500;
+  --dt-typography-fontweight-semibold: 600;
+  --dt-typography-fontweight-bold: 700;
+  --dt-typography-lineheight: 1.5;
+  --dt-typography-lineheight-tight: 1.2;
+  --dt-typography-lineheight-loose: 1.8;
+  --dt-typography-letterspacing: 0em;
+  --dt-typography-letterspacing-tight: -0.02em;
+  --dt-typography-letterspacing-wide: 0.05em;
+  --dt-layout-spacing: 8px;
+  --dt-layout-spacing-xs: 4px;
+  --dt-layout-spacing-sm: 6px;
+  --dt-layout-spacing-md: 12px;
+  --dt-layout-spacing-lg: 16px;
+  --dt-layout-spacing-xl: 24px;
+  --dt-layout-spacing-2xl: 32px;
+  --dt-layout-spacing-3xl: 48px;
+  --dt-layout-spacing-none: 0px;
+  --dt-layout-container-inset: var(--dt-layout-spacing);
+  --dt-effects-shadow: 0px 1px 3px var(--dt-colors-shadow-a10);
+  --dt-effects-shadow-none: none;
+  --dt-effects-shadow-md: 0px 4px 6px var(--dt-colors-shadow-a7);
+  --dt-effects-shadow-lg: 0px 10px 20px var(--dt-colors-shadow-a10);
+  --dt-effects-shadow-xl: 0px 20px 40px var(--dt-colors-shadow-a12);
+  --dt-effects-transitions: all 150ms ease;
+  --dt-effects-transitions-fast: all 80ms ease;
+  --dt-effects-transitions-slow: all 300ms ease;
+  --dt-borders-radius: 6px;
+  --dt-borders-radius-none: 0px;
+  --dt-borders-radius-sm: 4px;
+  --dt-borders-radius-lg: 12px;
+  --dt-borders-radius-xl: 16px;
+  --dt-borders-radius-full: 9999px;
+}"
+`;
+
+exports[`emitTheme — CSS adapter \`subsystem\` mode (9b) > writes a styles+variables pair per subsystem (components = styles only) > subsystem-files 1`] = `
+[
+  "borders.css",
+  "borders.variables.css",
+  "colors.css",
+  "colors.variables.css",
+  "components.css",
+  "effects.css",
+  "effects.variables.css",
+  "globals.css",
+  "layout.css",
+  "layout.variables.css",
+  "typography.css",
+  "typography.variables.css",
+]
+`;

@@ -1,0 +1,44 @@
+{
+  "name": "theme-toolkit-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Monorepo root for @theme-registry/refract and its adapter packages. Not published — see packages/*.",
+  "author": {
+    "name": "Petyo Stoyanov",
+    "email": "petyosv@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/4i4-team/theme-toolkit.git"
+  },
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean",
+    "lint": "eslint --ext .ts packages/*/src",
+    "size": "node scripts/size.mjs",
+    "bench": "node scripts/bench.mjs",
+    "docs:bundle": "pnpm --filter @theme-registry/website run bundle",
+    "docs:build": "pnpm -r build && pnpm --filter @theme-registry/website run bundle && pnpm --filter @theme-registry/website run build-docs",
+    "docs:validate": "pnpm --filter @theme-registry/website run validate",
+    "site:gen": "pnpm --filter @theme-registry/website run gen",
+    "site:dev": "pnpm --filter @theme-registry/website run dev",
+    "site:build": "pnpm -r build && pnpm --filter @theme-registry/website run site-build",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm -r build && changeset publish",
+    "release:experimental": "pnpm -r build && changeset publish --tag experimental"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.1",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.2",
+    "eslint-plugin-react": "^7.37.2",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.2"
+  }
+}

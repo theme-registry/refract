@@ -1,0 +1,1439 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`json adapter — full document > lowers the whole Model to flat address-keyed buckets (reactSc) 1`] = `
+"{
+  "breakpoints": {
+    "sm": 576,
+    "md": 768,
+    "lg": 1024,
+    "xl": 1280
+  },
+  "tokens": {
+    "colors.primary": {
+      "value": "rgb(77, 171, 247)"
+    },
+    "colors.primary.lighter": {
+      "ref": "colors.primary.light",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(230, 244, 255)"
+    },
+    "colors.primary.darker": {
+      "ref": "colors.primary.dark",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(0, 96, 172)"
+    },
+    "colors.primary.dark": {
+      "value": "rgb(28, 126, 214)"
+    },
+    "colors.primary.light": {
+      "value": "rgb(165, 216, 255)"
+    },
+    "colors.primary.text": {
+      "value": "rgb(255, 255, 255)"
+    },
+    "colors.neutral": {
+      "value": "rgb(134, 142, 150)"
+    },
+    "colors.neutral.lighter": {
+      "ref": "colors.neutral.light",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(255, 255, 255)"
+    },
+    "colors.neutral.darker": {
+      "ref": "colors.neutral.dark",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(28, 33, 39)"
+    },
+    "colors.neutral.light": {
+      "value": "rgb(241, 243, 245)"
+    },
+    "colors.neutral.dark": {
+      "value": "rgb(52, 58, 64)"
+    },
+    "colors.neutral.text": {
+      "value": "rgb(255, 255, 255)"
+    },
+    "colors.danger": {
+      "value": "rgb(255, 107, 107)"
+    },
+    "colors.danger.light": {
+      "ref": "colors.danger",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(255, 166, 161)"
+    },
+    "colors.danger.lighter": {
+      "ref": "colors.danger.light",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(255, 215, 212)"
+    },
+    "colors.danger.dark": {
+      "ref": "colors.danger",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(219, 74, 78)"
+    },
+    "colors.danger.darker": {
+      "ref": "colors.danger.dark",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(184, 37, 49)"
+    },
+    "colors.danger.text": {
+      "value": "rgb(255, 255, 255)"
+    },
+    "colors.success": {
+      "value": "rgb(81, 207, 102)"
+    },
+    "colors.success.light": {
+      "ref": "colors.success",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(117, 240, 134)"
+    },
+    "colors.success.lighter": {
+      "ref": "colors.success.light",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(212, 255, 215)"
+    },
+    "colors.success.dark": {
+      "ref": "colors.success",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(39, 174, 70)"
+    },
+    "colors.success.darker": {
+      "ref": "colors.success.dark",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(0, 141, 47)"
+    },
+    "colors.success.text": {
+      "value": "rgb(255, 255, 255)"
+    },
+    "colors.shadow": {
+      "value": "rgb(0, 0, 0)"
+    },
+    "colors.shadow.light": {
+      "ref": "colors.shadow",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(3, 3, 3)"
+    },
+    "colors.shadow.lighter": {
+      "ref": "colors.shadow.light",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(21, 21, 21)"
+    },
+    "colors.shadow.dark": {
+      "ref": "colors.shadow",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(0, 0, 0)"
+    },
+    "colors.shadow.darker": {
+      "ref": "colors.shadow.dark",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(0, 0, 0)"
+    },
+    "colors.shadow.a7": {
+      "ref": "colors.shadow",
+      "value": "rgba(0, 0, 0, 0.07)"
+    },
+    "colors.shadow.a10": {
+      "ref": "colors.shadow",
+      "value": "rgba(0, 0, 0, 0.1)"
+    },
+    "colors.shadow.a12": {
+      "ref": "colors.shadow",
+      "value": "rgba(0, 0, 0, 0.12)"
+    },
+    "typography.fontFamily": {
+      "value": "system-ui, -apple-system, sans-serif"
+    },
+    "typography.fontFamily.heading": {
+      "value": "Georgia, serif"
+    },
+    "typography.fontFamily.mono": {
+      "value": "'Fira Code', monospace"
+    },
+    "typography.fontSize": {
+      "value": 16
+    },
+    "typography.fontSize.xs": {
+      "value": 12
+    },
+    "typography.fontSize.sm": {
+      "value": 14
+    },
+    "typography.fontSize.lg": {
+      "value": 20
+    },
+    "typography.fontSize.xl": {
+      "value": 24
+    },
+    "typography.fontSize.2xl": {
+      "value": 32
+    },
+    "typography.fontSize.3xl": {
+      "value": 40
+    },
+    "typography.fontWeight": {
+      "value": 400
+    },
+    "typography.fontWeight.medium": {
+      "value": 500
+    },
+    "typography.fontWeight.semibold": {
+      "value": 600
+    },
+    "typography.fontWeight.bold": {
+      "value": 700
+    },
+    "typography.lineHeight": {
+      "value": 1.5
+    },
+    "typography.lineHeight.tight": {
+      "value": 1.2
+    },
+    "typography.lineHeight.loose": {
+      "value": 1.8
+    },
+    "typography.letterSpacing": {
+      "value": 0
+    },
+    "typography.letterSpacing.tight": {
+      "value": -0.02
+    },
+    "typography.letterSpacing.wide": {
+      "value": 0.05
+    },
+    "layout.spacing": {
+      "value": 8
+    },
+    "layout.spacing.xs": {
+      "value": 4
+    },
+    "layout.spacing.sm": {
+      "value": 6
+    },
+    "layout.spacing.md": {
+      "value": 12
+    },
+    "layout.spacing.lg": {
+      "value": 16
+    },
+    "layout.spacing.xl": {
+      "value": 24
+    },
+    "layout.spacing.2xl": {
+      "value": 32
+    },
+    "layout.spacing.3xl": {
+      "value": 48
+    },
+    "layout.spacing.none": {
+      "value": 0
+    },
+    "layout.container--inset": {
+      "ref": "layout.spacing",
+      "value": 8
+    },
+    "effects.shadow": {
+      "struct": [
+        {
+          "offsetY": {
+            "value": 1,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 3,
+            "unit": "px"
+          },
+          "color": "colors.shadow.a10"
+        }
+      ]
+    },
+    "effects.shadow.none": {
+      "value": "none"
+    },
+    "effects.shadow.md": {
+      "struct": [
+        {
+          "offsetY": {
+            "value": 4,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 6,
+            "unit": "px"
+          },
+          "color": "colors.shadow.a7"
+        }
+      ]
+    },
+    "effects.shadow.lg": {
+      "struct": [
+        {
+          "offsetY": {
+            "value": 10,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 20,
+            "unit": "px"
+          },
+          "color": "colors.shadow.a10"
+        }
+      ]
+    },
+    "effects.shadow.xl": {
+      "struct": [
+        {
+          "offsetY": {
+            "value": 20,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 40,
+            "unit": "px"
+          },
+          "color": "colors.shadow.a12"
+        }
+      ]
+    },
+    "effects.transitions": {
+      "struct": [
+        {
+          "property": "all",
+          "duration": 150,
+          "timingFunction": "ease"
+        }
+      ]
+    },
+    "effects.transitions.fast": {
+      "struct": [
+        {
+          "property": "all",
+          "duration": 80,
+          "timingFunction": "ease"
+        }
+      ]
+    },
+    "effects.transitions.slow": {
+      "struct": [
+        {
+          "property": "all",
+          "duration": 300,
+          "timingFunction": "ease"
+        }
+      ]
+    },
+    "borders.radius": {
+      "value": 6
+    },
+    "borders.radius.none": {
+      "value": 0
+    },
+    "borders.radius.sm": {
+      "value": 4
+    },
+    "borders.radius.lg": {
+      "value": 12
+    },
+    "borders.radius.xl": {
+      "value": 16
+    },
+    "borders.radius.full": {
+      "value": 9999
+    }
+  },
+  "ruleSets": {
+    "colors.solid.primary": {
+      "kind": "recipe",
+      "declarations": {
+        "background": {
+          "ref": "colors.primary",
+          "value": "rgb(77, 171, 247)"
+        },
+        "color": {
+          "ref": "colors.primary.text",
+          "value": "rgb(255, 255, 255)"
+        }
+      },
+      "overrides": []
+    },
+    "colors.solid.danger": {
+      "kind": "recipe",
+      "declarations": {
+        "background": {
+          "ref": "colors.danger",
+          "value": "rgb(255, 107, 107)"
+        },
+        "color": {
+          "ref": "colors.danger.text",
+          "value": "rgb(255, 255, 255)"
+        }
+      },
+      "overrides": []
+    },
+    "colors.solid.success": {
+      "kind": "recipe",
+      "declarations": {
+        "background": {
+          "ref": "colors.success",
+          "value": "rgb(81, 207, 102)"
+        },
+        "color": {
+          "ref": "colors.success.text",
+          "value": "rgb(255, 255, 255)"
+        }
+      },
+      "overrides": []
+    },
+    "colors.solid.neutral": {
+      "kind": "recipe",
+      "declarations": {
+        "background": {
+          "ref": "colors.neutral.light",
+          "value": "rgb(241, 243, 245)"
+        },
+        "color": {
+          "ref": "colors.neutral.dark",
+          "value": "rgb(52, 58, 64)"
+        }
+      },
+      "overrides": []
+    },
+    "colors.outline.primary": {
+      "kind": "recipe",
+      "declarations": {
+        "border-color": {
+          "ref": "colors.primary",
+          "value": "rgb(77, 171, 247)"
+        },
+        "color": {
+          "ref": "colors.primary.dark",
+          "value": "rgb(28, 126, 214)"
+        }
+      },
+      "overrides": []
+    },
+    "typography.heading.h1": {
+      "kind": "recipe",
+      "declarations": {
+        "font-family": {
+          "ref": "typography.fontFamily.heading",
+          "value": "Georgia, serif"
+        },
+        "font-size": {
+          "ref": "typography.fontSize.3xl",
+          "value": 40
+        },
+        "font-weight": {
+          "ref": "typography.fontWeight.bold",
+          "value": 700
+        },
+        "line-height": {
+          "ref": "typography.lineHeight.tight",
+          "value": 1.2
+        },
+        "letter-spacing": {
+          "ref": "typography.letterSpacing.tight",
+          "value": -0.02
+        }
+      },
+      "overrides": []
+    },
+    "typography.heading.h2": {
+      "kind": "recipe",
+      "declarations": {
+        "font-family": {
+          "ref": "typography.fontFamily.heading",
+          "value": "Georgia, serif"
+        },
+        "font-size": {
+          "ref": "typography.fontSize.2xl",
+          "value": 32
+        },
+        "font-weight": {
+          "ref": "typography.fontWeight.bold",
+          "value": 700
+        },
+        "line-height": {
+          "ref": "typography.lineHeight.tight",
+          "value": 1.2
+        }
+      },
+      "overrides": []
+    },
+    "typography.heading.h3": {
+      "kind": "recipe",
+      "declarations": {
+        "font-family": {
+          "ref": "typography.fontFamily.heading",
+          "value": "Georgia, serif"
+        },
+        "font-size": {
+          "ref": "typography.fontSize.xl",
+          "value": 24
+        },
+        "font-weight": {
+          "ref": "typography.fontWeight.semibold",
+          "value": 600
+        }
+      },
+      "overrides": []
+    },
+    "typography.body.base": {
+      "kind": "recipe",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize",
+          "value": 16
+        },
+        "line-height": {
+          "ref": "typography.lineHeight",
+          "value": 1.5
+        }
+      },
+      "overrides": []
+    },
+    "typography.body.small": {
+      "kind": "recipe",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.sm",
+          "value": 14
+        },
+        "line-height": {
+          "ref": "typography.lineHeight",
+          "value": 1.5
+        }
+      },
+      "overrides": []
+    },
+    "typography.body.large": {
+      "kind": "recipe",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.lg",
+          "value": 20
+        },
+        "line-height": {
+          "ref": "typography.lineHeight.loose",
+          "value": 1.8
+        }
+      },
+      "overrides": []
+    },
+    "typography.button.large": {
+      "kind": "recipe",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.lg",
+          "value": 20
+        },
+        "font-weight": {
+          "ref": "typography.fontWeight.medium",
+          "value": 500
+        }
+      },
+      "overrides": []
+    },
+    "typography.button.small": {
+      "kind": "recipe",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.sm",
+          "value": 14
+        },
+        "font-weight": {
+          "ref": "typography.fontWeight.medium",
+          "value": 500
+        }
+      },
+      "overrides": []
+    },
+    "typography.code.inline": {
+      "kind": "recipe",
+      "declarations": {
+        "font-family": {
+          "ref": "typography.fontFamily.mono",
+          "value": "'Fira Code', monospace"
+        },
+        "font-size": {
+          "ref": "typography.fontSize.sm",
+          "value": 14
+        }
+      },
+      "overrides": []
+    },
+    "layout.container.container": {
+      "kind": "recipe",
+      "declarations": {
+        "box-sizing": {
+          "value": "border-box"
+        },
+        "width": {
+          "value": "100%"
+        },
+        "margin-left": {
+          "value": "auto"
+        },
+        "margin-right": {
+          "value": "auto"
+        },
+        "padding-left": {
+          "ref": "layout.container--inset",
+          "value": 8
+        },
+        "padding-right": {
+          "ref": "layout.container--inset",
+          "value": 8
+        },
+        "max-width": {
+          "value": "576px"
+        }
+      },
+      "overrides": [
+        {
+          "breakpoint": "md",
+          "query": "min",
+          "declarations": {
+            "max-width": {
+              "value": "768px"
+            }
+          }
+        },
+        {
+          "breakpoint": "lg",
+          "query": "min",
+          "declarations": {
+            "max-width": {
+              "value": "1024px"
+            }
+          }
+        },
+        {
+          "breakpoint": "xl",
+          "query": "min",
+          "declarations": {
+            "max-width": {
+              "value": "1280px"
+            }
+          }
+        }
+      ]
+    },
+    "layout.padding.card": {
+      "kind": "recipe",
+      "declarations": {
+        "padding-top": {
+          "ref": "layout.spacing.xl",
+          "value": 24
+        },
+        "padding-bottom": {
+          "ref": "layout.spacing.xl",
+          "value": 24
+        },
+        "padding-left": {
+          "ref": "layout.spacing.xl",
+          "value": 24
+        },
+        "padding-right": {
+          "ref": "layout.spacing.xl",
+          "value": 24
+        }
+      },
+      "overrides": []
+    },
+    "layout.padding.section": {
+      "kind": "recipe",
+      "declarations": {
+        "padding-top": {
+          "ref": "layout.spacing.3xl",
+          "value": 48
+        },
+        "padding-bottom": {
+          "ref": "layout.spacing.3xl",
+          "value": 48
+        },
+        "padding-left": {
+          "ref": "layout.spacing.lg",
+          "value": 16
+        },
+        "padding-right": {
+          "ref": "layout.spacing.lg",
+          "value": 16
+        }
+      },
+      "overrides": []
+    },
+    "layout.padding.button-lg": {
+      "kind": "recipe",
+      "declarations": {
+        "padding-top": {
+          "ref": "layout.spacing.md",
+          "value": 12
+        },
+        "padding-bottom": {
+          "ref": "layout.spacing.md",
+          "value": 12
+        },
+        "padding-left": {
+          "ref": "layout.spacing.xl",
+          "value": 24
+        },
+        "padding-right": {
+          "ref": "layout.spacing.xl",
+          "value": 24
+        }
+      },
+      "overrides": []
+    },
+    "layout.padding.button-sm": {
+      "kind": "recipe",
+      "declarations": {
+        "padding-top": {
+          "ref": "layout.spacing.sm",
+          "value": 6
+        },
+        "padding-bottom": {
+          "ref": "layout.spacing.sm",
+          "value": 6
+        },
+        "padding-left": {
+          "ref": "layout.spacing.md",
+          "value": 12
+        },
+        "padding-right": {
+          "ref": "layout.spacing.md",
+          "value": 12
+        }
+      },
+      "overrides": []
+    },
+    "effects.card.default": {
+      "kind": "recipe",
+      "declarations": {
+        "box-shadow": {
+          "ref": "effects.shadow"
+        },
+        "transition": {
+          "ref": "effects.transitions"
+        }
+      },
+      "overrides": []
+    },
+    "effects.card.elevated": {
+      "kind": "recipe",
+      "declarations": {
+        "box-shadow": {
+          "ref": "effects.shadow.lg"
+        }
+      },
+      "overrides": []
+    },
+    "effects.card.flat": {
+      "kind": "recipe",
+      "declarations": {
+        "box-shadow": {
+          "ref": "effects.shadow.none",
+          "value": "none"
+        }
+      },
+      "overrides": []
+    },
+    "borders.box.default": {
+      "kind": "recipe",
+      "declarations": {
+        "border-radius": {
+          "ref": "borders.radius",
+          "value": 6
+        }
+      },
+      "overrides": []
+    },
+    "borders.box.elevated": {
+      "kind": "recipe",
+      "declarations": {
+        "border-radius": {
+          "ref": "borders.radius.lg",
+          "value": 12
+        }
+      },
+      "overrides": []
+    },
+    "borders.box.flat": {
+      "kind": "recipe",
+      "declarations": {
+        "border-radius": {
+          "ref": "borders.radius.sm",
+          "value": 4
+        }
+      },
+      "overrides": []
+    },
+    "components.buttons.primary": {
+      "kind": "recipe",
+      "references": [
+        "colors:solid.primary",
+        "typography:button.large",
+        "layout:padding.button-lg",
+        "effects:card.default",
+        "borders:box.default"
+      ],
+      "declarations": {
+        "cursor": {
+          "value": "pointer"
+        },
+        "border": {
+          "value": "none"
+        },
+        "display": {
+          "value": "inline-flex"
+        },
+        "align-items": {
+          "value": "center"
+        },
+        "justify-content": {
+          "value": "center"
+        },
+        "gap": {
+          "value": "8px"
+        }
+      },
+      "overrides": []
+    },
+    "components.buttons.primary-sm": {
+      "kind": "recipe",
+      "references": [
+        "colors:solid.primary",
+        "typography:button.small",
+        "layout:padding.button-sm",
+        "effects:card.default",
+        "borders:box.default"
+      ],
+      "declarations": {
+        "cursor": {
+          "value": "pointer"
+        },
+        "border": {
+          "value": "none"
+        },
+        "display": {
+          "value": "inline-flex"
+        },
+        "align-items": {
+          "value": "center"
+        },
+        "justify-content": {
+          "value": "center"
+        },
+        "gap": {
+          "value": "6px"
+        }
+      },
+      "overrides": []
+    },
+    "components.buttons.danger": {
+      "kind": "recipe",
+      "references": [
+        "colors:solid.danger",
+        "typography:button.large",
+        "layout:padding.button-lg",
+        "effects:card.default",
+        "borders:box.default"
+      ],
+      "declarations": {
+        "cursor": {
+          "value": "pointer"
+        },
+        "border": {
+          "value": "none"
+        },
+        "display": {
+          "value": "inline-flex"
+        },
+        "align-items": {
+          "value": "center"
+        },
+        "justify-content": {
+          "value": "center"
+        }
+      },
+      "overrides": []
+    },
+    "components.cards.default": {
+      "kind": "recipe",
+      "references": [
+        "effects:card.default",
+        "borders:box.default",
+        "layout:padding.card"
+      ],
+      "declarations": {
+        "background": {
+          "value": "#fff"
+        },
+        "overflow": {
+          "value": "hidden"
+        }
+      },
+      "overrides": []
+    },
+    "components.cards.elevated": {
+      "kind": "recipe",
+      "references": [
+        "effects:card.elevated",
+        "borders:box.elevated",
+        "layout:padding.card"
+      ],
+      "declarations": {
+        "background": {
+          "value": "#fff"
+        },
+        "overflow": {
+          "value": "hidden"
+        }
+      },
+      "overrides": []
+    },
+    "components.badges.default": {
+      "kind": "recipe",
+      "references": [
+        "colors:solid.neutral",
+        "typography:body.small"
+      ],
+      "declarations": {
+        "display": {
+          "value": "inline-flex"
+        },
+        "align-items": {
+          "value": "center"
+        },
+        "padding": {
+          "value": "2px 8px"
+        },
+        "border-radius": {
+          "value": "9999px"
+        }
+      },
+      "overrides": []
+    },
+    "components.badges.success": {
+      "kind": "recipe",
+      "references": [
+        "colors:solid.success",
+        "typography:body.small"
+      ],
+      "declarations": {
+        "display": {
+          "value": "inline-flex"
+        },
+        "align-items": {
+          "value": "center"
+        },
+        "padding": {
+          "value": "2px 8px"
+        },
+        "border-radius": {
+          "value": "9999px"
+        }
+      },
+      "overrides": []
+    },
+    "globals.static.box": {
+      "kind": "reset",
+      "selector": "*,::before,::after",
+      "declarations": {
+        "box-sizing": {
+          "value": "border-box"
+        },
+        "border-width": {
+          "value": "0"
+        },
+        "border-style": {
+          "value": "solid"
+        }
+      },
+      "overrides": []
+    },
+    "globals.static.body": {
+      "kind": "reset",
+      "selector": "body",
+      "declarations": {
+        "margin": {
+          "value": "0"
+        },
+        "line-height": {
+          "value": "inherit"
+        }
+      },
+      "overrides": []
+    },
+    "globals.static.headings": {
+      "kind": "reset",
+      "selector": "h1,h2,h3,h4,h5,h6",
+      "declarations": {
+        "font-size": {
+          "value": "inherit"
+        },
+        "font-weight": {
+          "value": "inherit"
+        },
+        "margin": {
+          "value": "0"
+        }
+      },
+      "overrides": []
+    },
+    "globals.static.blocks": {
+      "kind": "reset",
+      "selector": "p,figure,blockquote,dl,dd",
+      "declarations": {
+        "margin": {
+          "value": "0"
+        }
+      },
+      "overrides": []
+    },
+    "globals.static.lists": {
+      "kind": "reset",
+      "selector": "ul,ol",
+      "declarations": {
+        "list-style": {
+          "value": "none"
+        },
+        "margin": {
+          "value": "0"
+        },
+        "padding": {
+          "value": "0"
+        }
+      },
+      "overrides": []
+    },
+    "globals.static.media": {
+      "kind": "reset",
+      "selector": "img,picture,video,canvas,svg",
+      "declarations": {
+        "display": {
+          "value": "block"
+        },
+        "max-width": {
+          "value": "100%"
+        }
+      },
+      "overrides": []
+    },
+    "globals.static.forms": {
+      "kind": "reset",
+      "selector": "button,input,select,textarea",
+      "declarations": {
+        "font": {
+          "value": "inherit"
+        },
+        "color": {
+          "value": "inherit"
+        }
+      },
+      "overrides": []
+    },
+    "globals.static.anchors": {
+      "kind": "reset",
+      "selector": "a",
+      "declarations": {
+        "color": {
+          "value": "inherit"
+        },
+        "text-decoration": {
+          "value": "inherit"
+        }
+      },
+      "overrides": []
+    },
+    "globals.defaults.h1": {
+      "kind": "reset",
+      "selector": "h1",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.4xl"
+        }
+      },
+      "overrides": []
+    },
+    "globals.defaults.h2": {
+      "kind": "reset",
+      "selector": "h2",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.3xl",
+          "value": 40
+        }
+      },
+      "overrides": []
+    },
+    "globals.defaults.h3": {
+      "kind": "reset",
+      "selector": "h3",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.2xl",
+          "value": 32
+        }
+      },
+      "overrides": []
+    },
+    "globals.defaults.h4": {
+      "kind": "reset",
+      "selector": "h4",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.xl",
+          "value": 24
+        }
+      },
+      "overrides": []
+    },
+    "globals.defaults.h5": {
+      "kind": "reset",
+      "selector": "h5",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.lg",
+          "value": 20
+        }
+      },
+      "overrides": []
+    },
+    "globals.defaults.h6": {
+      "kind": "reset",
+      "selector": "h6",
+      "declarations": {
+        "font-size": {
+          "ref": "typography.fontSize.md"
+        }
+      },
+      "overrides": []
+    },
+    "globals.elements.a": {
+      "kind": "globals",
+      "selector": "a",
+      "declarations": {
+        "color": {
+          "ref": "colors.primary",
+          "value": "rgb(77, 171, 247)"
+        },
+        "text-decoration": {
+          "value": "underline"
+        }
+      },
+      "overrides": [
+        {
+          "state": "hover",
+          "declarations": {
+            "color": {
+              "ref": "colors.primary.dark",
+              "value": "rgb(28, 126, 214)"
+            }
+          }
+        },
+        {
+          "breakpoint": "md",
+          "query": "min",
+          "declarations": {
+            "font-size": {
+              "ref": "typography.fontSize.lg",
+              "value": 20
+            }
+          }
+        }
+      ],
+      "variants": {
+        "subtle": {
+          "declarations": {
+            "color": {
+              "ref": "colors.neutral",
+              "value": "rgb(134, 142, 150)"
+            }
+          },
+          "overrides": [
+            {
+              "state": "hover",
+              "declarations": {
+                "color": {
+                  "ref": "colors.primary",
+                  "value": "rgb(77, 171, 247)"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}"
+`;
+
+exports[`json adapter — the parts DTCG can't represent > keeps states, responsive overrides, and composition-by-reference as data (statesTheme) 1`] = `
+"{
+  "breakpoints": {
+    "sm": 576,
+    "md": 768,
+    "lg": 1024
+  },
+  "tokens": {
+    "colors.primary": {
+      "value": "rgb(77, 171, 247)"
+    },
+    "colors.primary.lighter": {
+      "ref": "colors.primary.light",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(230, 244, 255)"
+    },
+    "colors.primary.darker": {
+      "ref": "colors.primary.dark",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(0, 96, 172)"
+    },
+    "colors.primary.dark": {
+      "value": "rgb(28, 126, 214)"
+    },
+    "colors.primary.light": {
+      "value": "rgb(165, 216, 255)"
+    },
+    "colors.primary.text": {
+      "value": "rgb(255, 255, 255)"
+    },
+    "colors.shadow": {
+      "value": "rgb(0, 0, 0)"
+    },
+    "colors.shadow.light": {
+      "ref": "colors.shadow",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(3, 3, 3)"
+    },
+    "colors.shadow.lighter": {
+      "ref": "colors.shadow.light",
+      "fn": "lighten",
+      "arg": 10,
+      "value": "rgb(21, 21, 21)"
+    },
+    "colors.shadow.dark": {
+      "ref": "colors.shadow",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(0, 0, 0)"
+    },
+    "colors.shadow.darker": {
+      "ref": "colors.shadow.dark",
+      "fn": "darken",
+      "arg": 10,
+      "value": "rgb(0, 0, 0)"
+    },
+    "colors.shadow.a10": {
+      "ref": "colors.shadow",
+      "value": "rgba(0, 0, 0, 0.1)"
+    },
+    "layout.container--inset": {
+      "ref": "layout.spacing"
+    },
+    "effects.shadow": {
+      "struct": [
+        {
+          "offsetY": {
+            "value": 1,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 3,
+            "unit": "px"
+          },
+          "color": "colors.shadow.a10"
+        }
+      ]
+    },
+    "effects.shadow.lg": {
+      "struct": [
+        {
+          "offsetY": {
+            "value": 10,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 20,
+            "unit": "px"
+          },
+          "color": "colors.shadow.a10"
+        }
+      ]
+    },
+    "borders.radius": {
+      "value": 6
+    },
+    "borders.radius.lg": {
+      "value": 12
+    }
+  },
+  "ruleSets": {
+    "colors.solid.primary": {
+      "kind": "recipe",
+      "declarations": {
+        "background": {
+          "ref": "colors.primary",
+          "value": "rgb(77, 171, 247)"
+        },
+        "color": {
+          "ref": "colors.primary.text",
+          "value": "rgb(255, 255, 255)"
+        }
+      },
+      "overrides": [
+        {
+          "state": "hover",
+          "declarations": {
+            "background": {
+              "ref": "colors.primary.dark",
+              "value": "rgb(28, 126, 214)"
+            }
+          }
+        },
+        {
+          "state": "disabled",
+          "declarations": {
+            "background": {
+              "ref": "colors.primary.light",
+              "value": "rgb(165, 216, 255)"
+            },
+            "color": {
+              "ref": "colors.primary",
+              "value": "rgb(77, 171, 247)"
+            }
+          }
+        },
+        {
+          "state": "hover",
+          "breakpoint": "md",
+          "query": "exact",
+          "declarations": {
+            "background": {
+              "ref": "colors.primary.light",
+              "value": "rgb(165, 216, 255)"
+            }
+          }
+        }
+      ]
+    },
+    "layout.container.container": {
+      "kind": "recipe",
+      "declarations": {
+        "box-sizing": {
+          "value": "border-box"
+        },
+        "width": {
+          "value": "100%"
+        },
+        "margin-left": {
+          "value": "auto"
+        },
+        "margin-right": {
+          "value": "auto"
+        },
+        "padding-left": {
+          "ref": "layout.container--inset"
+        },
+        "padding-right": {
+          "ref": "layout.container--inset"
+        },
+        "max-width": {
+          "value": "576px"
+        }
+      },
+      "overrides": [
+        {
+          "breakpoint": "md",
+          "query": "min",
+          "declarations": {
+            "max-width": {
+              "value": "768px"
+            }
+          }
+        },
+        {
+          "breakpoint": "lg",
+          "query": "min",
+          "declarations": {
+            "max-width": {
+              "value": "1024px"
+            }
+          }
+        }
+      ]
+    },
+    "effects.card.default": {
+      "kind": "recipe",
+      "declarations": {
+        "box-shadow": {
+          "ref": "effects.shadow"
+        }
+      },
+      "overrides": [
+        {
+          "state": "hover",
+          "declarations": {
+            "box-shadow": {
+              "ref": "effects.shadow.lg"
+            }
+          }
+        }
+      ]
+    },
+    "borders.box.default": {
+      "kind": "recipe",
+      "declarations": {
+        "border-radius": {
+          "ref": "borders.radius",
+          "value": 6
+        }
+      },
+      "overrides": []
+    },
+    "components.buttons.primary": {
+      "kind": "recipe",
+      "references": [
+        "colors:solid.primary"
+      ],
+      "declarations": {
+        "cursor": {
+          "value": "pointer"
+        },
+        "border": {
+          "value": "none"
+        }
+      },
+      "overrides": [
+        {
+          "state": "hover",
+          "declarations": {
+            "box-shadow": {
+              "value": "0 6px 16px rgba(0,0,0,0.2)"
+            }
+          }
+        }
+      ]
+    }
+  }
+}"
+`;

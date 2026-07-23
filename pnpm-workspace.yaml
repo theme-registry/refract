@@ -1,0 +1,10 @@
+# pnpm workspace root (monorepo split — context.md §3, Step 11).
+# The publishable packages live under packages/*; `tests/` (added in Step 7) is a
+# private integration workspace that depends on all five and hosts the cross-adapter
+# golden gate; `website/` (wired in Step 8) is a private consumer via workspace:* links.
+# Members are only picked up once they carry a package.json, so dirs listed here that
+# don't exist yet are simply ignored until they land.
+packages:
+  - "packages/*"
+  - "tests"
+  - "website"

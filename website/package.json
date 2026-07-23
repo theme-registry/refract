@@ -1,0 +1,23 @@
+{
+  "name": "@theme-registry/website",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Docs site + live playground for refract. Not published. Consumes the published packages via workspace:* links.",
+  "type": "module",
+  "scripts": {
+    "bundle": "node scripts/bundle.mjs",
+    "build-docs": "node scripts/build.mjs",
+    "validate": "node scripts/validate.mjs",
+    "gen": "node scripts/gen-site.mjs",
+    "dev": "node scripts/gen-site.mjs && vite --config site/vite.config.mjs",
+    "site-build": "node scripts/gen-site.mjs && vite build --config site/vite.config.mjs && node scripts/prerender.mjs"
+  },
+  "devDependencies": {
+    "@theme-registry/refract": "workspace:*",
+    "@theme-registry/refract-css": "workspace:*",
+    "@theme-registry/refract-json": "workspace:*",
+    "@theme-registry/refract-scss": "workspace:*",
+    "@theme-registry/refract-styled-components": "workspace:*",
+    "vite": "^8.1.0"
+  }
+}

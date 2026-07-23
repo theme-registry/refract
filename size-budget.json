@@ -1,0 +1,26 @@
+{
+  "@theme-registry/refract (runtime core)": {
+    "entry": "packages/refract/dist/index.esm.js",
+    "maxGzip": 30720
+  },
+  "@theme-registry/refract/dtcg": {
+    "files": ["packages/refract/dist/dtcg.esm.js"],
+    "maxGzip": 4608
+  },
+  "@theme-registry/refract-css": {
+    "files": ["packages/refract-css/dist/index.esm.js"],
+    "maxGzip": 9216
+  },
+  "@theme-registry/refract-styled-components": {
+    "files": ["packages/refract-styled-components/dist/index.esm.js"],
+    "maxGzip": 6656
+  },
+  "@theme-registry/refract-scss": {
+    "files": ["packages/refract-scss/dist/index.esm.js"],
+    "maxGzip": 4096
+  },
+  "@theme-registry/refract-json": {
+    "files": ["packages/refract-json/dist/index.esm.js"],
+    "maxGzip": 3072
+  }
+}

@@ -1,0 +1,107 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`scss adapter — Sass output > lowers tokens to $variables (with units) and recipes to classes referencing them 1`] = `
+"$dt-colors-primary: rgb(77, 171, 247);
+$dt-colors-primary-light: rgb(142, 202, 255);
+$dt-colors-primary-lighter: rgb(206, 231, 255);
+$dt-colors-primary-darker: rgb(0, 96, 172);
+$dt-colors-primary-dark: rgb(28, 126, 214);
+$dt-colors-primary-text: rgb(255, 255, 255);
+
+$dt-typography-fontsize: 16px;
+$dt-typography-fontsize-lg: 20px;
+
+.dt-colors-solid-primary {
+  background: $dt-colors-primary;
+  color: $dt-colors-primary-text;
+  &:hover {
+    background: $dt-colors-primary-dark;
+  }
+  @media (min-width: 768px) {
+    &:hover {
+      background: $dt-colors-primary-dark;
+    }
+  }
+}
+
+.dt-typography-button-large {
+  font-size: $dt-typography-fontsize-lg;
+}
+
+.dt-components-buttons-primary {
+  cursor: pointer;
+  &:hover {
+    box-shadow: 0 2px 8px;
+  }
+}"
+`;
+
+exports[`scss adapter — Sass output > renders states + composition on a richer fixture (statesTheme) 1`] = `
+"$dt-colors-primary: rgb(77, 171, 247);
+$dt-colors-primary-lighter: rgb(230, 244, 255);
+$dt-colors-primary-darker: rgb(0, 96, 172);
+$dt-colors-primary-dark: rgb(28, 126, 214);
+$dt-colors-primary-light: rgb(165, 216, 255);
+$dt-colors-primary-text: rgb(255, 255, 255);
+$dt-colors-shadow: rgb(0, 0, 0);
+$dt-colors-shadow-light: rgb(3, 3, 3);
+$dt-colors-shadow-lighter: rgb(21, 21, 21);
+$dt-colors-shadow-dark: rgb(0, 0, 0);
+$dt-colors-shadow-darker: rgb(0, 0, 0);
+$dt-colors-shadow-a10: rgba(0, 0, 0, 0.1);
+
+$dt-borders-radius: 6px;
+$dt-borders-radius-lg: 12px;
+
+.dt-colors-solid-primary {
+  background: $dt-colors-primary;
+  color: $dt-colors-primary-text;
+  &:hover {
+    background: $dt-colors-primary-dark;
+  }
+  &[disabled] {
+    background: $dt-colors-primary-light;
+    color: $dt-colors-primary;
+  }
+  @media (min-width: 768px) and (max-width: 1023.98px) {
+    &:hover {
+      background: $dt-colors-primary-light;
+    }
+  }
+}
+
+.dt-layout-container-container {
+  box-sizing: border-box;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: $dt-layout-container-inset;
+  padding-right: $dt-layout-container-inset;
+  max-width: 576px;
+  @media (min-width: 768px) {
+    max-width: 768px;
+  }
+  @media (min-width: 1024px) {
+    max-width: 1024px;
+  }
+}
+
+.dt-effects-card-default {
+  box-shadow: $dt-effects-shadow;
+  &:hover {
+    box-shadow: $dt-effects-shadow-lg;
+  }
+}
+
+.dt-borders-box-default {
+  border-radius: $dt-borders-radius;
+}
+
+.dt-components-buttons-primary {
+  cursor: pointer;
+  border: none;
+  &:hover {
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+  }
+}"
+`;

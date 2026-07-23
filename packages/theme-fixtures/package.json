@@ -1,0 +1,11 @@
+{
+  "name": "@theme-registry/theme-fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Private shared RawTheme test fixtures for the refract monorepo — not published.",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  }
+}

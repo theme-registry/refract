@@ -1,0 +1,20 @@
+{
+  "name": "@theme-registry/integration-tests",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Private cross-adapter integration + golden gate. Depends on all five published packages and runs the 12 golden + states .snap byte-identical — the proof the monorepo split is behavior-neutral.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@theme-registry/refract": "workspace:*",
+    "@theme-registry/refract-css": "workspace:*",
+    "@theme-registry/refract-json": "workspace:*",
+    "@theme-registry/refract-scss": "workspace:*",
+    "@theme-registry/refract-styled-components": "workspace:*",
+    "@theme-registry/theme-fixtures": "workspace:*",
+    "styled-components": "^6.4.0",
+    "typescript": "^5.4.2",
+    "vitest": "^4.1.10"
+  }
+}
