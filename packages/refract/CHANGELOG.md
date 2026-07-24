@@ -1,5 +1,11 @@
 # @theme-registry/refract
 
+## 0.1.1
+
+### Patch Changes
+
+- Add a package README so the npm page renders documentation.
+
 ## 0.1.0
 
 Initial public release.

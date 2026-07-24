@@ -1,5 +1,13 @@
 # @theme-registry/refract-styled-components
 
+## 0.1.1
+
+### Patch Changes
+
+- Add a package README so the npm page renders documentation.
+- Updated dependencies
+  - @theme-registry/refract@0.1.1
+
 ## 0.1.0
 
 Initial public release. The styled-components adapter for refract — emits TS/JS theme modules: a

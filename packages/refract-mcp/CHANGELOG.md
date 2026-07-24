@@ -1,5 +1,12 @@
 # @theme-registry/refract-mcp
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @theme-registry/refract@0.1.1
+
 ## 0.1.0
 
 Initial public release — a Model Context Protocol server that exposes a project's refract theme to an
