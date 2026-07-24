@@ -104,7 +104,7 @@ const raw = {
 Property values can be **literals** (`"#4c6ef5"`, `16`), **references** to other tokens
 (`color: "brand.text"`), and carry **responsive / variant / target** overrides keyed on
 your breakpoints. Recipes group reusable rule-sets with **states** (`hover`, `disabled`, …).
-Full field-by-field walkthrough: **[docs/authoring.md](docs/authoring.md)**.
+Full field-by-field walkthrough: **[docs/authoring.md](https://github.com/theme-registry/refract/blob/main/docs/authoring.md)**.
 
 ## Adapters — the multi-format thesis
 
@@ -121,7 +121,7 @@ Core ships **zero** adapters; each is its own installable package (`npm i @theme
 
 Write your own with `defineAdapter(spec)` — you fill four primitives (`recipeName`,
 `renderRecipe`, `renderVariables`, `join`) and core supplies the rest. See
-**[docs/extending.md](docs/extending.md)** or run the `adapter-scaffold` skill.
+**[docs/extending.md](https://github.com/theme-registry/refract/blob/main/docs/extending.md)** or run the `adapter-scaffold` skill.
 
 ## Build to disk (CLI)
 
@@ -182,8 +182,8 @@ const doc   = toDTCG(theme);                     // built theme's tokens → DTC
 
 ## Documentation
 
-- **[docs/authoring.md](docs/authoring.md)** — author a theme + consume its output (the user guide).
-- **[docs/extending.md](docs/extending.md)** — write a subsystem or an adapter against the frozen contract.
+- **[docs/authoring.md](https://github.com/theme-registry/refract/blob/main/docs/authoring.md)** — author a theme + consume its output (the user guide).
+- **[docs/extending.md](https://github.com/theme-registry/refract/blob/main/docs/extending.md)** — write a subsystem or an adapter against the frozen contract.
 - **[AGENTS.md](AGENTS.md)** — orientation for AI coding agents.
 
 ## License

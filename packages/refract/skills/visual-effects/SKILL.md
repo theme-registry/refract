@@ -8,7 +8,7 @@ tier: core
 
 Three sibling subsystems, each with its own top-level key. Cross-cutting axes (`responsive`,
 `variants`, `modes`, refs) are in **theme-foundations**; recipe mechanics in
-**recipes-and-composition**. Exhaustive options live in `docs/authoring.md`.
+**recipes-and-composition**. Exhaustive options live in [`docs/authoring.md`](https://github.com/theme-registry/refract/blob/main/docs/authoring.md).
 
 ## effects
 

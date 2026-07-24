@@ -70,6 +70,6 @@ Options are passed when constructing the adapter, never as CLI flags. The common
   `scheme: "media" | "attribute" | "both"` (dark realization), `helpers: ["color-math"]`,
   `naming`.
 - **SCSS** — `prefix`, `inline`, `indent`, `layer` (same as CSS). **JSON** — minimal; see
-  `docs/css-adapter.md` and `docs/authoring.md` for the full tables.
+  [`docs/css-adapter.md`](https://github.com/theme-registry/refract/blob/main/docs/css-adapter.md) and [`docs/authoring.md`](https://github.com/theme-registry/refract/blob/main/docs/authoring.md) for the full tables.
 
 Cross-format concerns — emit modes, dark-mode strategy, the CLI — live in **build-config**.

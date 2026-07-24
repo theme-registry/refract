@@ -6,9 +6,10 @@
  * in the args (proving project-scoping). Also covers loading a real `theme.config` and reloading it.
  */
 import { describe, it, expect, afterAll } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createTheme, createNoopAdapter } from "@theme-registry/refract";
 import { createCssAdapter } from "@theme-registry/refract-css";
 import {
@@ -297,6 +298,20 @@ describe("loadTheme — loads and reloads a project config", () => {
     writeConfig(dir, "#e8590c"); // edit the theme
     h = await loadTheme(cfg); // what the `reload` tool / fs.watch does
     expect((callTool("resolveToken", { path: "colors.brand" }, h) as { value: string }).value).toBe("rgb(232, 89, 12)");
+  });
+});
+
+describe("README documents exactly the registered tools (no drift)", () => {
+  const here = (p: string): string => fileURLToPath(new URL(p, import.meta.url));
+  it("the tool table lists every server tool and nothing extra", () => {
+    const server = readFileSync(here("../src/server.ts"), "utf8");
+    const readme = readFileSync(here("../README.md"), "utf8");
+    // Tool definitions in the server are `{ name: "x", description: … }` (resources lead with `uri`).
+    const registered = [...server.matchAll(/\{\s*name:\s*"([a-zA-Z]+)",\s*description:/g)].map((m) => m[1]).sort();
+    // README table rows: `| `x` | … |`
+    const documented = [...readme.matchAll(/^\|\s*`([a-zA-Z]+)`\s*\|/gm)].map((m) => m[1]).sort();
+    expect(documented).toEqual(registered);
+    expect(registered).toContain("reload"); // the tool the README used to omit
   });
 });
 

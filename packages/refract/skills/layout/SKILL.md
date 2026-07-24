@@ -10,7 +10,7 @@ tier: core
 (`spacing` / `gutters` / `sizes` / `aspectRatio`), the four structural generators (`columns` /
 `grids` / `stacks` / `container`), and the `recipes` block. Cross-cutting axes are in
 **theme-foundations**; recipe mechanics in **recipes-and-composition**. Exhaustive options live in
-`docs/authoring.md`.
+[`docs/authoring.md`](https://github.com/theme-registry/refract/blob/main/docs/authoring.md).
 
 ## Length scales — synthesis
 
