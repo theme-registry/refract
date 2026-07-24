@@ -10,7 +10,7 @@ importers:
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.1
-        version: 2.31.1(@types/node@20.19.43)
+        version: 2.31.1(@types/node@24.13.3)
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
@@ -39,8 +39,8 @@ importers:
         specifier: ^11.1.6
         version: 11.1.6(rollup@3.30.0)(tslib@2.8.1)(typescript@5.9.3)
       '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
+        specifier: ^24
+        version: 24.13.3
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
@@ -55,7 +55,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@20.19.43)(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))
+        version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))
 
   packages/refract-css:
     devDependencies:
@@ -85,7 +85,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@20.19.43)(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))
+        version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))
 
   packages/refract-figma:
     devDependencies:
@@ -106,7 +106,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@20.19.43)(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))
+        version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))
 
   packages/refract-json:
     devDependencies:
@@ -136,7 +136,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@20.19.43)(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))
+        version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))
 
   packages/refract-mcp:
     dependencies:
@@ -164,7 +164,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@20.19.43)(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))
+        version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))
 
   packages/refract-scss:
     devDependencies:
@@ -194,7 +194,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@20.19.43)(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))
+        version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))
 
   packages/refract-styled-components:
     devDependencies:
@@ -227,7 +227,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@20.19.43)(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))
+        version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))
 
   packages/theme-fixtures: {}
 
@@ -259,7 +259,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@20.19.43)(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))
+        version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))
 
   website:
     devDependencies:
@@ -280,7 +280,7 @@ importers:
         version: link:../packages/refract-styled-components
       vite:
         specifier: ^8.1.0
-        version: 8.1.5(@types/node@20.19.43)(terser@5.49.0)
+        version: 8.1.5(@types/node@24.13.3)(terser@5.49.0)
 
 packages:
 
@@ -610,8 +610,8 @@ packages:
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
 
-  '@types/node@20.19.43':
-    resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
+  '@types/node@24.13.3':
+    resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
 
   '@ungap/structured-clone@1.3.3':
     resolution: {integrity: sha512-60YRaenCQcVjYEKOcG824+DRGGIQ3VKErcBoAEDJZz5bKIs2ZG+X/H9Nk+Q6EVkwJk5QNApxbrc5QtBSwtrXAg==}
@@ -2181,8 +2181,8 @@ packages:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+  undici-types@7.18.2:
+    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
   universalify@0.1.2:
     resolution: {integrity: sha512-rBJeI5CXAlmy1pV+617WB9J63U6XcazHHF2f2dbJix4XzpUF0RS3Zbj0FGIOCAva5P/d/GBOYaACQ1w+0azUkg==}
@@ -2369,7 +2369,7 @@ snapshots:
     dependencies:
       '@changesets/types': 6.1.0
 
-  '@changesets/cli@2.31.1(@types/node@20.19.43)':
+  '@changesets/cli@2.31.1(@types/node@24.13.3)':
     dependencies:
       '@changesets/apply-release-plan': 7.1.1
       '@changesets/assemble-release-plan': 6.0.10
@@ -2385,7 +2385,7 @@ snapshots:
       '@changesets/should-skip-package': 0.1.2
       '@changesets/types': 6.1.0
       '@changesets/write': 0.4.0
-      '@inquirer/external-editor': 1.0.3(@types/node@20.19.43)
+      '@inquirer/external-editor': 1.0.3(@types/node@24.13.3)
       '@manypkg/get-packages': 1.1.3
       ansi-colors: 4.1.3
       enquirer: 2.4.1
@@ -2544,12 +2544,12 @@ snapshots:
 
   '@humanwhocodes/object-schema@2.0.3': {}
 
-  '@inquirer/external-editor@1.0.3(@types/node@20.19.43)':
+  '@inquirer/external-editor@1.0.3(@types/node@24.13.3)':
     dependencies:
       chardet: 2.2.0
       iconv-lite: 0.7.3
     optionalDependencies:
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -2737,9 +2737,9 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
-  '@types/node@20.19.43':
+  '@types/node@24.13.3':
     dependencies:
-      undici-types: 6.21.0
+      undici-types: 7.18.2
 
   '@ungap/structured-clone@1.3.3': {}
 
@@ -2752,13 +2752,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.10(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))':
+  '@vitest/mocker@4.1.10(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.1.5(@types/node@20.19.43)(terser@5.49.0)
+      vite: 8.1.5(@types/node@24.13.3)(terser@5.49.0)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -4515,7 +4515,7 @@ snapshots:
       has-symbols: 1.1.0
       which-boxed-primitive: 1.1.1
 
-  undici-types@6.21.0: {}
+  undici-types@7.18.2: {}
 
   universalify@0.1.2: {}
 
@@ -4527,7 +4527,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@8.1.5(@types/node@20.19.43)(terser@5.49.0):
+  vite@8.1.5(@types/node@24.13.3)(terser@5.49.0):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.5
@@ -4535,14 +4535,14 @@ snapshots:
       rolldown: 1.1.5
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
       fsevents: 2.3.3
       terser: 5.49.0
 
-  vitest@4.1.10(@types/node@20.19.43)(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0)):
+  vitest@4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.1.5(@types/node@20.19.43)(terser@5.49.0))
+      '@vitest/mocker': 4.1.10(vite@8.1.5(@types/node@24.13.3)(terser@5.49.0))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -4559,10 +4559,10 @@ snapshots:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 8.1.5(@types/node@20.19.43)(terser@5.49.0)
+      vite: 8.1.5(@types/node@24.13.3)(terser@5.49.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
     transitivePeerDependencies:
       - msw
 
