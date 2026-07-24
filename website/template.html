@@ -1,4 +1,4 @@
-<title>refract — one theme, many formats</title>
+<title>refract — one base theme, every brand and format</title>
 <style>
   /* ═══════════════ CHROME TOKENS (rf-* — never collide with the preset's dt-* output) ═══════════════ */
   /* Cool-biased neutrals + ONE restrained indigo accent (Linear/Framer-grade). Surfaces read
@@ -619,6 +619,7 @@
         <nav class="sub">
           <a href="#d-build">Build-time</a>
           <a href="#d-runtime">Run-time</a>
+          <a href="#diff">Blast radius</a>
           <a href="#dtcg">DTCG interop</a>
         </nav>
       </div>
@@ -659,8 +660,8 @@
       <div class="inner" id="main-content" tabindex="-1">
         <header class="hero" id="top">
           <div class="eyebrow">Getting started <b>/ Introduction</b></div>
-          <h1>One raw theme, <em>refracted</em> into every format.</h1>
-          <p>A framework-agnostic theme compiler. You author one <code>RawTheme</code>; it lowers to a format-neutral Model; adapters refract it into CSS, SCSS, JSON or styled-components. Flip a preset — every panel below re-renders from real, in-browser-compiled output.</p>
+          <h1>One base theme, <em>refracted</em> into every brand — and you see what changes before you ship.</h1>
+          <p>A framework-agnostic theme compiler built for <b>white-label and multi-tenant</b> work: author one <code>RawTheme</code>, derive a brand child in a line with <code>override()</code>, and <a href="#diff"><code>refract diff</code></a> any change to see its <b>blast radius</b> before it ships. The same theme exports to CSS, SCSS, JSON or styled-components — the format is just an adapter. Flip a preset — every panel below re-renders from real, in-browser-compiled output.</p>
           <div class="flowline">
             <span class="node hl">RawTheme</span><span class="arr">▸</span>
             <span class="node">Model</span><span class="arr">▸</span>
@@ -733,7 +734,7 @@
         <section class="doc-section" id="install">
           <div class="eyebrow">Getting started <b>/ Installation</b></div>
           <h2>Installation</h2>
-          <p class="lead">refract is a small <b>family of packages</b> — a core compiler plus one package per output format. Install the core and just the <b>adapter(s) you need</b>; nothing you don't use lands in your dependency tree (the <code>styled-components</code> peer, for one, only ships with that adapter).</p>
+          <p class="lead">refract is a small <b>family of packages</b> — a core compiler plus one package per output format. Install the core and just the <b>adapter(s) you need</b>; nothing you don't use lands in your dependency tree (the <code>styled-components</code> peer, for one, only ships with that adapter). The <code>@theme-registry</code> namespace is an intentional home for a family of theming packages — refract is its <b>first member, standalone by design</b>: it depends on none of the others and works entirely on its own.</p>
           <div class="codeblock">
             <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">Terminal</span><button class="cb-copy" data-copy>Copy</button></div>
             <pre><span class="cmd">npm</span> install <span class="s">@theme-registry/refract</span> <span class="s">@theme-registry/refract-css</span></pre>
@@ -995,7 +996,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
           <div class="note"><b>Project-scoped.</b> The server loads your <code>theme.config.(ts|js|mjs)</code> once at startup (auto-discovered in the cwd, or via <code>--config</code>) and holds it — so the query tools take <b>no <code>theme</code> argument</b>; the agent asks about the loaded theme without resending it. It reloads on change, and runs on the official <code>@modelcontextprotocol/sdk</code> over stdio. Published on the npm <code>latest</code> tag, versioned in lockstep with core and the adapters. A <code>.ts</code> config needs the <code>typescript</code> optional peer (same as <code>refract build</code>).</div>
 
           <h3>The tools</h3>
-          <p>Six read/validate tools over the loaded theme:</p>
+          <p>Eleven read/validate tools over the loaded theme:</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>Tool</th><th>Arguments</th><th>Answers</th></tr></thead>
@@ -1016,14 +1017,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
           </div>
           <div class="note">The server also exposes two MCP <b>resources</b> — <code>refract://llms.txt</code> (prose) and <code>refract://manifest.json</code> (a machine index, <code>schema&nbsp;1</code>, with real class names + DTCG tokens) — the same self-documenting guide <code>refract build --guide</code> emits, rendered live from the loaded theme. Query tools take no <code>theme</code> argument (they read the loaded project); <code>validateTheme</code> / <code>diffTheme</code> take a candidate.</div>
 
-          <h3>Blast radius on the command line — <code>refract diff</code></h3>
-          <p><code>diffTheme</code> has a human + CI twin that needs no MCP server: <code>refract diff &lt;candidate&gt;</code> builds the candidate against the config's targets and prints what moves — tokens, classes, and any contrast pairing that crossed a threshold. Thresholds turn it into a <b>PR gate</b> (nonzero exit on breach), so a token change that alters more than N classes or drops a pairing below AA fails CI.</p>
-          <div class="codeblock">
-            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">Terminal</span><button class="cb-copy" data-copy>Copy</button></div>
-            <pre><span class="cmd">refract</span> diff candidate.ts                                  <span class="c"># print the blast radius</span>
-<span class="cmd">refract</span> diff candidate.ts --max-class-changes 5 --fail-below AA   <span class="c"># gate a PR</span></pre>
-          </div>
-          <p>The same diff is a programmatic export for custom tooling: <code>diffThemes(base, candidate)</code> from <code>@theme-registry/refract/build</code> returns the <code>{ tokens, classes, contrast, summary }</code> structure both the CLI and the MCP tool render.</p>
+          <div class="note"><b><code>diffTheme</code> has a CLI + CI twin.</b> The same blast-radius diff runs without an MCP server — <code>refract diff &lt;candidate&gt;</code> — and gates a PR on how much a change moves. It's a headline capability with its own page: <a href="#diff">Blast radius — <code>refract diff</code> ▸</a>.</div>
 
           <h3>Connect</h3>
           <p>Register the server with your agent — any MCP client works the same way over stdio. Once published:</p>
@@ -1075,7 +1069,54 @@ theme.css;  <span class="c">// unchanged</span></pre>
 <span class="c">// ← result</span>
 { "path": "colors.brand.dark", "value": "rgb(51, 77, 210)" }</pre>
           </div>
-          <div class="note"><b>Why it matters.</b> An agent bound to <code>getClass</code> + <code>validateTheme</code> can't drift: it reads real names and its work is checked against the real compiler at every step. This is the refract half of a <b>Figma → refract → AI</b> loop — an agent reads a design, authors a theme, and the server keeps it honest. See <a href="#agent">Agent-native</a> for the whole story.</div>
+          <div class="note"><b>Why it matters.</b> An agent bound to <code>getClass</code> + <code>validateTheme</code> can't drift: it reads real names and its work is checked against the real compiler at every step. Pair it with <a href="#dtcg">DTCG import</a> — pull a design's tokens from a Figma (or Style Dictionary) export, author a theme from them, and let the server keep the agent honest — for a <b>design-to-code loop that can't invent values</b>. See <a href="#agent">Agent-native</a> for the whole story.</div>
+        </section>
+
+        <section class="doc-section" id="diff">
+          <div class="eyebrow">Delivery <b>/ Blast radius</b></div>
+          <h2>Blast radius — <code>refract diff</code></h2>
+          <p class="lead">Every value in a refract theme is a <code>{ ref, fn, arg }</code> graph, not a frozen literal — so refract can answer a question a plain token file can't: <b>what will this change break, before I ship it?</b> <code>refract diff &lt;candidate&gt;</code> builds a candidate theme against your config's targets and prints exactly what moves — tokens re-valued, recipe classes changed, and any contrast pairing that crossed a threshold. It's the most defensible thing refract does: nothing else in the category stores the reference graph, so nothing else can tell you the blast radius up front.</p>
+
+          <h3>On the command line</h3>
+          <p>Point it at a candidate theme — a <code>theme.config.*</code> or a DTCG document. With no thresholds it just <b>reports</b> the diff; add thresholds and any breach exits nonzero, turning it into a <b>PR gate</b>.</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">Terminal</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="cmd">refract</span> diff candidate.ts                                    <span class="c"># print the blast radius (report only)</span>
+<span class="cmd">refract</span> diff candidate.ts \
+  --max-token-changes 20 --max-class-changes 5 --fail-below AA     <span class="c"># gate: fail the run on a breach</span></pre>
+          </div>
+          <p>The gate flags: <code>--max-token-changes &lt;n&gt;</code> and <code>--max-class-changes &lt;n&gt;</code> fail when more than <i>n</i> tokens or recipe classes move; <code>--fail-below &lt;AAA|AA|AA-large&gt;</code> fails when any pairing drops below that WCAG-2 level. Point at a non-default config with <code>--config &lt;path&gt;</code>.</p>
+
+          <h3>As a CI gate — GitHub Actions</h3>
+          <p>Drop this in <code>.github/workflows/theme-diff.yml</code>. On every pull request it diffs the candidate theme against your committed config and fails the check if a change moves more than the thresholds allow or drops a colour pairing below AA — so a token tweak can't silently re-skin the app or break contrast.</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">.github/workflows/theme-diff.yml</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="s">name:</span> theme-diff
+<span class="s">on:</span> pull_request
+<span class="s">jobs:</span>
+  diff:
+    <span class="s">runs-on:</span> ubuntu-latest
+    <span class="s">steps:</span>
+      - <span class="s">uses:</span> actions/checkout@v4
+      - <span class="s">uses:</span> actions/setup-node@v4
+        <span class="s">with:</span> { node-version: 22 }
+      - <span class="s">name:</span> Theme blast-radius gate
+        <span class="s">run:</span> &gt;
+          npx -y @theme-registry/refract diff candidate.ts
+          --max-token-changes 20 --max-class-changes 5 --fail-below AA</pre>
+          </div>
+          <div class="note"><b>Pair it with the contrast audit.</b> <code>refract diff --fail-below</code> gates <i>changes</i>; <a href="#c-audit"><code>refract audit --strict</code></a> gates the <i>absolute</i> contrast of the whole theme. Both exit nonzero, so both slot into the same job.</div>
+
+          <h3>Programmatic</h3>
+          <p>The same diff is a plain export for custom tooling or a dashboard: <code>diffThemes(base, candidate)</code> from <code>@theme-registry/refract/build</code> returns the <code>{ tokens, classes, contrast, summary }</code> structure the CLI and the MCP <a href="#mcp"><code>diffTheme</code></a> tool both render.</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">diff.ts</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="k">import</span> { diffThemes } <span class="k">from</span> <span class="s">"@theme-registry/refract/build"</span>;
+
+<span class="k">const</span> { tokens, classes, contrast, summary } = <span class="n">diffThemes</span>(base, candidate);
+<span class="c">// summary → { tokenChanges, classChanges, worstPairing } for your own gate</span></pre>
+          </div>
+          <div class="note"><b>Also an agent tool.</b> Exposed as the MCP <code>diffTheme</code> tool too, so an agent can check its own change's blast radius <i>before</i> applying it — plan-then-apply, not apply-then-discover. See <a href="#mcp">MCP server</a>.</div>
         </section>
 
         <section class="doc-section" id="api">
@@ -1096,6 +1137,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
                 <tr><td class="prop">media</td><td class="ty">{ unit?: "px"|"em"|"rem"; baseFontSize? }</td><td><span class="req-no">Optional</span></td><td>Unit for <code>@media</code> / <code>@container</code> <b>thresholds</b> (breakpoints are authored in px; default px). Distinct from <code>units</code>, which governs declaration <b>values</b>. Stable across <code>override()</code> children.</td></tr>
                 <tr><td class="prop">units</td><td class="ty">UnitsConfig</td><td><span class="req-no">Optional</span></td><td><b>Length units for declaration values (§21).</b> A token-path role map — <code>units.default</code> (global), <code>units["&lt;subsystem&gt;"]</code>, <code>units["&lt;subsystem&gt;.&lt;property&gt;"]</code>; most-specific wins, over a built-in seed (length subsystems → px, <code>lineHeight</code> → none, <code>letterSpacing</code> → em). Resolved once, format-neutrally, onto every length leaf — every adapter then emits the same unit. See <a href="#c-units">Length units</a>.</td></tr>
                 <tr><td class="prop">baseFontSize</td><td class="ty">number</td><td><span class="req-no">Optional</span></td><td class="def">16</td><td>Divisor when a deferred length resolves to <code>rem</code> (§21). Distinct from <code>media.baseFontSize</code>.</td></tr>
+                <tr><td class="prop">propertiesOverlay · ruleSetsOverlay · keyframesOverlay · containersOverlay</td><td class="ty">DTCG round-trip</td><td><span class="req-no">Optional</span></td><td>Prebuilt Model slices spliced in <b>after</b> the standard build, to restore the lossless bits a resolved DTCG token surface can't carry — appearance <code>modes</code> / <code>responsive</code> / derivation refs, and whole recipes/keyframes/containers. Set by <code>fromDTCGTheme</code> from the <code>com.theme-registry.refract</code> extension; <b>rarely set by hand</b>. Absent → the standard build is untouched.</td></tr>
               </tbody>
             </table>
           </div>
@@ -3786,6 +3828,7 @@ createCssAdapter({ colorFormat: <span class="s">"oklch"</span> }); <span class="
                 <tr><td class="prop">prefix</td><td class="ty">string</td><td class="def">"dt"</td><td>Identifier prefix for <code>$variables</code> and class names.</td></tr>
                 <tr><td class="prop">inline</td><td class="ty">boolean</td><td class="def">false</td><td>Inline resolved values instead of <code>$var</code> references.</td></tr>
                 <tr><td class="prop">indent</td><td class="ty">number</td><td class="def">2</td><td>Indentation width (spaces).</td></tr>
+                <tr><td class="prop">layer</td><td class="ty">string | boolean</td><td class="def">—</td><td>Wrap all emitted SCSS in a named cascade <code>@layer</code> (<code>true</code> → <code>refract</code>) — compiles to a CSS <code>@layer</code> for deterministic precedence below unlayered app CSS. The SCSS twin of the CSS adapter's <code>layer</code>.</td></tr>
               </tbody>
             </table>
           </div>
@@ -3878,6 +3921,9 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
                 <tr><td class="prop">scheme</td><td class="ty">"media" | "attribute" | "both"</td><td class="def">"media"</td><td>How appearance modes realize dark: <code>prefers-color-scheme</code>, a <code>[data-theme]</code> toggle, or both.</td></tr>
                 <tr><td class="prop">helpers</td><td class="ty">string[]</td><td class="def">[]</td><td><code>["color-math"]</code> wires the <code>lighten</code>/<code>darken</code>/<code>alpha</code> import and hangs them on <code>theme</code>.</td></tr>
                 <tr><td class="prop">emit <span style="opacity:.6">(target)</span></td><td class="ty">"single" | "split"</td><td class="def">"single"</td><td>One module, or <code>theme.ts</code> / <code>recipes.ts</code> / <code>global.ts</code> split.</td></tr>
+                <tr><td class="prop">prefix</td><td class="ty">string</td><td class="def">—</td><td>Accepted for parity with the CSS adapter's namer. SC identifiers carry <b>no</b> prefix (the literal <code>theme</code> object is the isolation boundary), so in v1 this does not alter emitted identifiers.</td></tr>
+                <tr><td class="prop">classPrefix</td><td class="ty">string</td><td class="def">—</td><td>As <code>prefix</code> — accepted for parity, structural in v1.</td></tr>
+                <tr><td class="prop">naming</td><td class="ty">NamingOverrides</td><td class="def">—</td><td>Shared naming-override type with the CSS adapter. <code>className</code> remaps a recipe's export identity (camelCased); <code>variableName</code> has no coherent target on the nested theme object and is accepted-but-structural (keys stay derived from the token address).</td></tr>
               </tbody>
             </table>
           </div>
@@ -3978,6 +4024,9 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="eyebrow">Adapters <b>/ Writing an adapter</b></div>
           <h2>Writing an adapter</h2>
           <p class="lead">An adapter is the <b>only</b> place output format lives — the Model holds no CSS syntax. To target a new format (React Native, Compose, a design-token pipeline) you implement <b>four required primitives</b>; core supplies everything else. <code>defineAdapter</code> fills in the aggregators.</p>
+
+          <h3>The adapter contract</h3>
+          <p>The bundle a third-party adapter builds against is four exported types plus one subpath: you author an <code>AdapterSpec</code> whose <code>bind()</code> returns a <code>BoundSpec</code>, wrap it with <code>defineAdapter</code> to get a <code>ThemeAdapter</code>, and pull the shared naming/override machinery from <code>@theme-registry/refract/adapter-kit</code> (<code>createNamer</code>, <code>resolveNaming</code>, <code>varNameFromPath</code>, collision detection). <code>AdapterSpec.version</code> is the contract number external packages pin to. Every first-party adapter imports only these public entries — no deep imports into <code>src/</code>, a boundary a committed packaging test enforces — so "CSS is just another adapter" holds at the import level.</p>
 
           <h3>The four primitives</h3>
           <p>Core walks the Model — every subsystem, every <code>(group, variant)</code> — and calls these. You only describe how <b>one</b> unit renders in your format; <code>join</code> says how units combine.</p>
@@ -4297,7 +4346,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="eyebrow">Reference <b>/ Performance</b></div>
           <h2>Performance &amp; footprint</h2>
           <p class="lead">refract compiles a realistic theme in about <b>a millisecond</b> and the core + CSS adapter weigh <b>~36&nbsp;KB gzipped</b> — or nothing at all if you emit CSS at build time. The numbers below are <b>measured and reproducible</b>; treat them as order-of-magnitude, since they scale with your theme's size and your hardware.</p>
-          <div class="note"><b>Method — reproduce it yourself.</b> <code>npm run bench</code> times <code>createTheme</code> + <code>theme.css</code> and <code>override()</code> (median of 400 runs in V8 / Node) against this site's richest preset — <b>163 recipe classes</b>, <b>112 <code>@media</code> rules</b>. <code>npm run size</code> reports the gzip footprint against a committed budget (gated in CI). Both live in <code>scripts/</code>. A typical app theme is smaller and faster.</div>
+          <div class="note"><b>Method — reproduce it yourself.</b> <code>npm run bench</code> times <code>createTheme</code> + <code>theme.css</code> and <code>override()</code> (median of 400 runs in V8 / Node) against this site's richest preset — <b>177 recipe classes</b>, <b>112 <code>@media</code> rules</b>. <code>npm run size</code> reports the gzip footprint against a committed budget (gated in CI). Both live in <code>scripts/</code>. A typical app theme is smaller and faster.</div>
 
           <h3>Runtime footprint</h3>
           <p>The browser bundle is core + the CSS adapter (the runtime graph the showcase itself loads):</p>
@@ -4318,7 +4367,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
               <thead><tr><th>Operation</th><th>Cost</th></tr></thead>
               <tbody>
                 <tr><td class="prop">createTheme() + theme.css</td><td>~<b>1.2&nbsp;ms</b> median — fast enough to run on page load or per request</td></tr>
-                <tr><td class="prop">override(delta) + .css</td><td>~<b>0.8&nbsp;ms</b> median (~33% less than a fresh compile)</td></tr>
+                <tr><td class="prop">override(delta) + .css</td><td>~<b>0.8&nbsp;ms</b> median (reuses the base — only the delta recompiles)</td></tr>
               </tbody>
             </table>
           </div>
@@ -4331,7 +4380,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
               <thead><tr><th>Metric</th><th>Value</th></tr></thead>
               <tbody>
                 <tr><td class="prop">theme.css</td><td>~27&nbsp;KB raw · <b>~3.8&nbsp;KB gzip</b></td></tr>
-                <tr><td class="prop">contents</td><td>163 recipe classes · 112 <code>@media</code> rules</td></tr>
+                <tr><td class="prop">contents</td><td>177 recipe classes · 112 <code>@media</code> rules</td></tr>
               </tbody>
             </table>
           </div>
@@ -4431,7 +4480,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <p>In short: <b>core, the CSS and styled-components adapters, DTCG interop, and the MCP server are stable</b> at public release — the authoring format, the theme runtime, the adapter contract, the emitted names, and the agent query surface. The SCSS and JSON adapters are still settling.</p>
 
           <h3>Versioning</h3>
-          <p>A versioning policy will be published before 1.0, applying across the whole <code>@theme-registry</code> scope. Until then, <b>pin exact versions</b> and follow the release notes. One guarantee already holds: <b>token paths are stable identifiers</b> — a path won't change or vanish within a minor/patch release, so agents and DTCG documents can bind to it (see <a href="#naming">Token paths &amp; naming</a>).</p>
+          <p>refract and its adapters version <b>in lockstep</b>: all six packages share one version through the whole <code>0.x</code> line — a single <a href="https://github.com/changesets/changesets" target="_blank" rel="noopener">Changesets</a> <code>fixed</code> group that publishes together — so a matched set is always safe to install. Stability tiers are signalled by an npm <b>dist-tag</b>, not by divergent versions: the stable packages ride <code>latest</code>, the SCSS and JSON adapters are reachable via the <code>experimental</code> tag. <b>Pin exact versions through <code>0.x</code></b>; at 1.0 the <code>fixed</code> group splits into independent lines (core on its own <code>1.x</code>). Full policy: <a href="https://github.com/theme-registry/refract/blob/main/RELEASING.md" target="_blank" rel="noopener">RELEASING.md</a>. One guarantee already holds: <b>token paths are stable identifiers</b> — a path won't change or vanish within a minor/patch release, so agents and DTCG documents can bind to it (see <a href="#naming">Token paths &amp; naming</a>).</p>
 
           <h3>What's next</h3>
           <ul>
@@ -4440,7 +4489,6 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
             <li><b>Logical properties / RTL</b> <span class="st-sub">planned</span> — a <code>logical: true</code> output option (<code>padding-inline</code>, <code>border-inline-start</code>, <code>side: "start" | "end"</code>) so themes mirror for right-to-left for free.</li>
             <li><b>Compound variants</b> <span class="st-sub">planned</span> — a multi-axis matcher (size × tone × shape) so combinations resolve automatically instead of by hand-enumeration.</li>
             <li><b>Multi-source external tokens</b> <span class="st-sub">planned</span> — borrowing from two prefixed parent systems in one theme via named sources (single-source external ships today).</li>
-            <li><b>Part of an ecosystem, standalone by design.</b> refract is its own small set of packages in the <code>@theme-registry</code> namespace for building themes; it depends on none of the <i>other</i> ecosystem families and works entirely on its own.</li>
           </ul>
           <div class="note">Building on refract today? Lean on the <span class="req-yes">Stable</span> surfaces; treat the <span class="req-no">Experimental</span> ones as likely to shift, and pin your version.</div>
         </section>
@@ -4448,7 +4496,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
         <nav class="pager" id="pager" aria-label="Page navigation"></nav>
 
         <footer class="f">
-          Prototype for the <b>@theme-registry/refract</b> showcase · all output is compiled client-side by the real library (CSS adapter). The chrome is theme-aware; the render panes carry each preset's own world. · <b>MIT licensed</b>.
+          Technical documentation for <b>@theme-registry/refract</b> · all output is compiled client-side by the real library (CSS adapter). The chrome is theme-aware; the render panes carry each preset's own world. · <b>MIT licensed</b>.
         </footer>
       </div>
       <aside class="toc" id="toc" aria-label="On this page" hidden></aside>
@@ -5122,12 +5170,19 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
   // Path-aware routing: the deployed site (http) uses clean History-API paths (/p-colors); the
   // self-contained artifact (file://) falls back to hash. Both derive the page id the same way.
   var pathMode = (location.protocol || "").indexOf("http") === 0;
-  function linkHref(id) { return pathMode ? "/" + (id === "top" ? "" : id) : "#" + id; }
+  // Base path for a subpath deploy (e.g. "/refract/"), injected by gen-site from Vite's BASE_URL;
+  // absent in the self-contained artifact → "/". Normalized to a trailing slash.
+  var BASE = window.__SITE_BASE__ || "/";
+  if (BASE.charAt(BASE.length - 1) !== "/") BASE += "/";
+  function stripBase(p) {
+    if (BASE !== "/" && p.indexOf(BASE) === 0) p = p.slice(BASE.length);
+    return p.replace(/^[#/]+/, "");
+  }
+  function linkHref(id) { return pathMode ? BASE + (id === "top" ? "" : id) : "#" + id; }
   function routeIdFromLocation() {
     var h = (location.hash || "").slice(1);
     if (h) return h;
-    var p = (location.pathname || "").replace(/^\/+/, "");
-    return p || "top";
+    return stripBase(location.pathname || "") || "top";
   }
   var labelFor = function (id) { return links[id] ? links[id].textContent.trim() : id; };
   var pagerLink = function (id, dir) {
@@ -5198,7 +5253,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
     document.addEventListener("click", function (e) {
       var a = e.target.closest && e.target.closest('a[href^="/"], a[href^="#"]');
       if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
-      var id = a.getAttribute("href").replace(/^[#/]/, "") || "top";
+      var id = stripBase(a.getAttribute("href")) || "top";
       if (!pageEls[id]) return;
       e.preventDefault();
       history.pushState(null, "", linkHref(id));

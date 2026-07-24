@@ -125,7 +125,7 @@ function renderRouter(skills: SkillMeta[]): string {
     "",
     "## refract theme skills",
     "",
-    "These skills document the [refract](https://github.com/4i4-team/theme-toolkit) theme toolkit.",
+    "These skills document the [refract](https://github.com/theme-registry/refract) theme toolkit.",
     "When a task matches a row below, read the linked file before working.",
     "",
     "| Skill | Use it for |",

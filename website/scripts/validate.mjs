@@ -340,5 +340,27 @@ const fail = (msg) => { console.log("  ✗", msg); failures++; };
   else console.log("  ✓ naming — no documented variable name carries a stale double-dash separator");
 }
 
+// ── 8. perf — documented recipe-class / @media counts match a live compile (guards L7/F3) ──
+// The perf numbers went stale because `bench.mjs` is not CI-gated. Counting the same way bench does
+// (largest root preset by emitted CSS; `.dt-…{` selectors and `@media` at-rules), assert every perf
+// figure printed in the prose matches the live compile — so a preset change can't drift the docs again.
+{
+  let richest = null;
+  for (const id of Object.keys(roots)) {
+    const css = roots[id].css;
+    if (!richest || css.length > richest.len) richest = { id, css, len: css.length };
+  }
+  const liveClasses = (richest.css.match(/\.dt-[a-z0-9-]+\s*\{/g) || []).length;
+  const liveMedia = (richest.css.match(/@media/g) || []).length;
+  const pairs = [...tpl.matchAll(/(\d+)\s+recipe classes[\s\S]{0,40}?(\d+)\s*<code>@media/g)];
+  let bad = 0;
+  if (!pairs.length) { fail("perf — no documented 'N recipe classes · M @media' perf claim found in template"); bad++; }
+  for (const [, cls, med] of pairs) {
+    if (+cls !== liveClasses) { fail(`perf — doc says ${cls} recipe classes; live compile of "${richest.id}" has ${liveClasses}`); bad++; }
+    if (+med !== liveMedia) { fail(`perf — doc says ${med} @media rules; live compile of "${richest.id}" has ${liveMedia}`); bad++; }
+  }
+  if (!bad) console.log(`  ✓ perf — ${pairs.length} documented perf claim(s) match the live "${richest.id}" compile (${liveClasses} recipe classes · ${liveMedia} @media)`);
+}
+
 console.log(failures ? `\n✗ ${failures} check(s) failed` : "\n✓ all validation checks passed");
 process.exit(failures ? 1 : 0);

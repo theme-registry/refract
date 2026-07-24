@@ -1,6 +1,6 @@
 # @theme-registry/refract
 
-[![CI](https://github.com/4i4-team/theme-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/4i4-team/theme-toolkit/actions/workflows/ci.yml)
+[![CI](https://github.com/theme-registry/refract/actions/workflows/ci.yml/badge.svg)](https://github.com/theme-registry/refract/actions/workflows/ci.yml)
 
 A framework-agnostic design-token toolkit. You author one **raw theme**; refract
 compiles it into a single, format-neutral **Model** and lowers that Model to whatever
@@ -21,6 +21,7 @@ raw theme ──▶ Model (format-neutral) ──▶ adapter ──▶ CSS │ s
 | Core + CLI (incl. DTCG interop at `/dtcg`) | `@theme-registry/refract` | **Stable** |
 | CSS adapter | `@theme-registry/refract-css` | **Stable** |
 | styled-components adapter | `@theme-registry/refract-styled-components` | **Stable** |
+| MCP server (agent query surface) | `@theme-registry/refract-mcp` | **Stable** |
 | SCSS adapter | `@theme-registry/refract-scss` | Experimental |
 | JSON adapter | `@theme-registry/refract-json` | Experimental |
 

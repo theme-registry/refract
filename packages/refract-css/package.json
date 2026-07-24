@@ -8,13 +8,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/4i4-team/theme-toolkit.git",
+    "url": "git+https://github.com/theme-registry/refract.git",
     "directory": "packages/refract-css"
   },
   "bugs": {
-    "url": "https://github.com/4i4-team/theme-toolkit/issues"
+    "url": "https://github.com/theme-registry/refract/issues"
   },
-  "homepage": "https://github.com/4i4-team/theme-toolkit#readme",
+  "homepage": "https://github.com/theme-registry/refract#readme",
   "license": "MIT",
   "main": "./dist/index.cjs.js",
   "module": "./dist/index.esm.js",

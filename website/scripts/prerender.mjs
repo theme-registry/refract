@@ -8,15 +8,26 @@ import { fileURLToPath } from "node:url";
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const distDir = here("../site/dist");
-const SITE_URL = (process.env.SITE_URL || "").replace(/\/$/, ""); // e.g. https://refract.example.dev
+// SITE_URL is the FULL public origin+base (e.g. https://theme-registry.github.io/refract), so the
+// canonical is SITE_URL + "/" + id and needs no separate base handling here.
+const SITE_URL = (process.env.SITE_URL || "").replace(/\/$/, "");
+// Base path the nav hrefs were generated with (gen-site) — strip it to recover the bare route id.
+const base = (() => {
+  let b = process.env.SITE_BASE || "/";
+  if (b.charAt(0) !== "/") b = "/" + b;
+  if (b.charAt(b.length - 1) !== "/") b += "/";
+  return b;
+})();
 const shell = readFileSync(distDir + "/index.html", "utf8");
 
-// Page id → sidebar title, from the nav (href="/id"; top is href="/").
+// Page id → sidebar title, from the nav (href="<base>id"; top is href="<base>").
 const navBlocks = shell.match(/<nav class="sub"[^>]*>[\s\S]*?<\/nav>/g) || [];
 const pages = [];
 for (const nav of navBlocks) {
-  for (const m of nav.matchAll(/<a href="\/([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)) {
-    const id = m[1] || "top";
+  for (const m of nav.matchAll(/<a href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    const raw = m[1];
+    if (raw.indexOf(base) !== 0) continue; // route links only (skip any stray hash/external anchor)
+    const id = raw.slice(base.length).replace(/^\/+/, "") || "top";
     const title = m[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim();
     pages.push({ id, title });
   }
@@ -40,7 +51,7 @@ for (const { id, title } of pages) {
     if (oid === id) continue;
     html = html.replace(`id="${oid}">`, `id="${oid}" hidden>`);
   }
-  const pageTitle = id === "top" ? "refract — one theme, many formats" : `${title} · refract`;
+  const pageTitle = id === "top" ? "refract — one base theme, every brand and format" : `${title} · refract`;
   const desc = (leadOf(id) || GENERIC).slice(0, 300);
   const path = id === "top" ? "/" : `/${id}`;
   html = html
@@ -55,4 +66,9 @@ for (const { id, title } of pages) {
   writeFileSync(`${outDir}/index.html`, html);
   n++;
 }
-console.log(`prerendered ${n} routes to static HTML (${SITE_URL || "relative"} canonicals)`);
+
+// SPA fallback for unknown deep links (the prerendered shell, which hydrates and routes client-side),
+// and .nojekyll so GitHub Pages serves the tree verbatim.
+writeFileSync(`${distDir}/404.html`, shell);
+writeFileSync(`${distDir}/.nojekyll`, "");
+console.log(`prerendered ${n} routes to static HTML (${SITE_URL || "relative"} canonicals) + 404.html + .nojekyll`);

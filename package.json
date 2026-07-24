@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/4i4-team/theme-toolkit.git"
+    "url": "git+https://github.com/theme-registry/refract.git"
   },
   "license": "MIT",
   "packageManager": "pnpm@9.15.0",

@@ -17,12 +17,21 @@ const bodyStart = tpl.indexOf('<div class="app">');
 const bodyEnd = tpl.indexOf("<script>/*__REFRACT_BUNDLE__*/");   // first script after the body
 let body = tpl.slice(bodyStart, bodyEnd).trim();
 
-// Rewrite page-route hrefs #<pageId> → /<pageId> so crawlers see real, per-page URLs. The set of
+// Base path for a subpath deploy (must match site/vite.config.mjs). Normalized to a leading + trailing
+// slash so `${base}${id}` is a valid absolute path (e.g. "/refract/errors"); default "/" → "/errors".
+const base = (() => {
+  let b = process.env.SITE_BASE || "/";
+  if (b.charAt(0) !== "/") b = "/" + b;
+  if (b.charAt(b.length - 1) !== "/") b += "/";
+  return b;
+})();
+
+// Rewrite page-route hrefs #<pageId> → <base><pageId> so crawlers see real, per-page URLs. The set of
 // page ids is exactly the sidebar nav targets; heading anchors (#h-…) are left as hash.
 const navBlocks = tpl.match(/<nav class="sub"[^>]*>[\s\S]*?<\/nav>/g) || [];
 const pageIds = [...new Set(navBlocks.flatMap((n) => [...n.matchAll(/href="#([^"]+)"/g)].map((m) => m[1])))];
 for (const id of pageIds) {
-  body = body.split(`href="#${id}"`).join(`href="/${id === "top" ? "" : id}"`);
+  body = body.split(`href="#${id}"`).join(`href="${base}${id === "top" ? "" : id}"`);
 }
 
 // The UI script (after the bundle-marker script): its <script> body, with the presets marker filled.
@@ -60,6 +69,9 @@ import { createScssAdapter } from "@theme-registry/refract-scss";
 import { createJsonAdapter } from "@theme-registry/refract-json";
 import { createStyledComponentsAdapter } from "@theme-registry/refract-styled-components";
 
+// Expose Vite's configured base path to the (framework-free) router in the app script. Undefined in
+// the self-contained artifact (no bundler) → the router falls back to "/".
+window.__SITE_BASE__ = import.meta.env.BASE_URL;
 window.refract = { createTheme, createCssAdapter, createScssAdapter, createJsonAdapter, createStyledComponentsAdapter };
 
 ${ui}
