@@ -21,6 +21,7 @@ import { runTokens } from "@theme-registry/refract/build";
 import { runAudit } from "@theme-registry/refract/build";
 import { runDiff } from "@theme-registry/refract/build";
 import { main } from "@theme-registry/refract/build";
+import { createTheme, createNoopAdapter, audit } from "@theme-registry/refract";
 
 const tmpDirs: string[] = [];
 const makeTmp = (prefix: string): string => {
@@ -78,6 +79,23 @@ describe("refract init", () => {
     expect(src).toMatch(/outDir:\s*"dist\/theme"/);
     // Exactly one active target (the SC line is commented out).
     expect(src.match(/^\s*\{ adapter:/gm)).toHaveLength(1);
+  });
+
+  it("the scaffolded starter theme passes its own `refract audit` (WCAG AA)", () => {
+    // Dogfood: shipping a default that fails the flagship auditor undercuts it. Reuse the REAL
+    // scaffold (no duplicated values) — strip its imports, capture the defineConfig arg, audit the raw.
+    const src = scaffoldConfig(PKG)
+      .replace(/^\s*import[\s\S]*?;\s*$/gm, "")
+      .replace(/export default /, "return ");
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const cfg = new Function("defineConfig", "createCssAdapter", src)(
+      (c: unknown) => c,
+      () => ({}),
+    ) as { raw: unknown };
+    const theme = createTheme(cfg.raw as never, { adapter: createNoopAdapter() });
+    const report = audit(theme, { minWcag: "AA" });
+    expect(report.summary.failed).toBe(0);
+    expect(report.summary.total).toBeGreaterThan(0); // it actually scored pairings
   });
 
   it("--js / --mjs pick the variant filename", () => {
