@@ -21,6 +21,23 @@ Changesets rewrites to `^<version>` at publish time.
 At **1.0** the plan is to split the `fixed` group into independent versioning — core stable on its own
 `1.x`, the experimental adapters versioning on their own churn.
 
+### Through 0.x, release **patch-only**
+
+Author only `patch` changesets while the group is on `0.x`. A `minor`/`major` changeset pushes core out
+of the adapters' published `^0.1.x` peer range, and Changesets then **cascades the whole fixed group to
+`1.0.0`** at `changeset version` time (the surprise that forced the first release to be hand-published).
+In `0.x`, semver makes no minor/patch compatibility promise anyway — communicate features in the
+CHANGELOG, not the version slot. The first real minor/major **is** the 1.0 split above.
+
+This is enforced: **`scripts/guard-changesets.mjs`** runs at the front of `pnpm version-packages` and as a
+CI step, and fails if any pending changeset declares `minor`/`major` while core is `0.x`. Once core is
+`>= 1.0` the guard is a no-op and normal semver resumes.
+
+> If you ever *do* want a pre-1.0 `0.2.0` feature release, it needs two changes together: enable
+> `___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH.onlyUpdatePeerDependentsWhenOutOfRange` in the
+> changeset config **and** widen the four adapters' peer range from `workspace:^` to `>=0.1.0 <1.0.0`
+> (which loosens the matched-set guarantee). Prefer waiting for 1.0.
+
 ## Experimental tiers = npm dist-tags, not divergent versions
 
 Stability tiers are signalled with an npm **dist-tag**, never by giving a package a different version.

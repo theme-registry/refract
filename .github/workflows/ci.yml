@@ -49,6 +49,9 @@ jobs:
       - name: Size budget
         run: pnpm run size
 
+      - name: Changeset guard (0.x is patch-only)
+        run: pnpm run guard-changesets
+
   # Build the docs site for the /refract/ subpath and publish it to GitHub Pages.
   # Runs only on a push to main, after build-test passes.
   deploy-docs:
