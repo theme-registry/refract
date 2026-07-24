@@ -31,9 +31,10 @@
     "site:dev": "pnpm --filter @theme-registry/website run dev",
     "site:build": "pnpm -r build && pnpm --filter @theme-registry/website run site-build",
     "changeset": "changeset",
-    "version-packages": "changeset version",
+    "version-packages": "node scripts/guard-changesets.mjs && changeset version",
     "release": "pnpm -r build && changeset publish",
-    "release:experimental": "pnpm -r build && changeset publish --tag experimental"
+    "release:experimental": "pnpm -r build && changeset publish --tag experimental",
+    "guard-changesets": "node scripts/guard-changesets.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
