@@ -19,6 +19,25 @@ raw theme ──▶ Model (format-neutral) ──▶ adapter ──▶ CSS │ s
 > MCP packages) in a single lockstep `fixed` group. Pin exact versions through `0.x`; see
 > [Versioning](#versioning).
 
+## Background
+
+refract didn't start as a library. It started as the infrastructure behind a **flagship site and ~130
+sister sites** that shared one administration and one foundation — each differing in little more than its
+colour palette and logo, none allowed to drift in look and feel. The frontends were Next.js +
+styled-components on a shared CMS-backed admin, templates loaded lazily, one style-guide driving them
+all. That pattern — **one base theme, many brands, override only what's yours** — went on to run a
+multi-brand media group, a pan-European NGO network, and a multi-identity civic institution.
+
+Those estates ran on a UI-focused theme registry (previously shipped under an earlier npm scope, now
+consolidating under `@theme-registry`): a main theme plus child themes that override whatever they need,
+consumed at runtime or as a prebuilt library. What it never standardized were the **foundations** — the
+layout system (grids, columns, spacing), the media/breakpoint model, and colour/type synthesis — solved
+well but ad-hoc, project by project. refract is those foundations, taken from what actually worked, made
+solid and **format-neutral**, and made to **show their work** (blast-radius `diff`, WCAG `audit`) before
+anything ships. **The idea has the better part of a decade of production behind it; the package itself is
+new** — a clean, standardized rewrite that earns its own miles (see the test suite, size budgets, and
+[status](https://theme-registry.github.io/refract/status)).
+
 ## Stability
 
 | Surface | Package | Tier |
