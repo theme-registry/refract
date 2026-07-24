@@ -37,7 +37,8 @@ still change; these adapters are reachable via the npm `experimental` dist-tag.
 
 All packages share **one lockstep version** through the `0.x` line (a Changesets `fixed` group) and
 publish together. Tiers are signalled by npm dist-tag, not by divergent versions. **Pin exact
-versions** until `1.0`, when the group splits into independent lines. Details: **[RELEASING.md](RELEASING.md)**.
+versions** until `1.0`, when the group splits into independent lines. Release history:
+**[CHANGELOG.md](CHANGELOG.md)** · mechanics + policy: **[RELEASING.md](RELEASING.md)**.
 
 **Token paths are stable identifiers.** A token path (`colors.brand.dark`) is treated as public API —
 it won't change or disappear within a minor/patch release, so agents, the `guide` manifest (`schema`-
