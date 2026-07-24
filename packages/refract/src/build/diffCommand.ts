@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import type { RawTheme } from "../core/rawTheme";
 import type { Theme, ThemeAdapter } from "../core";
 import { createTheme } from "../core/createTheme";
+import { assertRawTheme } from "../core/assertRawTheme";
 import { createNoopAdapter } from "../core/noopAdapter";
 import { loadConfig } from "./config";
 import { compileTsConfigGraph } from "./paths";
@@ -52,23 +53,30 @@ export interface DiffCommandResult {
 
 let counter = 0;
 
-/** Load a candidate raw theme from a module (default export) or a `.json` file. */
+/**
+ * Load a candidate raw theme from a module (default export) or a `.json` file, and assert it's actually
+ * theme-shaped before returning — a mis-shaped candidate (e.g. a `defineConfig`) must fail loud here,
+ * not silently diff as "everything removed" (see {@link assertRawTheme}).
+ */
 async function loadCandidate(path: string): Promise<RawTheme> {
   if (!existsSync(path)) throw new Error(`candidate theme not found at "${path}".`);
+  let candidate: unknown;
   if (extname(path) === ".json") {
-    return JSON.parse(readFileSync(path, "utf8")) as RawTheme;
-  }
-  if (extname(path) === ".ts") {
+    candidate = JSON.parse(readFileSync(path, "utf8"));
+  } else if (extname(path) === ".ts") {
     const { entry, cleanup } = await compileTsConfigGraph(path);
     try {
       const mod = (await import(pathToFileURL(entry).href)) as Record<string, unknown>;
-      return (mod.default ?? mod.raw ?? mod) as RawTheme;
+      candidate = mod.default ?? mod.raw ?? mod;
     } finally {
       cleanup();
     }
+  } else {
+    const mod = (await import(`${pathToFileURL(path).href}?v=${++counter}`)) as Record<string, unknown>;
+    candidate = mod.default ?? mod.raw ?? mod;
   }
-  const mod = (await import(`${pathToFileURL(path).href}?v=${++counter}`)) as Record<string, unknown>;
-  return (mod.default ?? mod.raw ?? mod) as RawTheme;
+  assertRawTheme(candidate, path);
+  return candidate;
 }
 
 /** Does this built theme expose the class-emitting surface (CSS-style adapter)? */

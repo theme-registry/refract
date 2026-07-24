@@ -24,7 +24,7 @@ import {
   type NamedTheme,
   type Builder,
 } from "../src/tools";
-import { callTool, loadTheme, guideFiles, serverVersion, type Held } from "../src/server";
+import { callTool, loadTheme, guideFiles, serverVersion, isBinEntry, type Held } from "../src/server";
 
 const raw = {
   colors: {
@@ -297,5 +297,25 @@ describe("loadTheme — loads and reloads a project config", () => {
     writeConfig(dir, "#e8590c"); // edit the theme
     h = await loadTheme(cfg); // what the `reload` tool / fs.watch does
     expect((callTool("resolveToken", { path: "colors.brand" }, h) as { value: string }).value).toBe("rgb(232, 89, 12)");
+  });
+});
+
+describe("bin entry guard (isBinEntry)", () => {
+  const self = "/pkg/dist/server.js";
+
+  it("starts when launched through a .bin symlink (resolves both sides)", () => {
+    // The failure mode: argv[1] is the symlink, import.meta.url is the real path — a raw compare misses.
+    const symlink = "/proj/node_modules/.bin/refract-mcp";
+    const real = (p: string): string => (p === symlink ? self : p);
+    expect(isBinEntry(symlink, self, real)).toBe(true);
+  });
+
+  it("starts when launched by its own real path", () => {
+    expect(isBinEntry(self, self, (p) => p)).toBe(true);
+  });
+
+  it("does NOT start when imported as a module (a different launched script)", () => {
+    expect(isBinEntry("/proj/node_modules/.bin/vitest", self, (p) => p)).toBe(false);
+    expect(isBinEntry(undefined, self, (p) => p)).toBe(false);
   });
 });

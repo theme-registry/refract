@@ -390,6 +390,24 @@ describe("refract diff", () => {
     expect(result.violations.join(" ")).toMatch(/no longer builds/);
   });
 
+  it("fails loud with REFRACT_E_RAW_SHAPE on a defineConfig candidate (not a nonsense 'all removed' diff)", async () => {
+    const dir = makeTmp("tk-diff-shape-");
+    writeFixtureConfig(dir);
+    // The documented trap: a defineConfig({ raw, targets }) passed where the bare raw theme was wanted.
+    writeCandidate(dir, { raw: { colors: { primary: "#e8590c" } }, targets: [{ name: "css" }] });
+    await expect(runDiff({ cwd: dir, candidatePath: "candidate.json" })).rejects.toMatchObject({
+      code: "REFRACT_E_RAW_SHAPE",
+    });
+    // via the CLI it exits nonzero — never a silent exit 0 with a bogus diff.
+    const prev = process.cwd();
+    process.chdir(dir);
+    try {
+      expect(await main(["diff", "candidate.json"])).toBe(1);
+    } finally {
+      process.chdir(prev);
+    }
+  });
+
   it("main() dispatches diff — nonzero on a gate breach, zero otherwise", async () => {
     const dir = makeTmp("tk-diff-main-");
     writeFixtureConfig(dir);

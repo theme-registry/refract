@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/v/@theme-registry/refract)](https://www.npmjs.com/package/@theme-registry/refract)
 [![license](https://img.shields.io/npm/l/@theme-registry/refract)](LICENSE)
 
-**640 tests · 5 CI gates · six gzip-budgeted packages (core ≤30 KB).** Quality signals are drift-gated and surfaced on the [status page](https://theme-registry.github.io/refract/status).
+**647 tests · 5 CI gates · six gzip-budgeted packages (core ≤30 KB).** Quality signals are drift-gated and surfaced on the [status page](https://theme-registry.github.io/refract/status).
 
 A framework-agnostic design-token toolkit. You author one **raw theme**; refract
 compiles it into a single, format-neutral **Model** and lowers that Model to whatever
