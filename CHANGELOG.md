@@ -9,6 +9,24 @@ This project adheres to [Semantic Versioning](https://semver.org). While on `0.x
 carry breaking changes; **pin exact versions**. What is and isn't frozen is spelled out under
 [Stability](#stability) below.
 
+## 0.1.2
+
+Post-publish review pass — surface the rigor and close the silent-failure/drift traps. Additive; no
+breaking changes (a patch across the lockstep group).
+
+- **Fail loud on bad input.** `refract diff` rejects a mis-shaped candidate (e.g. a `defineConfig`
+  passed where the raw theme was wanted) with a coded `REFRACT_E_RAW_SHAPE` — via a new exported
+  `assertRawTheme` guard — instead of a nonsense "everything removed" diff at exit 0. The CLI now
+  surfaces a `RefractError`'s stable `code` and its collect-all failures.
+- **MCP bin robustness.** The `refract-mcp` server resolves symlinks and starts when launched through a
+  `node_modules/.bin` shim instead of silently exiting 0; the README documents the `reload` tool (11th)
+  and the named-vs-positional `getClass` shapes.
+- **Dogfood the auditor.** The `refract init` starter palette is retuned to pass its own WCAG `audit`.
+- **Docs can't drift.** Every self-contained doc example is compiled in CI; the status page surfaces the
+  test suite, CI gates, and CI-enforced gzip budgets (all drift-gated); the docs site serves `llms.txt`,
+  `manifest.json`, `sitemap.xml`, and `robots.txt` at its root; and the skills' `docs/` links are
+  repointed to canonical URLs so they resolve once installed.
+
 ## 0.1.1
 
 - Add a package README to every package so the npm page renders documentation. No API or output change.

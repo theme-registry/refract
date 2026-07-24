@@ -1,5 +1,13 @@
 # @theme-registry/refract-mcp
 
+## 0.1.2
+
+### Patch Changes
+
+- The bin entry resolves symlinks on both sides, so the server starts when launched through a `node_modules/.bin/refract-mcp` symlink instead of silently exiting 0; a start-up failure now exits non-zero with a message. Documents the `reload` tool (the README listed 10 of 11) and the named-vs-positional `getClass` argument shapes.
+- Updated dependencies
+  - @theme-registry/refract@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes

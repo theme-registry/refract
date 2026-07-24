@@ -1,5 +1,11 @@
 # @theme-registry/refract
 
+## 0.1.2
+
+### Patch Changes
+
+- Fail loud on bad input: `refract diff` rejects a mis-shaped candidate (e.g. a `defineConfig` passed where the raw theme was wanted) with a coded `REFRACT_E_RAW_SHAPE` — via a new exported `assertRawTheme` guard — instead of emitting a nonsense "everything removed" diff at exit 0. The CLI now surfaces a `RefractError`'s stable `code` and its collect-all failures. The `refract init` starter palette is retuned so it passes its own WCAG `audit` (all pairings clear AA). Skill docs links repointed to canonical URLs so they resolve once installed.
+
 ## 0.1.1
 
 ### Patch Changes
