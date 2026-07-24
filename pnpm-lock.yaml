@@ -153,6 +153,9 @@ importers:
       '@theme-registry/refract-css':
         specifier: workspace:^
         version: link:../refract-css
+      '@types/node':
+        specifier: ^24
+        version: 24.13.3
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
