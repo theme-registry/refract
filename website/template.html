@@ -4470,6 +4470,38 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <h2>Project status</h2>
           <p class="lead">refract is <b>beta</b>. Here's what that means concretely — what you can build on from day one, what's still moving, and what's next.</p>
 
+          <h3>Tested &amp; gated</h3>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">640</b> tests across <b data-q="testfiles">57</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
+                <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">640</b>-case suite</td></tr>
+                <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
+                <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Size budget <span class="st-sub">gzip · CI-enforced</span></h3>
+          <p>Each published surface carries a committed gzip ceiling in <code>size-budget.json</code>; a regression that pushes past it fails the build. The runtime you actually ship to a browser is <b>core + one adapter</b> — everything else is build-time only, or nothing at all if you emit CSS ahead of time.</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Package</th><th>Budget (gzip)</th></tr></thead>
+              <tbody>
+                <tr data-pkg="@theme-registry/refract"><td class="prop">@theme-registry/refract <span class="st-sub">runtime core</span></td><td><b>≤&nbsp;30&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract-css"><td class="prop">@theme-registry/refract-css</td><td><b>≤&nbsp;9&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract-styled-components"><td class="prop">@theme-registry/refract-styled-components</td><td><b>≤&nbsp;6.5&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract/dtcg"><td class="prop">@theme-registry/refract/dtcg <span class="st-sub">interop subpath</span></td><td><b>≤&nbsp;4.5&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract-scss"><td class="prop">@theme-registry/refract-scss</td><td><b>≤&nbsp;4&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract-json"><td class="prop">@theme-registry/refract-json</td><td><b>≤&nbsp;3&nbsp;KB</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="note"><b>Measured</b> footprint and compile cost — always under these ceilings — live in <a href="#perf">Performance &amp; footprint</a>. Reproduce everything yourself: <code>npm run bench</code> (compile timings) and <code>npm run size</code> (gzip vs budget), both in <code>scripts/</code>.</div>
+
           <h3>Stability</h3>
           <p>Two statuses. <b>Stable</b>: breaking changes are deliberate, announced events — safe to build on. <b>Experimental</b>: the shape may still change; pin your version and expect some churn.</p>
           <div class="tbl-wrap">

@@ -1,6 +1,10 @@
 # @theme-registry/refract
 
 [![CI](https://github.com/theme-registry/refract/actions/workflows/ci.yml/badge.svg)](https://github.com/theme-registry/refract/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@theme-registry/refract)](https://www.npmjs.com/package/@theme-registry/refract)
+[![license](https://img.shields.io/npm/l/@theme-registry/refract)](LICENSE)
+
+**640 tests · 5 CI gates · six gzip-budgeted packages (core ≤30 KB).** Quality signals are drift-gated and surfaced on the [status page](https://theme-registry.github.io/refract/status).
 
 A framework-agnostic design-token toolkit. You author one **raw theme**; refract
 compiles it into a single, format-neutral **Model** and lowers that Model to whatever
@@ -11,8 +15,9 @@ SCSS `$variables`, or plain JSON. One source of truth, many targets.
 raw theme ──▶ Model (format-neutral) ──▶ adapter ──▶ CSS │ styled-components │ SCSS │ JSON
 ```
 
-> **Status: pre-release (`0.x`).** The package publishes as `@theme-registry/refract`. Until the
-> first release lands it is not yet on npm; the snippets below describe the shipped surface.
+> **Status: pre-release (`0.x`).** Published on npm as `@theme-registry/refract` (with its adapter and
+> MCP packages) in a single lockstep `fixed` group. Pin exact versions through `0.x`; see
+> [Versioning](#versioning).
 
 ## Stability
 
