@@ -13,7 +13,7 @@ the theme and routes to the focused guide for whatever you're actually doing.
 
 **You are authoring input, not changing the engine.** Never edit the core or a subsystem to
 make a theme work — if the theme can't express something, that's a real gap to surface, not a
-patch. Full narrative reference lives in `docs/authoring.md`.
+patch. Full narrative reference lives in [`docs/authoring.md`](https://github.com/theme-registry/refract/blob/main/docs/authoring.md).
 
 ## Frame the theme
 

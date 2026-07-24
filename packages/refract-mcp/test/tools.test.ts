@@ -6,9 +6,10 @@
  * in the args (proving project-scoping). Also covers loading a real `theme.config` and reloading it.
  */
 import { describe, it, expect, afterAll } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createTheme, createNoopAdapter } from "@theme-registry/refract";
 import { createCssAdapter } from "@theme-registry/refract-css";
 import {
@@ -24,7 +25,7 @@ import {
   type NamedTheme,
   type Builder,
 } from "../src/tools";
-import { callTool, loadTheme, guideFiles, serverVersion, type Held } from "../src/server";
+import { callTool, loadTheme, guideFiles, serverVersion, isBinEntry, type Held } from "../src/server";
 
 const raw = {
   colors: {
@@ -297,5 +298,39 @@ describe("loadTheme — loads and reloads a project config", () => {
     writeConfig(dir, "#e8590c"); // edit the theme
     h = await loadTheme(cfg); // what the `reload` tool / fs.watch does
     expect((callTool("resolveToken", { path: "colors.brand" }, h) as { value: string }).value).toBe("rgb(232, 89, 12)");
+  });
+});
+
+describe("README documents exactly the registered tools (no drift)", () => {
+  const here = (p: string): string => fileURLToPath(new URL(p, import.meta.url));
+  it("the tool table lists every server tool and nothing extra", () => {
+    const server = readFileSync(here("../src/server.ts"), "utf8");
+    const readme = readFileSync(here("../README.md"), "utf8");
+    // Tool definitions in the server are `{ name: "x", description: … }` (resources lead with `uri`).
+    const registered = [...server.matchAll(/\{\s*name:\s*"([a-zA-Z]+)",\s*description:/g)].map((m) => m[1]).sort();
+    // README table rows: `| `x` | … |`
+    const documented = [...readme.matchAll(/^\|\s*`([a-zA-Z]+)`\s*\|/gm)].map((m) => m[1]).sort();
+    expect(documented).toEqual(registered);
+    expect(registered).toContain("reload"); // the tool the README used to omit
+  });
+});
+
+describe("bin entry guard (isBinEntry)", () => {
+  const self = "/pkg/dist/server.js";
+
+  it("starts when launched through a .bin symlink (resolves both sides)", () => {
+    // The failure mode: argv[1] is the symlink, import.meta.url is the real path — a raw compare misses.
+    const symlink = "/proj/node_modules/.bin/refract-mcp";
+    const real = (p: string): string => (p === symlink ? self : p);
+    expect(isBinEntry(symlink, self, real)).toBe(true);
+  });
+
+  it("starts when launched by its own real path", () => {
+    expect(isBinEntry(self, self, (p) => p)).toBe(true);
+  });
+
+  it("does NOT start when imported as a module (a different launched script)", () => {
+    expect(isBinEntry("/proj/node_modules/.bin/vitest", self, (p) => p)).toBe(false);
+    expect(isBinEntry(undefined, self, (p) => p)).toBe(false);
   });
 });

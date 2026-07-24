@@ -6,8 +6,10 @@
 //   5. drift     — Errors-table messages + emitted colour snippet match the live library (docs↔code gate)
 //   6. cssvalid  — every emitted declaration's property is a real CSS property (would have caught SITE-1)
 //   7. naming    — no documented variable name carries a double-dash separator (guards DOC-1)
+//   8. perf      — documented recipe-class / @media counts match a live compile
+//   9. quality   — status-page test counts + size-budget ceilings match reality (guards the rigor claims)
 // Run after `bundle.mjs`. Exits non-zero on any failure.
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PRESETS } from "../presets.mjs";
 
@@ -360,6 +362,51 @@ const fail = (msg) => { console.log("  ✗", msg); failures++; };
     if (+med !== liveMedia) { fail(`perf — doc says ${med} @media rules; live compile of "${richest.id}" has ${liveMedia}`); bad++; }
   }
   if (!bad) console.log(`  ✓ perf — ${pairs.length} documented perf claim(s) match the live "${richest.id}" compile (${liveClasses} recipe classes · ${liveMedia} @media)`);
+}
+
+// ── 9. quality — the status page's test counts + size-budget ceilings match reality ──
+// Guards the "surface the rigor" claims: if the committed size budget or the live test count moves but
+// the status page doesn't, this fails — the numbers an adopter reads can't drift from the repo.
+{
+  let bad = 0;
+
+  // 9a — size-budget ceilings shown per package match size-budget.json (the committed source).
+  const budget = JSON.parse(readFileSync(here("../../size-budget.json"), "utf8"));
+  const kbOf = (bytes) => bytes / 1024;
+  for (const [key, spec] of Object.entries(budget)) {
+    const npm = key.replace(/\s*\(runtime core\)/, "");
+    const esc = npm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = tpl.match(new RegExp(`data-pkg="${esc}"[\\s\\S]*?≤(?:&nbsp;|\\s)*([\\d.]+)(?:&nbsp;|\\s)*KB`));
+    if (!m) { fail(`quality 9a — no size-budget row on the status page for "${npm}" (data-pkg)`); bad++; continue; }
+    if (parseFloat(m[1]) !== kbOf(spec.maxGzip)) {
+      fail(`quality 9a — "${npm}": status page says ≤${m[1]} KB, size-budget.json says ≤${kbOf(spec.maxGzip)} KB`); bad++;
+    }
+  }
+
+  // 9b — the documented test-file / test-case counts match a live count of the repo's *.test.ts files.
+  const walk = (dir) => {
+    const out = [];
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === "node_modules" || e.name === "dist" || e.name.startsWith(".")) continue;
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) out.push(...walk(p));
+      else if (e.name.endsWith(".test.ts")) out.push(p);
+    }
+    return out;
+  };
+  const files = [...walk(here("../../packages")), ...walk(here("../../tests"))];
+  const liveFiles = files.length;
+  let liveCases = 0;
+  for (const f of files) liveCases += (readFileSync(f, "utf8").match(/\b(?:it|test)\(/g) || []).length;
+
+  const docFiles = [...tpl.matchAll(/data-q="testfiles">(\d+)</g)].map((m) => +m[1]);
+  const docCases = [...tpl.matchAll(/data-q="testcases">(\d+)</g)].map((m) => +m[1]);
+  if (!docFiles.length) { fail("quality 9b — no test-file count on the status page (data-q=\"testfiles\")"); bad++; }
+  if (!docCases.length) { fail("quality 9b — no test-case count on the status page (data-q=\"testcases\")"); bad++; }
+  for (const n of docFiles) if (n !== liveFiles) { fail(`quality 9b — status page says ${n} test files; live count is ${liveFiles}`); bad++; }
+  for (const n of docCases) if (n !== liveCases) { fail(`quality 9b — status page says ${n} test cases; live count is ${liveCases}`); bad++; }
+
+  if (!bad) console.log(`  ✓ quality — ${Object.keys(budget).length} size ceilings + ${liveFiles} test files · ${liveCases} cases match the status page`);
 }
 
 console.log(failures ? `\n✗ ${failures} check(s) failed` : "\n✓ all validation checks passed");

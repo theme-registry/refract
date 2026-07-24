@@ -71,4 +71,72 @@ for (const { id, title } of pages) {
 // and .nojekyll so GitHub Pages serves the tree verbatim.
 writeFileSync(`${distDir}/404.html`, shell);
 writeFileSync(`${distDir}/.nojekyll`, "");
-console.log(`prerendered ${n} routes to static HTML (${SITE_URL || "relative"} canonicals) + 404.html + .nojekyll`);
+
+// ── Agent-readable + crawler surfaces at the site root ──
+// The docs deep pages are prerendered above, but an agent or a crawler also wants a single index it
+// can fetch without executing JS. Emit four root files from the same route list: llms.txt (the
+// llmstxt.org convention), manifest.json (machine index), sitemap.xml, and robots.txt.
+const origin = SITE_URL || base.replace(/\/$/, ""); // full origin+base in CI; bare base path otherwise
+const urlFor = (id) => (id === "top" ? `${origin}/` : `${origin}/${id}`);
+const descFor = (id) => (leadOf(id) || GENERIC).replace(/\s+/g, " ").slice(0, 300);
+const xmlEsc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+
+// llms.txt — H1 + summary blockquote + a bullet per page (title, URL, one-line description).
+const llms = [
+  "# refract",
+  "",
+  "> @theme-registry/refract — a framework-agnostic theme compiler. Author one RawTheme; compile it to"
+    + " CSS, SCSS, JSON, or styled-components through a pluggable adapter. It stores a reference graph"
+    + " (not frozen values), so override() is a delta-merge and diffTheme shows a change's blast radius"
+    + " before you apply it.",
+  "",
+  "This file indexes the documentation for language models. Each link is a standalone, prerendered page.",
+  "",
+  "## Documentation",
+  "",
+  ...pages.map(({ id, title }) => `- [${id === "top" ? "Overview" : title}](${urlFor(id)}): ${descFor(id)}`),
+  "",
+  "## Tooling",
+  "",
+  "- The `@theme-registry/refract-mcp` package runs an MCP server exposing live theme queries"
+    + " (resolveToken, listTokens, listRecipes, getClass, checkContrast, validateTheme, diffTheme) plus"
+    + " `llms.txt` and `manifest.json` resources rendered from a project's own compiled theme.",
+  "",
+].join("\n");
+writeFileSync(`${distDir}/llms.txt`, llms);
+
+// manifest.json — machine index of the doc pages (schema-versioned so agents can bind to it).
+const manifest = {
+  name: "@theme-registry/refract",
+  description: GENERIC,
+  homepage: `${origin}/`,
+  schema: "docs-index/1",
+  generator: "website/scripts/prerender.mjs",
+  llms: `${origin}/llms.txt`,
+  pages: pages.map(({ id, title }) => ({
+    id,
+    title: id === "top" ? "Overview" : title,
+    url: urlFor(id),
+    description: descFor(id),
+  })),
+};
+writeFileSync(`${distDir}/manifest.json`, JSON.stringify(manifest, null, 2) + "\n");
+
+// sitemap.xml — one <url> per prerendered route.
+const sitemap = [
+  '<?xml version="1.0" encoding="UTF-8"?>',
+  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+  ...pages.map(({ id }) => `  <url><loc>${xmlEsc(urlFor(id))}</loc></url>`),
+  "</urlset>",
+  "",
+].join("\n");
+writeFileSync(`${distDir}/sitemap.xml`, sitemap);
+
+// robots.txt — allow all; point crawlers at the sitemap (absolute URL only when SITE_URL is set).
+const robots = ["User-agent: *", "Allow: /", ...(SITE_URL ? [`Sitemap: ${SITE_URL}/sitemap.xml`] : []), ""].join("\n");
+writeFileSync(`${distDir}/robots.txt`, robots);
+
+console.log(
+  `prerendered ${n} routes to static HTML (${SITE_URL || "relative"} canonicals) + 404.html + .nojekyll`
+    + `\nwrote root: llms.txt · manifest.json (${pages.length} pages) · sitemap.xml · robots.txt`,
+);

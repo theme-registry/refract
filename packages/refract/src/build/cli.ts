@@ -54,6 +54,19 @@ Commands:
   skills   Install the bundled AI skills into your agent CLI(s) (claude/codex/…).
 `;
 
+/**
+ * Uniform error reporter for a command's catch block. Surfaces a `RefractError`'s stable `code`
+ * (`[REFRACT_E_…] message`) so an agent or CI log sees the machine-readable code, and lists each
+ * collect-all `failure` — a plain `Error` just prints its message. Returns the exit code (1).
+ */
+function reportError(cmd: string, err: unknown): number {
+  const e = err as { code?: string; message?: string; failures?: readonly string[] };
+  const code = typeof e.code === "string" && e.code.startsWith("REFRACT_E_") ? `[${e.code}] ` : "";
+  process.stderr.write(`refract ${cmd}: ${code}${e.message ?? String(err)}\n`);
+  if (e.failures) for (const f of e.failures) process.stderr.write(`  - ${f}\n`);
+  return 1;
+}
+
 async function cmdInit(argv: string[]): Promise<number> {
   const { values } = parseArgs({
     args: argv,
@@ -77,8 +90,7 @@ async function cmdInit(argv: string[]): Promise<number> {
     process.stdout.write(`Next: edit the raw theme, then run \`refract build\`.\n`);
     return 0;
   } catch (err) {
-    process.stderr.write(`refract init: ${(err as Error).message}\n`);
-    return 1;
+    return reportError("init", err);
   }
 }
 
@@ -122,8 +134,7 @@ async function cmdImport(argv: string[]): Promise<number> {
     process.stdout.write(`Next: review the inferred tokens, then add recipes/components and run \`refract build\`.\n`);
     return 0;
   } catch (err) {
-    process.stderr.write(`refract import: ${(err as Error).message}\n`);
-    return 1;
+    return reportError("import", err);
   }
 }
 
@@ -152,8 +163,7 @@ async function cmdBuild(argv: string[]): Promise<number> {
     }
     return 0;
   } catch (err) {
-    process.stderr.write(`refract build: ${(err as Error).message}\n`);
-    return 1;
+    return reportError("build", err);
   }
 }
 
@@ -176,8 +186,7 @@ async function cmdTokens(argv: string[]): Promise<number> {
     process.stdout.write(`  ${result.groupCount} group(s) → ${result.outFile}\n`);
     return 0;
   } catch (err) {
-    process.stderr.write(`refract tokens: ${(err as Error).message}\n`);
-    return 1;
+    return reportError("tokens", err);
   }
 }
 
@@ -235,8 +244,7 @@ async function cmdDiff(argv: string[]): Promise<number> {
     }
     return 0;
   } catch (err) {
-    process.stderr.write(`refract diff: ${(err as Error).message}\n`);
-    return 1;
+    return reportError("diff", err);
   }
 }
 
@@ -279,8 +287,7 @@ async function cmdAudit(argv: string[]): Promise<number> {
     // Report mode: a failing audit is not a CLI error (exit 0). --strict makes `runAudit` throw first.
     return 0;
   } catch (err) {
-    process.stderr.write(`${(err as Error).message}\n`);
-    return 1;
+    return reportError("audit", err);
   }
 }
 
@@ -341,8 +348,7 @@ async function cmdSkills(argv: string[]): Promise<number> {
       }
       return 0;
     } catch (err) {
-      process.stderr.write(`refract skills list: ${(err as Error).message}\n`);
-      return 1;
+      return reportError("skills list", err);
     }
   }
 
@@ -405,8 +411,7 @@ async function cmdSkills(argv: string[]): Promise<number> {
     process.stderr.write(`refract skills: unknown subcommand "${sub}". Use install | list | update.\n`);
     return 1;
   } catch (err) {
-    process.stderr.write(`refract skills: ${(err as Error).message}\n`);
-    return 1;
+    return reportError("skills", err);
   }
 }
 

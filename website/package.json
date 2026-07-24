@@ -7,7 +7,7 @@
   "scripts": {
     "bundle": "node scripts/bundle.mjs",
     "build-docs": "node scripts/build.mjs",
-    "validate": "node scripts/validate.mjs",
+    "validate": "node scripts/validate.mjs && node scripts/snippets.mjs",
     "gen": "node scripts/gen-site.mjs",
     "dev": "node scripts/gen-site.mjs && vite --config site/vite.config.mjs",
     "site-build": "node scripts/gen-site.mjs && vite build --config site/vite.config.mjs && node scripts/prerender.mjs"

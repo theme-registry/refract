@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { createTheme, createNoopAdapter, defineAdapter, RefractError } from "@theme-registry/refract";
+import { createTheme, createNoopAdapter, defineAdapter, RefractError, assertRawTheme } from "@theme-registry/refract";
 
 const build = (raw: unknown) => createTheme(raw as never, { adapter: createNoopAdapter() });
 const codeOf = (fn: () => unknown): { code?: string; err: unknown } => {
@@ -168,6 +168,26 @@ describe("CORE-1 — documented build errors that must fire", () => {
     );
     expect(code).toBe("REFRACT_E_VALIDATION");
     expect((err as RefractError).failures!.some((f) => f.includes('is not defined in "colors:solid"'))).toBe(true);
+  });
+});
+
+describe("REFRACT_E_RAW_SHAPE (candidate shape guard)", () => {
+  it("rejects a defineConfig({ raw, targets }) passed where a RawTheme is required", () => {
+    // The documented `refract diff` trap — a config where the bare raw theme was wanted.
+    const { code, err } = codeOf(() => assertRawTheme({ raw: {}, targets: [{ name: "css" }] }));
+    expect(err).toBeInstanceOf(RefractError);
+    expect(code).toBe("REFRACT_E_RAW_SHAPE");
+  });
+
+  it("rejects a non-object (array / null / primitive)", () => {
+    expect(codeOf(() => assertRawTheme([])).code).toBe("REFRACT_E_RAW_SHAPE");
+    expect(codeOf(() => assertRawTheme(null)).code).toBe("REFRACT_E_RAW_SHAPE");
+    expect(codeOf(() => assertRawTheme(42)).code).toBe("REFRACT_E_RAW_SHAPE");
+  });
+
+  it("accepts a bare object — an empty theme is legitimately empty", () => {
+    expect(() => assertRawTheme({})).not.toThrow();
+    expect(() => assertRawTheme({ colors: { brand: { base: "#4c6ef5" } } })).not.toThrow();
   });
 });
 

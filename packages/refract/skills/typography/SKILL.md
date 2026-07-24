@@ -9,7 +9,7 @@ tier: core
 The `typography` key is an **open** map: each key is a type property holding a value, plus the
 reserved `recipes` block. Cross-cutting axes (`responsive`, `variants`, refs) are in
 **theme-foundations**; recipe mechanics are in **recipes-and-composition**. Exhaustive options live
-in `docs/authoring.md`.
+in [`docs/authoring.md`](https://github.com/theme-registry/refract/blob/main/docs/authoring.md).
 
 ## Type properties
 

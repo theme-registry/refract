@@ -10,7 +10,7 @@ refract's adapter contract is public and stable, so if the shipped adapters (CSS
 styled-components, JSON — see **adapter-usage**) don't target your format, you can write one **in
 your own project** — a small standalone npm package or just a local module. You depend only on the
 published `@theme-registry/refract`; you do **not** fork or clone the refract repo. Full contract
-reference: `docs/extending.md`.
+reference: [`docs/extending.md`](https://github.com/theme-registry/refract/blob/main/docs/extending.md).
 
 ## The contract
 
@@ -79,7 +79,7 @@ Use it like any adapter: `createTheme(raw, { adapter: createMyAdapter() })`.
 - Never import from a relative core path — always the published specifiers
   (`@theme-registry/refract`, `/adapter-kit`, `/color-math`).
 - Adapters are **not** subsystems; you don't register anything on core.
-- Read `docs/extending.md` for the full `ThemeModel` walk and the `emit()` file contract.
+- Read [`docs/extending.md`](https://github.com/theme-registry/refract/blob/main/docs/extending.md) for the full `ThemeModel` walk and the `emit()` file contract.
 
 *(Contributing an adapter back into the refract monorepo itself is a different, internal workflow —
 that's the repo's own `adapter-scaffold` contributor skill, not this one.)*

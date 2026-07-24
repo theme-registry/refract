@@ -22,6 +22,7 @@ against it, so the agent asks about *your* theme without ever resending it. It r
 | `checkContrast` | Do the theme's colour pairings pass WCAG-2 (+ advisory APCA)? |
 | `validateTheme` | Is a candidate theme valid on every configured target? — returns **every** problem at once (collect-all), per target. |
 | `diffTheme` | What's the blast radius of a candidate edit — which tokens moved, classes changed, pairings crossed a threshold, targets stopped building? |
+| `reload` | Reload the project's theme config from disk (also happens automatically on change). |
 
 `diffTheme` is the plan-then-apply guardrail: pass a **candidate edit** and it builds it against the
 project's real adapters and reports the blast radius *before* the agent writes — the claim a token file
@@ -30,6 +31,10 @@ an agent fixes all problems in one pass and catches adapter-level rules (unknown
 a generic check would miss. `getClass` / `resolveToken` read the real emitted names, so the prefix matches
 what ships. The query tools take no
 `theme` argument — they read the loaded project theme.
+
+Note: over MCP, `getClass` takes **named** arguments — `{ subsystem, group, variant }` (a JSON object,
+as the tool schema requires) — whereas the runtime `theme.getClass(subsystem, group, variant)` takes the
+same three **positionally**. Same identifiers, different call shape for the two surfaces.
 
 ## Architecture
 

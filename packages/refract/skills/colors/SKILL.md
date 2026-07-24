@@ -9,7 +9,7 @@ tier: core
 The `colors` key is an **open** map: each key is a palette name (`primary`, `neutral`, …)
 holding a colour value. The reserved `recipes` block holds palette recipes. Cross-cutting axes
 (`responsive`, `modes`, refs) are in **theme-foundations**; recipe mechanics are in
-**recipes-and-composition**. Exhaustive options live in `docs/authoring.md`.
+**recipes-and-composition**. Exhaustive options live in [`docs/authoring.md`](https://github.com/theme-registry/refract/blob/main/docs/authoring.md).
 
 ## A colour value
 

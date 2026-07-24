@@ -8,11 +8,11 @@
  * The tool logic lives in the pure `tools.ts`; `callTool` here is the transport-agnostic dispatch core
  * (unit-testable) — the SDK handler is a thin wrapper over it.
  */
-import { watch, readFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { watch, readFileSync, realpathSync } from "node:fs";
+import { dirname, basename } from "node:path";
 import { parseArgs } from "node:util";
 import { argv } from "node:process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -342,7 +342,40 @@ export async function start(args: string[]): Promise<void> {
   await createServer().connect(transport);
 }
 
-// Run when invoked as the bin entry (ESM: compare our URL to the launched script), not when imported by tests.
-if (argv[1] && import.meta.url === pathToFileURL(argv[1]).href) {
-  void start(argv.slice(2));
+const realpathOr = (p: string): string => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+};
+
+/**
+ * Is the launched script (`argv[1]`) this very module, resolving symlinks on BOTH sides? The published
+ * bin runs through a `node_modules/.bin/refract-mcp` symlink, so a raw path/URL compare misses (the
+ * symlink path ≠ the real dist path) and the server silently exits 0 — a hostile failure mode for
+ * something agents auto-spawn. Resolving through realpath fixes it. Pure + injectable `real` so the
+ * decision is unit-testable without spawning a process.
+ */
+export function isBinEntry(invokedAs: string | undefined, selfPath: string, real: (p: string) => string = realpathOr): boolean {
+  return invokedAs !== undefined && real(invokedAs) === real(selfPath);
+}
+
+// Auto-start only when invoked as the bin entry. If the launched file IS this file by name but its path
+// won't resolve to this module, say so loudly instead of no-op. A genuine module import (argv[1] is the
+// test runner, a different basename) stays silent.
+{
+  const invokedAs = argv[1];
+  const selfPath = fileURLToPath(import.meta.url);
+  if (isBinEntry(invokedAs, selfPath)) {
+    start(argv.slice(2)).catch((e) => {
+      process.stderr.write(`refract-mcp: failed to start — ${(e as Error).message}\n`);
+      process.exit(1);
+    });
+  } else if (invokedAs && basename(invokedAs) === basename(selfPath)) {
+    process.stderr.write(
+      `refract-mcp: launched as "${invokedAs}" but that path doesn't resolve to this module (${selfPath}); ` +
+        `not auto-starting. Use the \`refract-mcp\` bin or \`node ${selfPath}\`.\n`,
+    );
+  }
 }

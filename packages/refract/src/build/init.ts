@@ -66,8 +66,10 @@ export default defineConfig({
   raw: {
     breakpoints: { sm: 576, md: 768, lg: 1024, xl: 1280 },
     colors: {
-      primary: { base: "#4dabf7", text: "#fff", variants: { dark: "#1c7ed6", light: "#a5d8ff" } },
-      neutral: { base: "#868e96", text: "#fff", variants: { light: "#f1f3f5", dark: "#343a40" } },
+      // Starter palette passes its own contrast audit (WCAG AA): white text clears 4.5:1 on both
+      // bases. Keep that when you retune — the auditor is a shipped feature; the default should model it.
+      primary: { base: "#1864ab", text: "#fff", variants: { dark: "#0b4a86", light: "#a5d8ff" } },
+      neutral: { base: "#495057", text: "#fff", variants: { light: "#f1f3f5", dark: "#212529" } },
       recipes: {
         solid: {
           primary: { background: "primary", color: "primary.text" },

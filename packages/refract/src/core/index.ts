@@ -10,6 +10,7 @@ export * from "./derive";
 export * from "./types";
 export * from "./subsystem";
 export * from "./rawTheme";
+export * from "./assertRawTheme";
 export * from "./ThemeAdapter";
 export * from "./defineAdapter";
 export * from "./noopAdapter";
