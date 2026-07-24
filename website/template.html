@@ -170,6 +170,18 @@
     }
     .sidebar.open { transform: translateX(0); }
     .menu-btn { display: inline-flex; }
+    /* The top bar is a single non-wrapping row; without these it overflows a phone. The page-filter
+       search is a desktop nicety (the drawer is the primary nav on mobile), so it and the version chip
+       give up their width first. The live preset switcher stays — it's the showcase. */
+    .tb-inner { padding: 10px 14px; gap: 10px; }
+    .tb-search { display: none; }
+    .brand .version { display: none; }
+    .presets { max-width: 46vw; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .presets::-webkit-scrollbar { display: none; }
+  }
+  @media (max-width: 560px) {
+    .tb-inner { padding: 9px 11px; gap: 8px; }
+    .ghlink { display: none; }
   }
   /* hamburger + off-canvas backdrop (mobile nav) */
   .menu-btn { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; margin-right: 2px; flex: none; border: 1px solid var(--rf-line); background: var(--rf-panel); color: var(--rf-ink-soft); border-radius: 9px; cursor: pointer; }
@@ -5157,26 +5169,19 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
     wrap.appendChild(b);
   });
 
-  // ── client-side pages: one nav item = one view (hash router) ──
-  var navAnchors = Array.prototype.slice.call(document.querySelectorAll("nav.sub a"));
-  var links = {}, routeOrder = [];
-  navAnchors.forEach(function (a) {
-    var id = a.getAttribute("href").replace(/^[#/]/, "") || "top";
-    links[id] = a; if (routeOrder.indexOf(id) < 0) routeOrder.push(id);
-  });
-  var pageEls = {};
-  routeOrder.forEach(function (id) { var el = document.getElementById(id); if (el) { el.classList.add("page"); pageEls[id] = el; } });
-  var pagerEl = document.getElementById("pager");
-  // Path-aware routing: the deployed site (http) uses clean History-API paths (/p-colors); the
+  // ── client-side pages: one nav item = one view (path/hash router) ──
+  // Path-aware routing: the deployed site (http) uses clean History-API paths (/errors); the
   // self-contained artifact (file://) falls back to hash. Both derive the page id the same way.
   var pathMode = (location.protocol || "").indexOf("http") === 0;
   // Base path for a subpath deploy (e.g. "/refract/"), injected by gen-site from Vite's BASE_URL;
-  // absent in the self-contained artifact → "/". Normalized to a trailing slash.
+  // absent in the self-contained artifact → "/". Normalized to a trailing slash. Defined BEFORE the nav
+  // setup below because the id derivation depends on it (a subpath deploy must strip the base first).
   var BASE = window.__SITE_BASE__ || "/";
   if (BASE.charAt(BASE.length - 1) !== "/") BASE += "/";
   function stripBase(p) {
     if (BASE !== "/" && p.indexOf(BASE) === 0) p = p.slice(BASE.length);
-    return p.replace(/^[#/]+/, "");
+    // strip the leading #/ AND any trailing slash — GitHub Pages serves a route as "/errors/".
+    return p.replace(/^[#/]+/, "").replace(/\/+$/, "");
   }
   function linkHref(id) { return pathMode ? BASE + (id === "top" ? "" : id) : "#" + id; }
   function routeIdFromLocation() {
@@ -5184,6 +5189,15 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
     if (h) return h;
     return stripBase(location.pathname || "") || "top";
   }
+  var navAnchors = Array.prototype.slice.call(document.querySelectorAll("nav.sub a"));
+  var links = {}, routeOrder = [];
+  navAnchors.forEach(function (a) {
+    var id = stripBase(a.getAttribute("href")) || "top";
+    links[id] = a; if (routeOrder.indexOf(id) < 0) routeOrder.push(id);
+  });
+  var pageEls = {};
+  routeOrder.forEach(function (id) { var el = document.getElementById(id); if (el) { el.classList.add("page"); pageEls[id] = el; } });
+  var pagerEl = document.getElementById("pager");
   var labelFor = function (id) { return links[id] ? links[id].textContent.trim() : id; };
   var pagerLink = function (id, dir) {
     if (!id || !pageEls[id]) return "<span></span>";
