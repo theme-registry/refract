@@ -161,6 +161,15 @@
   nav.sub a.active::before { content: ""; position: absolute; left: -1.5px; top: 0; bottom: 0; width: 1.5px; background: var(--rf-accent); }  /* active segment of the guide line */
   nav.sub a[hidden] { display: none; }
   .side-empty { font-size: 12px; color: var(--rf-ink-faint); padding: 6px 10px; display: none; }
+
+  /* hamburger + off-canvas backdrop (mobile nav) — MUST stay above the max-width:940px block: a media
+     query adds no specificity, so a later `display: none` here would beat the drawer's inline-flex. */
+  .menu-btn { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; margin-right: 2px; flex: none; border: 1px solid var(--rf-line); background: var(--rf-panel); color: var(--rf-ink-soft); border-radius: 9px; cursor: pointer; }
+  .menu-btn:hover { color: var(--rf-ink); }
+  .nav-backdrop { position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.42); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  .nav-backdrop.show { opacity: 1; pointer-events: auto; }
+  body.nav-open { overflow: hidden; }
+
   @media (max-width: 940px) {
     .docs { grid-template-columns: 1fr; }
     .sidebar {
@@ -182,13 +191,11 @@
   @media (max-width: 560px) {
     .tb-inner { padding: 9px 11px; gap: 8px; }
     .ghlink { display: none; }
+    /* Two 170px-min pager cards side by side don't fit a 320px phone — stack them. */
+    .pager { flex-direction: column; }
+    .pager a { min-width: 0; }
+    .pager a.next { margin-left: 0; }
   }
-  /* hamburger + off-canvas backdrop (mobile nav) */
-  .menu-btn { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; margin-right: 2px; flex: none; border: 1px solid var(--rf-line); background: var(--rf-panel); color: var(--rf-ink-soft); border-radius: 9px; cursor: pointer; }
-  .menu-btn:hover { color: var(--rf-ink); }
-  .nav-backdrop { position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.42); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
-  .nav-backdrop.show { opacity: 1; pointer-events: auto; }
-
   /* subtle switch feedback */
   .refract-sweep { position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: 0; }
   .refract-sweep.go { animation: sweep .5s ease; }
@@ -209,7 +216,12 @@
   .toc a:hover { color: var(--rf-ink); }
   .toc a.active { color: var(--rf-accent); border-left-color: var(--rf-accent); }
   .toc a.h3.active { color: var(--rf-accent); }
-  @media (max-width: 1200px) { main { grid-template-columns: 1fr; } .toc { display: none !important; } }
+  /* Below the TOC breakpoint main is a single column — drop the grid entirely rather than setting
+     `1fr`. A `1fr` track floors at the content's min-content width (the widest `min-width` table /
+     code block wins), which stretched .inner past the viewport and scrolled the whole page sideways;
+     as a plain block, .inner is viewport-width and those wide children scroll inside their own
+     overflow containers instead. */
+  @media (max-width: 1200px) { main { display: block; } .toc { display: none !important; } }
 
   /* hero */
   .hero { padding-bottom: 30px; margin-bottom: 10px; border-bottom: 1px solid var(--rf-line); }
@@ -254,6 +266,10 @@
   .doc-section h4 { margin: 20px 0 8px; font-size: 12.5px; font-weight: 650; color: var(--rf-ink); font-family: var(--rf-mono); }
   .doc-section > ul, .doc-section > ol { color: var(--rf-ink-soft); font-size: 15.5px; line-height: 1.7; margin: 0 0 16px; padding-left: 22px; }
   .doc-section > ul li, .doc-section > ol li { margin: 6px 0; }
+  /* Inline code in prose carries long unbreakable identifiers (`styled.button`${componentsButtonsPrimary…`)
+     that are wider than a phone column; let them break rather than push the page sideways. Block code
+     keeps its own horizontal scroll — this is inline `code` only. */
+  :not(pre) > code { overflow-wrap: anywhere; }
   /* colours: step-ladder + harmony-wheel visualizations */
   .cv-ladder { display: flex; gap: 3px; margin: 4px 0 10px; height: 58px; border-radius: 10px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--rf-line); }
   .cv-rung { flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; }
@@ -3465,6 +3481,7 @@ spacing.responsive: [{ breakpoint: <span class="s">"sm"</span>, target: <span cl
   <span class="s">"[subsystem]"</span>: { <span class="c">/* … a subsystem slice … */</span> },       <span class="c">// colors / typography / layout / …</span>
 }</pre>
           </div>
+          <div class="tbl-wrap">
           <table class="doc-table">
             <thead><tr><th>Registry</th><th>Shape</th><th>Referenced by</th></tr></thead>
             <tbody>
@@ -3474,6 +3491,7 @@ spacing.responsive: [{ breakpoint: <span class="s">"sm"</span>, target: <span cl
               <tr><td class="prop">extends.prefix</td><td class="ty">string</td><td>The parent theme's CSS-variable prefix, used to lower a path-form <code>external</code> token (<a href="#r-values">Values</a>).</td></tr>
             </tbody>
           </table>
+          </div>
           <div class="note">Registries are validated up-front — a <code>responsive</code> breakpoint, container name, or <code>mode</code> that isn't declared is a build <a href="#errors">error</a>, not silent output.</div>
         </section>
 
@@ -3565,6 +3583,7 @@ responsive: [                                     <span class="c">// LIST — ov
   { breakpoint: <span class="s">"[breakpoint name]"</span>, mode: <span class="s">"[mode name]"</span>, <span class="c">/* override set */</span> },
 ]</pre>
           </div>
+          <div class="tbl-wrap">
           <table class="doc-table">
             <thead><tr><th>Axis</th><th>Shape</th><th>Effect</th></tr></thead>
             <tbody>
@@ -3573,6 +3592,7 @@ responsive: [                                     <span class="c">// LIST — ov
               <tr><td class="prop">responsive</td><td class="ty">list</td><td>Override at a <code>breakpoint</code> (+ <code>query</code>/<code>orientation</code>/<code>mode</code>). <code>ref</code> (read) and <code>target</code> (write) compose. See <a href="#c-responsive">Responsive</a>.</td></tr>
             </tbody>
           </table>
+          </div>
           <div class="note"><b>WHERE — <code>target</code>.</b> On a mode it scopes the override onto a variant's var; on a recipe <code>state</code> it scopes onto a <code>&lt;item&gt;-&lt;variant&gt;</code> sibling — so two same-condition entries can behave differently. Omit → the base var / base rule.</div>
         </section>
 
@@ -5443,10 +5463,20 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
     sidebarEl.classList.toggle("open", open);
     if (backdrop) backdrop.classList.toggle("show", open);
     if (menuBtn) menuBtn.setAttribute("aria-expanded", String(open));
+    // The drawer covers the viewport edge-to-edge on a phone; without this the page behind it
+    // scrolls under the finger instead of the nav list.
+    document.body.classList.toggle("nav-open", open);
   }
   if (menuBtn) menuBtn.addEventListener("click", function () { setNav(!sidebarEl.classList.contains("open")); });
   if (backdrop) backdrop.addEventListener("click", function () { setNav(false); });
   document.querySelectorAll("nav.sub a").forEach(function (a) { a.addEventListener("click", function () { setNav(false); }); });
+  // The hamburger sits under the backdrop once open, so Escape is the only keyboard way back out.
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && sidebarEl && sidebarEl.classList.contains("open")) {
+      setNav(false);
+      if (menuBtn) menuBtn.focus();
+    }
+  });
 
   // ── skip-to-content: move focus without tripping the hash router ──
   var skipLink = document.getElementById("skipLink");
