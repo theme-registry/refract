@@ -1,5 +1,12 @@
 # @theme-registry/refract-styled-components
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [e6861d2]
+  - @theme-registry/refract@0.1.4
+
 ## 0.1.3
 
 ### Patch Changes
