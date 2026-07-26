@@ -6,7 +6,7 @@
  * Everything a finger does — arrows, wrapping, space, `a`, Enter, Ctrl-C — is covered here.
  */
 import { describe, expect, it } from "vitest";
-import { applyKey, decodeKey, decodeKeys, Prompter, type ListKey, type ListState } from "@theme-registry/refract/build";
+import { applyKey, decodeKey, decodeKeys, swatch, Prompter, type ListKey, type ListState } from "@theme-registry/refract/build";
 
 const start = (over: Partial<ListState> = {}): ListState => ({
   cursor: 0,
@@ -160,5 +160,66 @@ describe("decodeKeys — one event, several keys", () => {
   it("handles a single key and an empty chunk", () => {
     expect(decodeKeys("j")).toEqual(["down"]);
     expect(decodeKeys("")).toEqual([]);
+  });
+});
+
+describe("swatch", () => {
+  /**
+   * Force a colour-capable stdout for the duration of one check.
+   *
+   * Note the deletes: assigning `undefined` to a process.env key stores the STRING "undefined",
+   * which is truthy — so NO_COLOR would read as set and every swatch would come back empty.
+   */
+  const withTTY = (fn: () => void, env: Record<string, string> = {}) => {
+    const isTTY = process.stdout.isTTY;
+    const saved = { COLORTERM: process.env.COLORTERM, NO_COLOR: process.env.NO_COLOR };
+    Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+    delete process.env.COLORTERM;
+    delete process.env.NO_COLOR;
+    Object.assign(process.env, env);
+    try {
+      fn();
+    } finally {
+      Object.defineProperty(process.stdout, "isTTY", { value: isTTY, configurable: true });
+      delete process.env.COLORTERM;
+      delete process.env.NO_COLOR;
+      if (saved.COLORTERM !== undefined) process.env.COLORTERM = saved.COLORTERM;
+      if (saved.NO_COLOR !== undefined) process.env.NO_COLOR = saved.NO_COLOR;
+    }
+  };
+
+  it("emits an exact 24-bit block when the terminal advertises truecolor", () => {
+    withTTY(() => {
+      // #4c6ef5 → rgb(76,110,245)
+      expect(swatch("#4c6ef5")).toContain("48;2;76;110;245");
+    }, { COLORTERM: "truecolor" });
+  });
+
+  it("falls back to the 256-colour cube when COLORTERM is unset", () => {
+    // Apple Terminal never sets COLORTERM; skipping entirely would delete the feature there.
+    withTTY(() => {
+      const s = swatch("#4c6ef5");
+      expect(s).toContain("48;5;");
+      expect(s).not.toContain("48;2;");
+    });
+  });
+
+  it("emits nothing when NO_COLOR is set, so redirected output stays clean", () => {
+    withTTY(() => {
+      expect(swatch("#4c6ef5")).toBe("");
+    }, { NO_COLOR: "1" });
+  });
+
+  it("ignores anything that is not a hex colour", () => {
+    withTTY(() => {
+      expect(swatch("rebeccapurple")).toBe("");
+      expect(swatch("#abc")).toBe("");
+    }, { COLORTERM: "truecolor" });
+  });
+
+  it("honours the requested width", () => {
+    withTTY(() => {
+      expect(swatch("#000000", 4)).toContain("    ");
+    }, { COLORTERM: "truecolor" });
   });
 });

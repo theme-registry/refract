@@ -9,7 +9,7 @@
  * non-interactive-safe, so the same function serves a human at a terminal and a scripted run.
  */
 import type { Prompter } from "./prompt";
-import { dim, green, yellow } from "./prompt";
+import { dim, green, swatch, yellow } from "./prompt";
 import {
   FEEL_PRESETS,
   defaultSchemeFor,
@@ -22,7 +22,23 @@ import {
   type ScaffoldAnswers,
 } from "./scaffold";
 import type { CreateResult, RawFormat } from "./createCommand";
-import { parseColor, rgbToOklch } from "../subsystems/colors/utils";
+import { convertRgbToHex, parseColor, rgbToOklch, rotateHue } from "../subsystems/colors/utils";
+
+/**
+ * The hues a scheme derives from a seed — the same rotations the generator will bake, so the
+ * preview beside each option is the palette you'd actually get, not an illustration.
+ */
+const SCHEME_ROTATIONS: Readonly<Record<string, readonly number[]>> = {
+  complement: [180],
+  analogous: [-30, 30],
+  "split-complement": [150, 210],
+  triadic: [120, 240],
+  tetradic: [90, 180, 270],
+  pentadic: [72, 144, 216, 288],
+};
+
+const schemeHues = (seedHex: string, scheme: string): string[] =>
+  (SCHEME_ROTATIONS[scheme] ?? []).map(deg => convertRgbToHex(parseColor(rotateHue(seedHex, deg)).rgb));
 
 /** What each harmony scheme is for, in one line — the names mean nothing to most people. */
 export const SCHEME_HINTS: Readonly<Record<string, string>> = {
@@ -88,7 +104,11 @@ const isColor = (v: string): string | undefined => {
 export async function promptCreateAnswers(p: Prompter, given: InterviewGiven = {}): Promise<InterviewAnswers> {
   const seed = given.seed ?? (await p.text("Primary colour", "#4c6ef5", isColor));
   const lightness = Math.round(rgbToOklch(parseColor(seed).rgb).L * 10) / 10;
-  p.write(`  ${dim(`parsed · lightness ${lightness}% — lands at ≈${nearestLadderStep(lightness)} on the ladder`)}`);
+  const seedHex = convertRgbToHex(parseColor(seed).rgb);
+  const chip = swatch(seedHex, 3);
+  p.write(
+    `  ${chip ? `${chip} ` : ""}${dim(`${seedHex} · lightness ${lightness}% — lands at ≈${nearestLadderStep(lightness)} on the ladder`)}`,
+  );
   p.write();
 
   const manual = Boolean(given.manual);
@@ -114,9 +134,16 @@ export async function promptCreateAnswers(p: Prompter, given: InterviewGiven = {
     const options = schemesFor(brandCount);
     scheme = (given.scheme as BrandScheme | undefined) ?? defaultSchemeFor(brandCount);
     if (!given.scheme && options.length > 1) {
+      // Show the hues each scheme actually produces. "split-complement" is a word; two blocks of
+      // real colour beside the seed is the thing you're choosing between.
       scheme = await p.select<BrandScheme>(
         "Harmony scheme",
-        options.map(s => ({ value: s, label: s, hint: SCHEME_HINTS[s] })),
+        options.map(s => ({
+          value: s,
+          label: s,
+          hint: SCHEME_HINTS[s],
+          swatches: [seedHex, ...schemeHues(seedHex, s)],
+        })),
         Math.max(0, options.indexOf(scheme as BrandScheme)),
       );
     }
