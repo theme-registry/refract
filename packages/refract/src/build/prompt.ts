@@ -39,6 +39,43 @@ export interface Choice<T> {
   readonly label: string;
   /** Trailing grey note — what this option means. */
   readonly hint?: string;
+  /**
+   * Hex colours to draw as blocks beside the label.
+   *
+   * This is a theme scaffolder: "triadic" and "split-complement" mean nothing as words, and the
+   * terminal can simply show the hues. Ignored when the terminal can't do 24-bit colour.
+   */
+  readonly swatches?: readonly string[];
+}
+
+/**
+ * Does this terminal do 24-bit colour? `COLORTERM` is the only real signal, and plenty of capable
+ * terminals (Apple Terminal among them) never set it — so a missing value means "approximate", not
+ * "give up". Gating swatches on truecolor alone would silently delete them for those users.
+ */
+const truecolor = (): boolean => /truecolor|24bit/i.test(process.env.COLORTERM ?? "");
+
+/** Nearest xterm-256 colour-cube index for an RGB triple — the fallback when 24-bit isn't offered. */
+const to256 = (r: number, g: number, b: number): number => {
+  const axis = (v: number): number => (v < 48 ? 0 : v < 114 ? 1 : Math.min(5, Math.round((v - 35) / 40)));
+  return 16 + 36 * axis(r) + 6 * axis(g) + axis(b);
+};
+
+/**
+ * `#rrggbb` → a coloured block: exact in 24-bit terminals, approximated in 256-colour ones, and
+ * empty when there's no colour at all (a pipe, `NO_COLOR`) so redirected output stays clean.
+ *
+ * Approximating is right here — the swatch is a preview, and the exact value is written to the theme
+ * file regardless. An approximately-right hue beats a blank space.
+ */
+export function swatch(hex: string, width = 2): string {
+  if (!useColor()) return "";
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return "";
+  const n = parseInt(m[1], 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const bg = truecolor() ? `48;2;${r};${g};${b}` : `48;5;${to256(r, g, b)}`;
+  return `\u001b[${bg}m${" ".repeat(width)}\u001b[0m`;
 }
 
 /** The keys a list prompt understands, after decoding an stdin chunk. */
@@ -255,13 +292,24 @@ export class Prompter {
 
     const help = multi ? "↑↓ move · space toggle · a all · enter confirm" : "↑↓ move · enter select";
 
+    // Pad labels so the hints line up into a column — a ragged right edge is most of why a long
+    // option list reads as noise.
+    const widest = choices.reduce((w, c) => Math.max(w, c.label.length), 0);
+
     const frame = (): string => {
       const rows = choices.map((c, i) => {
         const here = i === state.cursor;
-        const mark = multi ? (state.selected.has(i) ? green("◉") : dim("◯")) : here ? green("❯") : " ";
+        // Focus and selection are SEPARATE signals and both need to be visible: the caret says
+        // where you are, the box says what's chosen. Showing only one (as this did) leaves a
+        // multi-select where you can't tell what the keys will act on.
+        const caret = here ? green("❯") : " ";
+        const box = multi ? (state.selected.has(i) ? green("[✓]") : dim("[ ]")) : "";
         const name = here ? bold(c.label) : c.label;
-        const hint = c.hint ? ` ${dim(`— ${c.hint}`)}` : "";
-        return `  ${mark} ${name}${hint}`;
+        const pad = " ".repeat(Math.max(0, widest - c.label.length));
+        const blocks = (c.swatches ?? []).map(s => swatch(s)).filter(Boolean).join(" ");
+        const art = blocks ? `  ${blocks}` : "";
+        const hint = c.hint ? `  ${dim(c.hint)}` : "";
+        return `  ${caret} ${box ? `${box} ` : ""}${name}${pad}${art}${hint}`;
       });
       return [`${cyan("?")} ${bold(label)} ${dim(help)}`, ...rows].join("\n");
     };
