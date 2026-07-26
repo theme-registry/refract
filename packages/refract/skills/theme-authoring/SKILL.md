@@ -39,6 +39,9 @@ patch. Full narrative reference lives in [`docs/authoring.md`](https://github.co
 
 ## Route to the right guide
 
+- **No theme yet, starting from nothing** → **theme-scaffold**. `refract create` generates a
+  contrast-checked starting palette, type scale and spacing ramp from one seed colour; don't
+  hand-write a first theme from a blank file. (It emits *tokens only* — no recipes.)
 - **Any recipe, states, `variants`, or `components` composition** → **recipes-and-composition**.
   Recipes work identically across every subsystem, so that vocabulary lives in one place.
 - **A specific token domain** (palettes, type scale, spacing, effects) → the domain guide above.
