@@ -49,6 +49,7 @@
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.6",
     "@theme-registry/refract-css": "workspace:^",
+    "@types/node": "^24",
     "rimraf": "^5.0.5",
     "rollup": "^3.29.4",
     "typescript": "^5.4.2",
