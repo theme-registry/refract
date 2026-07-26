@@ -1,0 +1,58 @@
+{
+  "name": "create-refract-theme",
+  "version": "0.1.0",
+  "description": "Scaffold a publishable design-system package powered by refract — one seed colour in, a theme package out.",
+  "keywords": [
+    "refract",
+    "design-tokens",
+    "design-system",
+    "theme",
+    "scaffold",
+    "create"
+  ],
+  "author": {
+    "name": "Petyo Stoyanov",
+    "email": "petyosv@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theme-registry/refract.git",
+    "directory": "packages/create-refract-theme"
+  },
+  "bugs": {
+    "url": "https://github.com/theme-registry/refract/issues"
+  },
+  "homepage": "https://github.com/theme-registry/refract#readme",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-refract-theme": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "/dist"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "clean": "rimraf dist",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@theme-registry/refract": "workspace:^"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@theme-registry/refract-css": "workspace:^",
+    "@types/node": "^24",
+    "rimraf": "^5.0.5",
+    "rollup": "^3.29.4",
+    "typescript": "^5.4.2",
+    "vitest": "^4.1.10"
+  }
+}

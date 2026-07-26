@@ -72,6 +72,21 @@ npm install @theme-registry/refract
 `styled-components` and `typescript` are **optional** peers — only needed if you use the
 styled-components adapter or the `.ts` build config, respectively.
 
+## Scaffold a theme
+
+Don't start from a blank file. One seed colour becomes a full theme — palettes with tonal ladders,
+semantic colours, a type scale with derived leading, a spacing ramp — with every colour checked
+against **WCAG contrast before the file is written**:
+
+```bash
+npx refract create                 # in an existing project → theme.raw.ts
+npm create refract-theme my-theme  # from nothing → a publishable theme package
+```
+
+The generator runs **once**; what it writes is an ordinary theme file you own and edit. It emits
+**tokens only** — no recipes, so nothing composes into a class list yet. That's the next step, and
+it's design work: see [Recipes](https://theme-registry.github.io/refract/r-recipes).
+
 ## Quick start
 
 `createTheme(raw, { adapter })` builds the theme. The `adapter` is **required** — core
@@ -151,7 +166,8 @@ Write your own with `defineAdapter(spec)` — you fill four primitives (`recipeN
 ## Build to disk (CLI)
 
 ```bash
-npx refract init      # scaffold a theme.config.(ts|js|mjs)
+npx refract create    # design a theme.raw.(ts|js|json) from one seed colour
+npx refract init      # scaffold a theme.config.(ts|js|mjs) — imports theme.raw.* if present
 npx refract build     # load the config → write every target's files to its outDir
 npx refract tokens    # export theme.tokens as a DTCG tokens.json (adapter-free)
 ```
