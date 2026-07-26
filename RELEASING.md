@@ -39,6 +39,40 @@ package whose version isn't already on the registry: run `pnpm version-packages`
 then `pnpm release` publishes core **and** the initializer, with the dependency rewritten to the
 version that just went out. Only reach for a standalone initializer publish when core is unchanged.
 
+### npm token scope
+
+The publish token is a **granular access token**. Granular tokens scope by package or by *scope* — a
+`@theme-registry` grant covers packages created in that scope later, which is why a new scoped package
+publishes without touching the token. `create-refract-theme` is **unscoped**, so it belongs to no
+scope and had to be added to the token's allowlist by name.
+
+That's a chicken-and-egg on a first publish: a package that doesn't exist yet can't be selected. It
+was resolved once, by hand, with a short-lived **all-packages** token:
+
+```sh
+cd packages/create-refract-theme
+printf '//registry.npmjs.org/:_authToken=%s\n' "$TOKEN" > /tmp/pub.npmrc
+NPM_CONFIG_USERCONFIG=/tmp/pub.npmrc pnpm publish --access public   # isolated; ~/.npmrc untouched
+rm -f /tmp/pub.npmrc
+```
+
+Only needed again for the **next new unscoped package**. Publish with `pnpm`, never `npm` — only pnpm
+rewrites `workspace:^` to a real range, and `npm publish` would ship a spec no consumer can resolve.
+
+### Smoke test after a release
+
+Workspace links hide packaging bugs — a missing dependency resolves from a sibling, and a bin that
+never runs looks fine when invoked directly. Three such bugs shipped as far as a packed tarball before
+being caught. So after publishing, install from the registry as a user would:
+
+```sh
+cd $(mktemp -d)
+npx create-refract-theme@latest my-theme --yes
+cd my-theme && npm install && npm run build && npm run audit && npm run typecheck
+```
+
+Expect a `dist/css/theme.css` and `7/7 pass, 0 fail`.
+
 ## Versioning model (0.x)
 
 The six above are in one **`fixed` group** (`.changeset/config.json`): they share a single version and
