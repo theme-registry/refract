@@ -88,7 +88,16 @@ export function packageJson(spec: ProjectSpec): string {
     if (a.id === "styled-components") exportsMap["./sc"] = `./${a.outDir}/${a.entryFile}`;
   }
 
-  const devDeps: Record<string, string> = { "@theme-registry/refract": spec.refractRange };
+  // `typescript` is an OPTIONAL peer of refract, but this scaffold writes a `.ts` config (and a
+  // tsconfig), and the build transpiles that config — so for this project it isn't optional at all.
+  // Without it the very first `npm run build` fails on a fresh install.
+  // `@types/node` because the generated tsconfig asks for the node type library — and the JSON
+  // flavour's config genuinely uses `readFileSync` and `import.meta.url`, so it isn't decorative.
+  const devDeps: Record<string, string> = {
+    "@theme-registry/refract": spec.refractRange,
+    "@types/node": "^24",
+    typescript: "^5.4.2",
+  };
   for (const a of spec.adapters) devDeps[a.pkg] = spec.refractRange;
 
   return `${JSON.stringify(
@@ -102,6 +111,7 @@ export function packageJson(spec: ProjectSpec): string {
       exports: exportsMap,
       scripts: {
         build: "refract build",
+        typecheck: "tsc -p tsconfig.json",
         audit: "refract audit",
         tokens: "refract tokens --out dist/tokens.json",
         diff: "refract diff",

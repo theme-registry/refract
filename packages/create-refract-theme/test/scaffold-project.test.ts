@@ -68,6 +68,28 @@ describe("scaffoldProject — the project it writes", () => {
     expect(pkg.scripts.prepublishOnly).toBe("npm run build");
   });
 
+  it("declares everything the generated files need to build", () => {
+    // The scaffold writes a .ts config, and refract transpiles it at build time — so `typescript`,
+    // an *optional* peer of refract, is mandatory for this project. Without it the very first
+    // `npm run build` on a fresh install dies before emitting anything.
+    const result = scaffold();
+    const pkg = JSON.parse(readFileSync(join(result.directory, "package.json"), "utf8"));
+    expect(existsSync(join(result.directory, "theme.config.ts"))).toBe(true);
+    expect(pkg.devDependencies.typescript).toBeDefined();
+    // Every type library the generated tsconfig asks for must be installable, or `npm run typecheck`
+    // dies with TS2688 on a fresh install.
+    const tsconfigJson = JSON.parse(readFileSync(join(result.directory, "tsconfig.json"), "utf8"));
+    for (const t of (tsconfigJson.compilerOptions?.types ?? []) as string[]) {
+      expect(pkg.devDependencies[`@types/${t}`], `types:["${t}"] but @types/${t} not declared`).toBeDefined();
+    }
+    // Every adapter wired into the config must be installable too.
+    const config = readFileSync(join(result.directory, "theme.config.ts"), "utf8");
+    for (const a of result.adapters) {
+      expect(config).toContain(a.pkg);
+      expect(pkg.devDependencies[a.pkg], `${a.pkg} imported but not declared`).toBeDefined();
+    }
+  });
+
   it("pins the refract it actually generated with", () => {
     const result = scaffold();
     const pkg = JSON.parse(readFileSync(join(result.directory, "package.json"), "utf8"));

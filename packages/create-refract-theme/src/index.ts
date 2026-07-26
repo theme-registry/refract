@@ -5,6 +5,8 @@
  * `refract create`'s and can't drift from them; this binary adds only the project questions — what to
  * call it, and which formats to emit — plus the files that make the result publishable.
  */
+import { realpathSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { Prompter, bold, dim, green, promptCreateAnswers, createReportLines } from "@theme-registry/refract/build";
 import { createTheme, createNoopAdapter } from "@theme-registry/refract";
@@ -158,8 +160,26 @@ export { scaffoldProject, isDirectoryUsable } from "./scaffoldProject";
 export { ADAPTERS } from "./templates";
 export type { AdapterChoice, ProjectSpec } from "./templates";
 
-// Executed as the bin entry. Guarded so importing this module (tests) never triggers a run.
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+/**
+ * Are we the entry module? Guarded so importing this file (tests) never triggers a run.
+ *
+ * Both sides must be **real paths**. npm and npx always invoke a bin through
+ * `node_modules/.bin/<name>`, which is a symlink — so `process.argv[1]` is the symlink while
+ * `import.meta.url` is the resolved file. Comparing them raw is never equal when installed, and the
+ * CLI exits 0 having done nothing. `pathToFileURL` rather than string-concatenating `file://` also
+ * keeps this correct for paths with spaces and on Windows.
+ */
+function isEntryModule(): boolean {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return pathToFileURL(realpathSync(invoked)).href === import.meta.url;
+  } catch {
+    return false; // argv[1] isn't a real file (e.g. an eval'd entry) — not us
+  }
+}
+
+if (isEntryModule()) {
   main(process.argv.slice(2)).then(
     code => process.exit(code),
     err => {
