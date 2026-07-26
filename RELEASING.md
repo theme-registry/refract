@@ -1,6 +1,8 @@
 # Releasing
 
-The monorepo publishes six packages with [Changesets](https://github.com/changesets/changesets):
+The monorepo publishes seven packages with [Changesets](https://github.com/changesets/changesets).
+
+**Six move in lockstep** (the `fixed` group):
 
 - `@theme-registry/refract` (core + CLI, incl. DTCG interop at `/dtcg`) — **stable**
 - `@theme-registry/refract-css` — **stable**
@@ -9,12 +11,37 @@ The monorepo publishes six packages with [Changesets](https://github.com/changes
 - `@theme-registry/refract-scss` — experimental
 - `@theme-registry/refract-json` — experimental
 
+**One versions on its own** (outside the `fixed` group):
+
+- `create-refract-theme` — the npm initializer (`npm create refract-theme`), unscoped so the
+  invocation reads properly
+
+It is deliberately excluded from the lockstep group: an initializer's version is invisible to users
+(`npm create` always fetches `latest`), so binding it to the library cadence would add cascade risk
+for nothing. It takes its own `patch`/`minor` changesets, and `scripts/guard-changesets.mjs` reads the
+`fixed` list from the Changesets config so a `minor` here doesn't trip the 0.x cascade guard.
+
+It depends on `@theme-registry/refract` as a **real dependency** (not a peer), via `workspace:^`. That
+matters at release time — see [Ordering](#ordering-the-initializer-follows-core) below.
+
 The private workspaces (`@theme-registry/website`, `@theme-registry/theme-fixtures`,
 `@theme-registry/integration-tests`) are `private: true` and never publish.
 
+## Ordering: the initializer follows core
+
+`create-refract-theme` calls into `@theme-registry/refract/build` (`runCreate`,
+`promptCreateAnswers`, `rawThemeImport`). Its `workspace:^` is rewritten to `^<core version>` at
+publish time, so **it must never be published ahead of a core release carrying the API it uses** —
+installing it would resolve a core that lacks those exports and crash on first run.
+
+In practice one `changeset publish` handles this correctly, because it publishes any non-private
+package whose version isn't already on the registry: run `pnpm version-packages` first (bumping core),
+then `pnpm release` publishes core **and** the initializer, with the dependency rewritten to the
+version that just went out. Only reach for a standalone initializer publish when core is unchanged.
+
 ## Versioning model (0.x)
 
-All six are in one **`fixed` group** (`.changeset/config.json`): they share a single version and
+The six above are in one **`fixed` group** (`.changeset/config.json`): they share a single version and
 publish together, lockstep, through the whole `0.x` line. Internal deps use `workspace:^`, which
 Changesets rewrites to `^<version>` at publish time.
 
@@ -47,7 +74,7 @@ reachable via the `experimental` tag.
 Because `changeset publish` applies ONE `--tag` to every package it publishes, per-package tags are a
 two-lane flow:
 
-1. `pnpm release` — `changeset publish` (all six to `latest`; the coordinated stable release).
+1. `pnpm release` — `changeset publish` (everything pending to `latest`; the coordinated stable release).
 2. After a stable release, retag the experimental adapters:
    ```sh
    V=$(node -p "require('./packages/refract-scss/package.json').version")
