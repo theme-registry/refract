@@ -1,6 +1,6 @@
 {
   "name": "@theme-registry/refract",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "The framework-agnostic, format-neutral theme compiler core — build a ThemeModel from a RawTheme, then lower it with any adapter package (CSS, SCSS, JSON, styled-components).",
   "author": {
     "name": "Petyo Stoyanov",
