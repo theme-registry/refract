@@ -36,6 +36,11 @@ export interface InitOptions {
   readonly force?: boolean;
   /** Package name to import from in the scaffold (default: this package's own `name`). */
   readonly packageName?: string;
+  /**
+   * Override the raw-theme detection: a {@link DetectedRawTheme} to wire up regardless of what's on
+   * disk, or `null` to force the self-contained starter config. Omit to detect (the normal path).
+   */
+  readonly rawTheme?: DetectedRawTheme | null;
 }
 
 export interface InitResult {
@@ -44,6 +49,8 @@ export interface InitResult {
   readonly variant: ConfigVariant;
   /** The package name the scaffold imports from. */
   readonly packageName: string;
+  /** The raw theme the config was wired to, or `undefined` when it carries its own starter palette. */
+  readonly rawTheme?: DetectedRawTheme;
 }
 
 /** Read this package's own `name` (so the scaffold imports the currently-installed package name). */
@@ -51,6 +58,94 @@ export function readOwnPackageName(): string {
   const pkgPath = join(findPackageRoot(), "package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { name?: string };
   return pkg.name ?? "@theme-registry/refract";
+}
+
+/**
+ * Raw-theme filenames `init` will wire up, in resolution order. `.ts` first (the richest), then the
+ * plain-ESM flavours, then `.json`. Matches what `refract create` and `refract import` write.
+ */
+const RAW_BASENAME = "theme.raw";
+const RAW_EXT_ORDER = [".ts", ".mts", ".mjs", ".js", ".json"] as const;
+
+/** A raw theme found next to the config, and how a config should reach it. */
+export interface DetectedRawTheme {
+  /** Absolute path of the file found. */
+  readonly path: string;
+  /** Its basename, e.g. `theme.raw.json`. */
+  readonly filename: string;
+  /** The extension, including the dot. */
+  readonly ext: string;
+}
+
+/**
+ * Look for an authored raw theme in `fromDir`.
+ *
+ * This is the seam between `create` and `init`: `create` designs the theme, `init` wires the build.
+ * When a theme is already there, `init` must not invent a second one — a project with two sources of
+ * truth for its tokens is worse than a project with none.
+ */
+export const findRawTheme = (fromDir: string = process.cwd()): DetectedRawTheme | undefined => {
+  for (const ext of RAW_EXT_ORDER) {
+    const candidate = join(fromDir, `${RAW_BASENAME}${ext}`);
+    if (existsSync(candidate)) {
+      return { path: candidate, filename: `${RAW_BASENAME}${ext}`, ext };
+    }
+  }
+  return undefined;
+};
+
+/**
+ * The import line (or lines) a config uses to reach a detected raw theme.
+ *
+ * `.ts` is graph-compiled alongside the config, so an extensionless specifier resolves and the
+ * transformer rewrites it. `.mjs`/`.js` are imported by Node directly, so they keep their extension.
+ * `.json` is read rather than imported: an import attribute (`with { type: "json" }`) would work on
+ * current Node but pins the scaffolded config to a version floor for no benefit, and `readFileSync`
+ * behaves identically in every flavour.
+ */
+export function rawThemeImport(detected: DetectedRawTheme): { head: string; expression: string } {
+  if (detected.ext === ".json") {
+    return {
+      head:
+        `import { readFileSync } from "node:fs";\n` +
+        `\n// The theme is JSON, so it's read rather than imported — no module-attribute support needed.\n` +
+        `const raw = JSON.parse(readFileSync(new URL("./${detected.filename}", import.meta.url), "utf8"));\n`,
+      expression: "raw",
+    };
+  }
+  const specifier =
+    detected.ext === ".ts" || detected.ext === ".mts"
+      ? `./${RAW_BASENAME}`
+      : `./${detected.filename}`;
+  return { head: `import { raw } from "${specifier}";\n`, expression: "raw" };
+}
+
+/**
+ * The config body when a raw theme already exists — it imports that theme instead of carrying one.
+ * Deliberately short: everything about the design lives in the theme file, and this is only wiring.
+ */
+export function scaffoldConfigForRaw(packageName: string, detected: DetectedRawTheme): string {
+  const { head, expression } = rawThemeImport(detected);
+  return `import { defineConfig } from "${packageName}/build";
+import { createCssAdapter } from "${CSS_ADAPTER_PACKAGE}";
+${head}
+// refract build config. \`refract build\` reads this file, builds the theme once, and writes each
+// target's emitted files into that target's \`outDir\`. The config is your code: it \`import\`s the
+// adapters it wants and passes their options at construction (not via CLI flags).
+//
+// Your tokens live in \`${detected.filename}\` — edit them there, not here.
+export default defineConfig({
+  raw: ${expression},
+  targets: [
+    // The CSS adapter (from @theme-registry/refract-css). Pass its options here, at construction.
+    { adapter: createCssAdapter(/* { colors: { prefix: "app" } } */), outDir: "dist/theme" },
+
+    // Add another adapter target once its package is installed, e.g.:
+    // import { createStyledComponentsAdapter } from "@theme-registry/refract-styled-components";
+    // { adapter: createStyledComponentsAdapter(), outDir: "dist/theme-sc" },
+  ],
+});
+`;
 }
 
 /** The scaffolded config body — one shared ESM template across ts/js/mjs. */
@@ -106,6 +201,12 @@ export function runInit(options: InitOptions = {}): InitResult {
     );
   }
 
-  writeFileSync(path, scaffoldConfig(packageName), "utf8");
-  return { path, variant, packageName };
+  // If the project already has a theme, wire it up rather than inventing a second one. Only when
+  // there's nothing to find does the config carry a starter palette of its own — so `refract init`
+  // on its own still produces something runnable, exactly as it always has.
+  const detected = options.rawTheme === null ? undefined : options.rawTheme ?? findRawTheme(cwd);
+  const body = detected ? scaffoldConfigForRaw(packageName, detected) : scaffoldConfig(packageName);
+
+  writeFileSync(path, body, "utf8");
+  return { path, variant, packageName, rawTheme: detected };
 }

@@ -27,11 +27,22 @@ import {
 import { runTokens } from "./tokensCommand";
 import { runAudit } from "./auditCommand";
 import { runDiff } from "./diffCommand";
+import { runCreate } from "./createCommand";
+import { createReportLines, promptCreateAnswers } from "./createInterview";
+import { Prompter, bold, dim } from "./prompt";
+import { createTheme } from "../core/createTheme";
+import { createNoopAdapter } from "../core/noopAdapter";
+import type { RawTheme } from "../core";
 import type { WcagLevel } from "../subsystems/colors/audit";
 
 const HELP = `refract — build a refract theme to disk.
 
 Usage:
+  refract create [--seed <color>] [--colors <n|list>] [--scheme <name>] [--manual]
+                   [--feel <neutral|compact|editorial|technical>] [--ratio <name>]
+                   [--base-size <px>] [--contrast <AA|AAA|none>] [--reset <name>]
+                   [--format <ts|js|json>] [--out <file>] [--no-semantics]
+                   [--no-neutral] [--no-shadows] [--yes] [--force]
   refract init [--js | --mjs] [--force]
   refract import <tokens.json> [--out <file>] [--raw-only] [--force]
                    [--breakpoint-group <name>] [--breakpoints <n:px,…>]
@@ -45,6 +56,7 @@ Usage:
   refract help
 
 Commands:
+  create   Design a theme.raw.(ts|js|json) from one seed colour and a short interview.
   init     Scaffold a runnable theme.config.(ts|js|mjs) in the current directory.
   import   Seed a theme.raw.ts (+ theme.config.ts) from a DTCG tokens.json (one-shot).
   build    Load the config and emit every target's files to its outDir.
@@ -86,13 +98,101 @@ async function cmdInit(argv: string[]): Promise<number> {
 
   try {
     const result = runInit({ variant, force: Boolean(values.force) });
+    if (result.rawTheme) {
+      process.stdout.write(`Found ${result.rawTheme.filename} — wired it up.\n`);
+    }
     process.stdout.write(`Created ${result.path}\n`);
-    process.stdout.write(`Next: edit the raw theme, then run \`refract build\`.\n`);
+    process.stdout.write(
+      result.rawTheme
+        ? `Next: run \`refract build\`.\n`
+        : `Next: edit the starter theme in the config (or run \`refract create\` to design one), then \`refract build\`.\n`,
+    );
     return 0;
   } catch (err) {
     return reportError("init", err);
   }
 }
+
+/**
+ * `refract create` — the guided raw-theme scaffolder.
+ *
+ * Flags only here: the question flow lives in `createInterview.ts` so `create-refract-theme` runs
+ * the identical script, and the generation lives in `scaffold.ts`. Every prompt has a flag and every
+ * flag has a default, so this command is fully scriptable (`--yes`) and never blocks in CI.
+ */
+async function cmdCreate(argv: string[]): Promise<number> {
+  const { values } = parseArgs({
+    args: argv,
+    options: {
+      seed: { type: "string" },
+      colors: { type: "string" },
+      scheme: { type: "string" },
+      manual: { type: "boolean", default: false },
+      feel: { type: "string" },
+      ratio: { type: "string" },
+      "base-size": { type: "string" },
+      contrast: { type: "string" },
+      reset: { type: "string" },
+      format: { type: "string" },
+      out: { type: "string" },
+      "no-semantics": { type: "boolean", default: false },
+      "no-neutral": { type: "boolean", default: false },
+      "no-shadows": { type: "boolean", default: false },
+      yes: { type: "boolean", default: false },
+      force: { type: "boolean", default: false },
+    },
+    allowPositionals: false,
+  });
+
+  const p = new Prompter(values.yes ? false : undefined);
+  try {
+    p.write();
+    p.write(`  ${bold("refract")} ${dim("· raw-theme scaffold")}`);
+    p.write();
+
+    const answers = await promptCreateAnswers(p, {
+      seed: values.seed,
+      colors: values.colors,
+      scheme: values.scheme,
+      manual: values.manual,
+      feel: values.feel,
+      ratio: values.ratio,
+      baseSize: values["base-size"],
+      contrast: values.contrast,
+      reset: values.reset,
+      format: values.format,
+      noSemantics: values["no-semantics"],
+      noNeutral: values["no-neutral"],
+      noShadows: values["no-shadows"],
+    });
+
+    const result = runCreate({ ...answers, out: values.out, force: Boolean(values.force) });
+
+    p.write();
+    for (const line of createReportLines(result, countVariables(result.raw))) p.write(line);
+    p.write();
+    p.write(`  ${bold(result.path.split(/[\\/]/).pop() ?? "")} written`);
+    p.write();
+    p.write(`  ${dim("Next — wire up a build:")}  ${bold("refract init")}`);
+    p.write();
+    return 0;
+  } catch (err) {
+    return reportError("create", err);
+  } finally {
+    p.close();
+  }
+}
+
+/** Compile the generated theme with the null adapter purely to count what it emits, for the report. */
+function countVariables(raw: RawTheme): number {
+  try {
+    const theme = createTheme(raw, { adapter: createNoopAdapter() });
+    return Object.keys(theme.tokens as Record<string, unknown>).length;
+  } catch {
+    return 0;
+  }
+}
+
 
 async function cmdImport(argv: string[]): Promise<number> {
   const { values, positionals } = parseArgs({
@@ -419,6 +519,8 @@ async function cmdSkills(argv: string[]): Promise<number> {
 export async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
   switch (command) {
+    case "create":
+      return cmdCreate(rest);
     case "init":
       return cmdInit(rest);
     case "import":
