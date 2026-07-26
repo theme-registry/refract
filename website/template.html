@@ -579,6 +579,7 @@
         <nav class="sub">
           <a href="#top">Introduction</a>
           <a href="#install">Installation</a>
+          <a href="#scaffold">Scaffold a theme</a>
           <a href="#quickstart">Quickstart</a>
           <a href="#playground">Playground</a>
         </nav>
@@ -794,6 +795,134 @@ document.head.<span class="n">append</span>(
           </div>
         </section>
 
+        <section class="doc-section" id="scaffold">
+          <div class="eyebrow">Getting started <b>/ Scaffold a theme</b></div>
+          <h2>Start from a colour, not a blank file</h2>
+          <p class="lead">Answer a few questions and get a complete <code>RawTheme</code> — palettes with tonal ladders, semantic colours, a type scale with derived leading, a spacing ramp. Every colour is checked against <b>WCAG contrast before the file is written</b>. The generator runs once; what it produces is an ordinary theme file you own and edit.</p>
+
+          <h3>1 · Two ways in</h3>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Situation</th><th>Command</th><th>Writes</th></tr></thead>
+              <tbody>
+                <tr><td>You have a project, it needs a theme</td><td class="prop">refract create</td><td><code>theme.raw.ts</code> · <code>.js</code> · <code>.json</code></td></tr>
+                <tr><td>Nothing exists yet</td><td class="prop">npm create refract-theme</td><td>a whole publishable theme package</td></tr>
+                <tr><td>Tokens already exist elsewhere</td><td class="prop">refract import</td><td>see <a href="#dtcg">DTCG interop</a></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>The first two run the same interview and the same generator — the difference is only whether a project is created around the result.</p>
+
+          <h3>2 · The interview</h3>
+          <p>Ten prompts, most of them Enter-through. Every one has a flag, and with no TTY each takes its default instead of blocking — so this is safe in a script or in CI.</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">Terminal</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="cmd">npx refract</span> create
+
+  <span class="c">? Primary colour › #4c6ef5</span>
+  <span class="c">    parsed · lightness 59% — lands at ≈400 on the ladder</span>
+  <span class="c">? How many brand colours? › 2   → complement #9a7800</span>
+  <span class="c">? Also add › semantic colours · neutral ramp · shadow tints</span>
+  <span class="c">? Contrast target › WCAG AA</span>
+  <span class="c">? Base font size › 16      ? Type scale › major-third</span>
+  <span class="c">? Overall feel › Neutral   ? CSS reset › preflight</span>
+  <span class="c">? Format › theme.raw.ts</span>
+
+  Contrast · 7 pairings checked
+    primary     4.32  <span class="se">−1</span>  <span class="s">4.51 AA</span>
+    secondary   4.15  <span class="se">−2</span>  <span class="s">4.54 AA</span>
+    success     3.45  <span class="se">−7</span>  <span class="s">4.54 AA</span>
+    warning     6.04      unchanged
+
+  theme.raw.ts   7 subsystems · 151 tokens · 0 recipes</pre>
+          </div>
+          <p>Or skip the questions entirely:</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">Terminal</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="cmd">npx refract</span> create --yes                              <span class="c"># every default</span>
+<span class="cmd">npx refract</span> create --seed <span class="s">"#e64980"</span> --colors <span class="n">3</span> \
+                    --scheme triadic --feel editorial   <span class="c"># fully scripted</span></pre>
+          </div>
+
+          <h3>3 · What it writes</h3>
+          <p>One file. Literal where a value came from the generator's judgement, <b>declarative where the engine already synthesizes</b> — so retuning a scale stays a one-word edit instead of a regenerated table:</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">theme.raw.ts <span style="opacity:.6">(excerpt)</span></span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="k">const</span> ladder = [<span class="n">50</span>, <span class="n">100</span>, <span class="n">200</span>, <span class="n">300</span>, <span class="n">400</span>, <span class="n">500</span>, <span class="n">600</span>, <span class="n">700</span>, <span class="n">800</span>, <span class="n">900</span>];
+
+<span class="k">export const</span> raw = {
+  colors: {
+    <span class="c">// each brand colour is its own palette, with its own ladder</span>
+    primary:   { base: <span class="s">"#496bf1"</span>, text: <span class="s">"#ffffff"</span>, steps: ladder },
+    secondary: { base: <span class="s">"#937200"</span>, text: <span class="s">"#ffffff"</span>, steps: ladder },
+    success:   { base: <span class="s">"#09882e"</span>, text: <span class="s">"#ffffff"</span>, steps: ladder },
+    <span class="c">/* … info · warning · danger · neutral · shadow … */</span>
+  },
+  typography: {
+    <span class="c">// a declaration — the engine synthesizes xs…4xl from these two</span>
+    fontSize: { base: <span class="n">16</span>, ratio: <span class="s">"major-third"</span> },
+    <span class="c">// derived per step, and named after the step they were tuned for</span>
+    lineHeight: { base: <span class="n">1.5</span>, variants: { <span class="s">"4xl"</span>: <span class="n">1.17</span>, <span class="s">"3xl"</span>: <span class="n">1.23</span>, xs: <span class="n">1.65</span> } },
+  },
+  <span class="c">// linear curve — every stop lands on the 4px grid</span>
+  layout: { spacing: { base: <span class="n">4</span>, step: <span class="n">4</span>, steps: { xs: <span class="n">1</span>, sm: <span class="n">2</span>, md: <span class="n">4</span>, lg: <span class="n">6</span>, xl: <span class="n">8</span> } } },
+} <span class="k">satisfies</span> RawTheme;</pre>
+          </div>
+          <p>The derived leading and tracking are named after the size step, so the pairing documents itself with no recipe holding it together:</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">your CSS</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="se">.hero h1</span> {
+  font-size:      <span class="k">var</span>(--dt-typography-fontsize-<span class="n">4xl</span>);
+  line-height:    <span class="k">var</span>(--dt-typography-lineheight-<span class="n">4xl</span>);
+  letter-spacing: <span class="k">var</span>(--dt-typography-letterspacing-<span class="n">4xl</span>);
+}</pre>
+          </div>
+
+          <h3>4 · What it doesn't write</h3>
+          <div class="note"><b>No recipes.</b> A scaffolded theme is <b>tokens only</b> — variables, not classes. Nothing composes into a <code>className</code> yet, and that's deliberate: which components you need and how they compose is design work, not something to guess. Turning these tokens into classes is the next step — see <a href="#r-recipes">Recipes</a> and <a href="#p-components">Components</a>.</div>
+          <p>Also absent by design: no <code>@keyframes</code> (nothing would reference one without a recipe), and no component definitions.</p>
+
+          <h3>5 · Decisions baked in</h3>
+          <p>Worth knowing before you edit, so you don't undo something deliberate:</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Decision</th><th>Why</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">Brand colours 2–5 are top-level palettes</td><td>A <a href="#p-colors"><code>harmony</code></a> member is a single flat leaf — you can't build a UI on one. Each derived hue is promoted to its own family with a full ladder.</td></tr>
+                <tr><td class="prop"><code>base</code> is the brand colour</td><td>The ladder is absolute lightness, so the seed lands wherever it falls — often between two stops. Nothing snaps; the hex you typed survives. The <code>50…900</code> stops are for surfaces, borders and states.</td></tr>
+                <tr><td class="prop">Semantics are hue-anchored</td><td>Rotating off the seed would make “danger” whatever lands at +150° — from a red seed, green. The four semantic colours start from fixed hues and borrow only the seed's character.</td></tr>
+                <tr><td class="prop">Contrast runs before writing</td><td>Every text pairing is scored and failing colours are darkened in OKLCH points until they clear the bar. A mid green at the primary's lightness reads fine as a chip and fails as a button.</td></tr>
+                <tr><td class="prop">Spacing uses the linear curve</td><td><code>step: 4</code> keeps every stop on a 4px grid. The geometric curve gives <code>8 · 12 · 18 · 27 · 40.5</code> — right for type, wrong for space.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="note">Change a <code>base</code> later and re-run <a href="#a-css"><code>refract audit</code></a> — the palette was generated to clear AA, and it's easy to lose that by hand.</div>
+
+          <h3>6 · Retuning it</h3>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>You want</th><th>Change</th></tr></thead>
+              <tbody>
+                <tr><td>A different brand colour</td><td><code>colors.primary.base</code> — every step re-derives</td></tr>
+                <tr><td>A tighter type scale</td><td><code>typography.fontSize.ratio</code> → <code>"major-second"</code></td></tr>
+                <tr><td>More generous spacing</td><td>the multipliers in <code>layout.spacing.steps</code></td></tr>
+                <tr><td>Softer corners</td><td><code>borders.radius.base</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Don't replace <code>fontSize: { base, ratio }</code> with a hand-listed ladder, or the spacing curve with literal pixels — that discards the intent the engine synthesizes from.</p>
+
+          <h3>7 · Wiring the build</h3>
+          <p><code>refract init</code> looks for a <code>theme.raw.*</code> and writes a config that <b>imports</b> it, rather than carrying a starter palette of its own. Run <code>create</code> first, then:</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">Terminal</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="cmd">npx refract</span> init     <span class="c"># found theme.raw.ts — wired it up</span>
+<span class="cmd">npx refract</span> build    <span class="c"># → dist/theme/theme.css</span>
+<span class="cmd">npx refract</span> audit    <span class="c"># 7/7 pass, 0 fail</span></pre>
+          </div>
+          <p>From here, <a href="#quickstart">Quickstart</a> walks the same ground by hand if you'd rather understand the grammar before generating it, and <a href="#r-recipes">Recipes</a> is where these tokens become classes.</p>
+        </section>
+
         <section class="doc-section" id="quickstart">
           <div class="eyebrow">Getting started <b>/ Quickstart</b></div>
           <h2>Your first theme</h2>
@@ -978,7 +1107,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
 <span class="cmd">refract</span> skills install --agent all --optional  <span class="c"># every agent + the opt-in skills</span>
 <span class="cmd">refract</span> skills update                        <span class="c"># re-sync after upgrading refract</span></pre>
           </div>
-          <p>Each agent loads skills differently, so the installer adapts the output per target. <b>Claude</b> gets native per-skill files it loads automatically; every other agent gets a small <b>router</b> in its own instructions file that points at on-demand bodies under <code>.refract/skills/</code> — so a non-Claude agent doesn't load all fourteen every turn. A <code>.refract/skills.lock</code> manifest records what's installed for a clean <code>update</code>.</p>
+          <p>Each agent loads skills differently, so the installer adapts the output per target. <b>Claude</b> gets native per-skill files it loads automatically; every other agent gets a small <b>router</b> in its own instructions file that points at on-demand bodies under <code>.refract/skills/</code> — so a non-Claude agent doesn't load all fifteen every turn. A <code>.refract/skills.lock</code> manifest records what's installed for a clean <code>update</code>.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>Agent</th><th>Where the skills land</th></tr></thead>
@@ -993,7 +1122,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
           <p>Flags mirror the interactive prompts: <code>--agent &lt;a,b|all&gt;</code>, <code>--global</code> / <code>--local</code> (default local, to the project), <code>--only &lt;names&gt;</code> for a subset, and <code>--optional</code> to include the opt-in tier.</p>
 
           <h3>The catalog</h3>
-          <p>Fourteen skills, <b>hub-and-spoke</b>: <code>theme-authoring</code> is the hub that orients and routes; the rest are focused spokes that own their vocab once so they never drift. Twelve are <b>core</b> (installed by default); two are <b>opt-in</b>. Wording is agent-neutral, so they read as plain reference files too.</p>
+          <p>Fifteen skills, <b>hub-and-spoke</b>: <code>theme-authoring</code> is the hub that orients and routes; the rest are focused spokes that own their vocab once so they never drift. Thirteen are <b>core</b> (installed by default); two are <b>opt-in</b>. Wording is agent-neutral, so they read as plain reference files too.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>Skill</th><th>Tier</th><th>Covers</th></tr></thead>
@@ -1009,6 +1138,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
                 <tr><td class="prop">build-config</td><td class="ty">core</td><td><code>theme.config</code> / <code>defineConfig</code>, targets, emit modes, the CLI, dark mode.</td></tr>
                 <tr><td class="prop">consuming-the-output</td><td class="ty">core</td><td>Wiring the emitted output per adapter and framework.</td></tr>
                 <tr><td class="prop">overrides-and-child-themes</td><td class="ty">core</td><td><code>theme.override()</code> — child themes and white-labeling.</td></tr>
+                <tr><td class="prop">theme-scaffold</td><td class="ty">core</td><td>Generating a starting theme from one seed colour — <code>refract create</code> and <code>npm create refract-theme</code>.</td></tr>
                 <tr><td class="prop">dtcg-import</td><td class="ty">core</td><td>Migrating in from a DTCG <code>tokens.json</code>.</td></tr>
                 <tr><td class="prop">adapter-scaffold</td><td class="ty">opt-in</td><td>Writing your own adapter with <code>defineAdapter</code>.</td></tr>
                 <tr><td class="prop">troubleshooting</td><td class="ty">opt-in</td><td>Mapping a validation error to its fix.</td></tr>
@@ -1302,7 +1432,8 @@ theme.css;  <span class="c">// unchanged</span></pre>
 
           <div class="codeblock">
             <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">Terminal</span><button class="cb-copy" data-copy>Copy</button></div>
-            <pre><span class="cmd">refract</span> init                <span class="c"># scaffold theme.config.ts + theme.raw.ts</span>
+            <pre><span class="cmd">refract</span> create              <span class="c"># design a theme.raw.(ts|js|json) from one seed colour</span>
+<span class="cmd">refract</span> init                <span class="c"># scaffold theme.config.ts (imports theme.raw.* if present)</span>
 <span class="cmd">refract</span> import tokens.json   <span class="c"># seed theme.raw.ts (+ config) from a DTCG tokens.json</span>
 <span class="cmd">refract</span> build               <span class="c"># compile every target → write files</span>
 <span class="cmd">refract</span> tokens --out tokens.json   <span class="c"># DTCG export (adapter-free)</span>
@@ -4496,14 +4627,14 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="note"><b>What the lineage proves — and doesn't.</b> The <b>design</b> (author → override → runtime-or-prebuilt, foundations included) is battle-tested across real multi-brand estates: a flagship + ~130 regional sites on one shared infrastructure; a multi-brand media group with per-brand child overrides side by side; a pan-European NGO federation, override-per-member at federation scale; and a multi-identity civic institution, distinct identities on one platform without forking. <b>The idea has the better part of a decade of production behind it; the published package is new</b> — a clean, standardized rewrite that earns its own miles. Client names are withheld — the credibility is in the shapes, not the logos.</div>
 
           <h3>Tested &amp; gated</h3>
-          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">649</b> tests across <b data-q="testfiles">57</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">686</b> tests across <b data-q="testfiles">59</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
               <tbody>
                 <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
                 <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
-                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">649</b>-case suite</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">686</b>-case suite</td></tr>
                 <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
                 <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
               </tbody>
