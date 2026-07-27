@@ -67,7 +67,9 @@ claude mcp add refract -- node ./packages/refract-mcp/dist/server.js
 ```
 
 The server auto-discovers `theme.config.(ts|js|mjs)` in the working directory; pass `--config <path>`
-to point elsewhere. A `.ts` config needs the `typescript` optional peer (same as `refract build`).
+to point elsewhere. A `.ts` config needs the `typescript` optional peer at **5.x** (same as
+`refract build` — a bare `npm i -D typescript` now resolves to 7.x, which doesn't expose the compiler
+API from its main entry). A `.mjs` or `.js` config never loads typescript at all.
 
 For project scope, commit a `.mcp.json`:
 

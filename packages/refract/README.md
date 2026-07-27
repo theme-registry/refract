@@ -45,7 +45,10 @@ npm install @theme-registry/refract
 ```
 
 `styled-components` and `typescript` are **optional** peers — only needed if you use the
-styled-components adapter or the `.ts` build config, respectively.
+styled-components adapter or the `.ts` build config, respectively. Install typescript as
+**`typescript@5`**: a bare `npm i -D typescript` now resolves to 7.x, the native port, whose main
+entry exports only a version string — the compiler API a `.ts` config is transpiled with sits behind
+its `./unstable/*` subpaths. A `.mjs` or `.js` config never loads typescript at all.
 
 ## Scaffold a theme
 
