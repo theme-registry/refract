@@ -129,10 +129,26 @@ function diffHeld(state: Held, candidateRaw: RawTheme): { ok: boolean; diff: The
   return { ok: validation.ok, diff, targets: validation.perTarget };
 }
 
-// Dirs never worth reloading on (vendored deps, build output, VCS). Skipped under the recursive watch.
-const WATCH_IGNORE = /(^|[/\\])(node_modules|dist|out|\.git|coverage)([/\\]|$)/;
+// Dirs never worth reloading on (vendored deps, build output). Skipped under the recursive watch.
+const WATCH_IGNORE = /(^|[/\\])(node_modules|dist|out|coverage)([/\\]|$)/;
 // Source files a theme graph is authored in — a change to any of them may change the built theme.
 const WATCH_SOURCE = /\.(ts|mjs|cjs|js|json)$/;
+/**
+ * Any hidden path segment. A theme graph is never authored in one, and this is the rule that keeps the
+ * server from waking on its own output: loading a `.ts` config graph-compiles it to hidden
+ * `.<base>.<pid>-<n>.mjs` files emitted **beside each compiled source** (adjacency is load-bearing —
+ * it's what keeps relative sibling specifiers resolvable), which are imported and then unlinked. Those
+ * writes and deletes match {@link WATCH_SOURCE}, so without this a load wakes the watcher, which
+ * reloads, which emits them again — an endless self-triggered loop with no user edit involved, churning
+ * the config's directory (visible in an editor as a file tree that never stops refreshing). Also covers
+ * `.git`, `.next`, `.turbo`, `.cache` and friends, whose build churn caused spurious reloads too.
+ */
+const WATCH_HIDDEN = /(^|[/\\])\./;
+
+/** Is this watch event worth rebuilding the theme for? Pure, so the loop guard above is unit-testable. */
+export function shouldReload(filename: string): boolean {
+  return WATCH_SOURCE.test(filename) && !WATCH_HIDDEN.test(filename) && !WATCH_IGNORE.test(filename);
+}
 
 /**
  * Watch the config's directory **recursively** and rebuild on any source-file change — so a theme split
@@ -143,19 +159,38 @@ const WATCH_SOURCE = /\.(ts|mjs|cjs|js|json)$/;
 function watchConfig(): void {
   if (!held) return;
   let timer: NodeJS.Timeout | undefined;
+  // Second line of defence behind {@link WATCH_HIDDEN}: never overlap two loads, so anything a load
+  // writes can't start another one. Edits landing mid-load aren't lost — they re-arm the debounce once.
+  let reloading = false;
+  let pending = false;
+  const reload = (): void => {
+    if (reloading) {
+      pending = true;
+      return;
+    }
+    reloading = true;
+    loadTheme(configPathArg)
+      .then((next) => {
+        held = next;
+        process.stderr.write(`refract-mcp: reloaded theme from ${next.path}\n`);
+      })
+      .catch((e) => process.stderr.write(`refract-mcp: reload failed (kept previous theme): ${(e as Error).message}\n`))
+      .finally(() => {
+        reloading = false;
+        if (pending) {
+          pending = false;
+          schedule();
+        }
+      });
+  };
+  const schedule = (): void => {
+    clearTimeout(timer);
+    timer = setTimeout(reload, 150);
+  };
   const onChange = (_event: string, filename: string | Buffer | null): void => {
     if (!filename) return;
-    const f = filename.toString();
-    if (WATCH_IGNORE.test(f) || !WATCH_SOURCE.test(f)) return;
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      loadTheme(configPathArg)
-        .then((next) => {
-          held = next;
-          process.stderr.write(`refract-mcp: reloaded theme from ${next.path}\n`);
-        })
-        .catch((e) => process.stderr.write(`refract-mcp: reload failed (kept previous theme): ${(e as Error).message}\n`));
-    }, 150);
+    if (!shouldReload(filename.toString())) return;
+    schedule();
   };
   try {
     const dir = dirname(held.path);
