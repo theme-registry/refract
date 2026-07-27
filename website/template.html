@@ -1427,6 +1427,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
                 <tr><td class="prop">emit</td><td class="ty">Emit</td><td><span class="req-no">Optional</span></td><td class="def">"single"</td><td>Output-shape directive — how the files are written (<code>single</code> / <code>split</code> / <code>subsystem</code> / <code>components</code>). See the <code>emit</code> API below.</td></tr>
                 <tr><td class="prop">helpers</td><td class="ty">string[]</td><td><span class="req-no">Optional</span></td><td class="def">[]</td><td>Vendored, self-contained runtime helper modules to also emit alongside the CSS. Currently <code>"color-math"</code> — the lighten/darken module for live colour math in the browser.</td></tr>
                 <tr><td class="prop">guide</td><td class="ty">boolean | GuideConfig</td><td><span class="req-no">Optional</span></td><td class="def">false</td><td>Emit a self-documenting <code>llms.txt</code> + <code>manifest.json</code> into <code>outDir</code> so the shipped theme carries its own AI consumption guide — real class names / export ids / token paths — for a downstream dev who has neither refract nor its skills. <code>true</code> uses defaults; an object tunes file names or adds <code>packageName</code> for a by-specifier import overlay. See <a href="#d-guide">Self-documenting output</a>.</td></tr>
+                <tr><td class="prop">preview</td><td class="ty">boolean | PreviewConfig</td><td><span class="req-no">Optional</span></td><td class="def">false</td><td>Emit a human-facing <code>preview.html</code> specimen into <code>outDir</code> — token plates for any adapter, plus live recipe plates when the output is browser-loadable (CSS). <code>true</code> uses defaults; an object tunes <code>{ file, title, inline }</code>. See <a href="#d-preview">Human-facing preview</a>.</td></tr>
               </tbody>
             </table>
           </div>
@@ -1523,6 +1524,36 @@ files by specifier (e.g. `@acme/theme/theme.css`) instead of by relative path.
 | `components.buttons.primary`| `dt-colors-solid-brand dt-components-buttons-primary` |</pre>
           </div>
           <div class="note">The <b>prose is adapter-specialized</b> — the styled-components target names <code>ThemeProvider</code> + the tree-shakeable <code>css</code> export ids, SCSS names the <code>@use</code> partials + class names, JSON names the dotted <code>ruleSets</code> keys. <code>manifest.json</code> pairs the recipe index with the theme's full token set (DTCG), and carries a <code>schema</code> version (currently <code>1</code>) so an agent can bind to a known contract shape. Off by default — a build with no <code>guide</code> is byte-identical.</div>
+
+          <h3 id="d-preview">Human-facing preview — <code>preview</code></h3>
+          <p><code>guide</code> writes for an agent; <code>preview</code> writes for a person. Set <code>preview: true</code> on any target and refract writes a <code>preview.html</code> into that target's <code>outDir</code> — a rendered specimen of the theme you double-click, forward, or hand a designer. By default it <b>inlines</b> its stylesheets, so the page is a single self-contained file that keeps working after it's moved out of <code>outDir</code>.</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">theme.config.ts</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="k">export default</span> <span class="n">defineConfig</span>({
+  raw,
+  targets: [
+    {
+      name: <span class="s">"css"</span>,
+      adapter: <span class="n">createCssAdapter</span>(),
+      outDir: <span class="s">"dist/theme"</span>,
+      preview: <span class="k">true</span>,  <span class="c">// or { file, title, inline: false }</span>
+    },
+  ],
+});</pre>
+          </div>
+          <p>The page has two halves, and they degrade independently:</p>
+          <div class="table-wrap">
+            <table class="api-table">
+              <thead><tr><th>Half</th><th>Source</th><th>Works with</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">Token plates</td><td>The format-neutral token export — colours, the type ramp, spacing, radii, shadows, borders, breakpoints, each with its exact value.</td><td><b>Every adapter</b>, including third-party ones. Nothing about the emitted format is involved.</td></tr>
+                <tr><td class="prop">Recipe plates</td><td>The emitted stylesheet, loaded into the page, with each recipe rendered on its real class list.</td><td>Adapters whose output <b>a browser can load as-is</b> — CSS today.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>For a target whose output isn't browser-loadable, the page still renders every token and still lists every recipe by its real identity — it just says, in that adapter's own words, why it can't render them live. SCSS needs compiling first; styled-components emits JS modules that need React; JSON is data with no rendered form. <b>For a live design-review page from a styled-components or SCSS theme, add a CSS target to the same config</b> — it compiles the same recipes through the same core, so it's a faithful specimen.</p>
+          <div class="note"><b>The preview follows your <code>emit</code> mode.</b> It references the files that were actually written — <code>split</code> loads the variables file before the styles file, <code>subsystem</code> loads every pair and groups the plates by subsystem, and <code>components</code> groups them by the file each component landed in and marks the recipes that mode doesn't emit. A theme with appearance <code>modes</code> gets a light/dark toggle; one with <code>breakpoints</code> gets frame-width buttons. Off by default — a build with no <code>preview</code> is byte-identical.</div>
+          <div class="note"><b>No recipes yet?</b> A freshly scaffolded theme (see <a href="#scaffold">Scaffold a theme</a>) has tokens and no recipes, so the preview renders your palette and ramps and then tells you exactly what's missing — it's the fastest way to see what you got before writing your first recipe.</div>
         </section>
 
         <section class="doc-section" id="d-runtime">
@@ -4488,6 +4519,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
                 <tr><td class="ty">EmitTarget</td><td>One output target — <code>{ adapter, outDir, emit?, guide? }</code>.</td><td><a href="#d-build">Build-time</a></td></tr>
                 <tr><td class="ty">Emit</td><td>The emit-mode directive — single / split / subsystem / components.</td><td><a href="#d-build">Build-time</a></td></tr>
                 <tr><td class="ty">GuideConfig</td><td>Tunes the self-documenting <code>llms.txt</code>/<code>manifest.json</code> — <code>{ packageName?, llmsFile?, manifestFile? }</code>.</td><td><a href="#d-guide">Self-documenting output</a></td></tr>
+                <tr><td class="ty">PreviewConfig</td><td>Tunes the human-facing <code>preview.html</code> — <code>{ file?, title?, inline? }</code>.</td><td><a href="#d-preview">Human-facing preview</a></td></tr>
               </tbody>
             </table>
           </div>
@@ -4628,14 +4660,14 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="note"><b>What the lineage proves — and doesn't.</b> The <b>design</b> (author → override → runtime-or-prebuilt, foundations included) is battle-tested across real multi-brand estates: a flagship + ~130 regional sites on one shared infrastructure; a multi-brand media group with per-brand child overrides side by side; a pan-European NGO federation, override-per-member at federation scale; and a multi-identity civic institution, distinct identities on one platform without forking. <b>The idea has the better part of a decade of production behind it; the published package is new</b> — a clean, standardized rewrite that earns its own miles. Client names are withheld — the credibility is in the shapes, not the logos.</div>
 
           <h3>Tested &amp; gated</h3>
-          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">720</b> tests across <b data-q="testfiles">60</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">738</b> tests across <b data-q="testfiles">66</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
               <tbody>
                 <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
                 <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
-                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">720</b>-case suite</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">738</b>-case suite</td></tr>
                 <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
                 <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
               </tbody>

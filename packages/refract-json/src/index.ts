@@ -17,7 +17,7 @@
 import type { Literal, Ref, RuleSet, ThemeModel } from "@theme-registry/refract";
 import { buildTokenMap, mergeComponentRuleSet } from "@theme-registry/refract";
 import type { MergedRuleSet } from "@theme-registry/refract";
-import type { AdapterSpec, RenderContext, ThemeAdapter, UsageDescriptor, UsageRecipe } from "@theme-registry/refract";
+import type { AdapterSpec, PreviewDescriptor, RenderContext, ThemeAdapter, UsageDescriptor, UsageRecipe } from "@theme-registry/refract";
 import { defineAdapter } from "@theme-registry/refract";
 import type {
   JsonAdapterOptions,
@@ -282,6 +282,17 @@ export const createJsonAdapter = (options: JsonAdapterOptions = {}): ThemeAdapte
       return {
         recipeName(subsystem, group, variant) {
           return `${subsystem}.${group}.${variant}`;
+        },
+
+        // Preview (§20): JSON is data, not a rendered form — there is nothing for a browser to load.
+        // The token plates are the whole point of the page for this target.
+        describePreview(): PreviewDescriptor {
+          return {
+            stylesheets: [],
+            unavailable:
+              "This target emits a JSON document — data, with no rendered form. Token values below " +
+              "are exact; recipes are listed by the dotted key they carry under `ruleSets`.",
+          };
         },
 
         // Self-documentation: every recipe's dotted key under `ruleSets`, plus framework-neutral

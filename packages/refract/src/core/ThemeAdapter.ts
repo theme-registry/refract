@@ -140,6 +140,58 @@ export interface UsageDescriptor {
   readonly recipes: readonly UsageRecipe[];
 }
 
+/** How one recipe is marked up in a preview document. `tag` omitted ⇒ the preview picks a sensible element. */
+export interface PreviewMarkup {
+  /** The element to render (`"button"`, `"div"`, …). Omit to let the preview choose by group name. */
+  readonly tag?: string;
+  /** Attributes to set on it — for CSS, `{ class: "<the real class list>" }`. */
+  readonly attrs: Readonly<Record<string, string>>;
+}
+
+/**
+ * How to render a **human-facing** preview of an adapter's built output — the audience-flipped sibling
+ * of {@link UsageDescriptor} (which serves the machine-facing `llms.txt` guide). Feeds `preview.html`.
+ *
+ * The build layer can always render *token* plates on its own (they come from the format-neutral DTCG
+ * export), so this describes only the half it cannot know: whether the emitted artifacts are **loadable
+ * by a browser as-is**, and if so, in what order and with what markup. That is true for CSS and, today,
+ * nothing else — SCSS needs compiling, styled-components emits JS modules, JSON has no rendered form.
+ * Those adapters return an empty `stylesheets` with an honest {@link PreviewDescriptor.unavailable}
+ * message, and the page degrades to tokens-only instead of rendering unstyled boxes.
+ *
+ * It is passed the **normalized emit plan and the real emitted file names**, because both answers
+ * depend on them: `split` has a load-order contract, `subsystem`/`components` name files through a
+ * user-supplied function (so names can never be re-derived from the plan alone), and `components`
+ * emits self-contained merged rules keyed by a different class than the composition list every other
+ * mode uses.
+ */
+export interface PreviewDescriptor {
+  /**
+   * Emitted file names that a browser can load as-is, **in load order** (e.g. `split` puts its
+   * variables file first). Empty ⇒ no live rendering is possible for this format; say why in
+   * {@link unavailable}. The build layer intersects this with the files actually written, so a
+   * stale name can never produce a page pointing at a missing artifact.
+   */
+  readonly stylesheets: readonly string[];
+  /** Mark up one recipe. Omit ⇒ recipes are listed by name only, never rendered. */
+  readonly markup?: (recipe: UsageRecipe) => PreviewMarkup | undefined;
+  /**
+   * Optional grouping key per recipe, used for page layout only — `subsystem` mode groups by
+   * subsystem, `components` mode by the file each component was written to. Omit ⇒ one flat section.
+   */
+  readonly groupBy?: (recipe: UsageRecipe) => string | undefined;
+  /**
+   * The attribute to set on `<html>` to force an appearance mode (CSS emits `:root[data-theme="…"]`,
+   * so the CSS adapter answers `"data-theme"`). Absent ⇒ the preview renders no mode toggle, because
+   * it would have no way to switch. The theme's own `prefers-color-scheme` blocks still apply.
+   */
+  readonly modeAttribute?: string;
+  /** Why a live render isn't possible, in the author's own words. Shown when `stylesheets` is empty. */
+  readonly unavailable?: string;
+  /** Caveats worth surfacing on the page even when rendering does work (e.g. "`variables: false` — …"). */
+  readonly notes?: readonly string[];
+}
+
 /** The Model-derived context bound alongside the Model. */
 export interface RenderContext<TBreakpoint extends string = string> {
   /** Core-built media descriptor (breakpoints → `@media` builder) for responsive rules. */
@@ -196,6 +248,15 @@ export interface BoundSpec<TUnit = string> {
    * that has neither refract nor its skills. Optional: `defineAdapter` supplies a generic default
    * (recipe identities via `recipeName`); an adapter overrides it to add format-specific import prose. */
   describeUsage?(): UsageDescriptor;
+
+  /**
+   * Describe how to render a human-facing `preview.html` of this emit — see {@link PreviewDescriptor}.
+   * Receives the normalized plan and the file names `emit(plan)` actually produced.
+   *
+   * **Unlike `describeUsage`, this has NO default**: an absent implementation means "I don't know how
+   * to show this in a browser", and the preview falls back to token plates only. That's the correct
+   * behavior for a third-party adapter that has never heard of previews, so the contract stays additive. */
+  describePreview?(plan: NormalizedEmit, files: readonly string[]): PreviewDescriptor;
 
   /**
    * Build-time emit: self-contained files (adapter vendors its own runtime helpers). `plan` is the

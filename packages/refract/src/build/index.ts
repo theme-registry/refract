@@ -8,6 +8,7 @@
 export * from "./vendor";
 export * from "./paths";
 export * from "./guide";
+export * from "./preview";
 export * from "./emitTheme";
 export * from "./emit";
 export * from "./config";

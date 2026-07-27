@@ -202,6 +202,27 @@ Each target's `emit` picks the output shape (CSS adapter):
 | `subsystem` | a styles+variables pair per subsystem (`colors.css`, `colors.variables.css`, …) |
 | `components` | each component variant flattened into one self-contained file (`inline: true` bakes values; `inline: false` emits `var(--…)` + a tree-shaken `variables.css`) |
 
+### `preview` — see what you built
+
+Set `preview: true` on any target and `refract build` also writes a `preview.html` into its
+`outDir`: a rendered specimen you double-click, forward, or hand a designer. It inlines its
+stylesheets by default, so the page is one self-contained file that survives being moved.
+
+```ts
+{ name: "css", adapter: createCssAdapter(), outDir: "dist/theme", preview: true }
+```
+
+Token plates — colours, the type ramp, spacing, radii, shadows, breakpoints — render from the
+format-neutral token export, so **every** adapter gets them. Live recipe plates additionally need
+output a browser can load as-is, which today means CSS; an SCSS/styled-components/JSON target still
+renders every token and names every recipe, and says why it can't render them live. (For a live
+design-review page from an SC or SCSS theme, add a CSS target to the same config — same recipes,
+same core.) The page follows the target's `emit` mode, and gains a light/dark toggle when the theme
+declares modes plus frame-width buttons when it declares breakpoints. Off by default.
+
+Its machine-facing sibling is `guide: true`, which writes an `llms.txt` + `manifest.json`
+consumption guide into the same folder.
+
 ## DTCG round-trip
 
 The `./dtcg` subpath reads/writes the W3C Design Token Community Group `tokens.json`

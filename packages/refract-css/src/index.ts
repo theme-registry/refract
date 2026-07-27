@@ -522,6 +522,79 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
           };
         },
 
+        // Human-facing preview (§20): CSS is the one format a browser loads as-is, so this is where
+        // the live recipe plates come from. Both answers depend on the PLAN, which is why it's an
+        // argument: `split` has a load-order contract (variables first), `subsystem`/`components`
+        // name files through a user-supplied function, and `components` emits merged self-contained
+        // rules keyed by the recipe's OWN class rather than the composition list every other mode uses.
+        describePreview(plan, files) {
+          const written = new Set(files);
+          const keep = (...names: Array<string | false | undefined>): string[] =>
+            names.filter((n): n is string => typeof n === "string" && written.has(n));
+
+          // `components` emits ONLY the components subsystem, so every other subsystem's recipes have
+          // no CSS in this output — listing them as renderable would be a lie.
+          const renderable = (r: UsageRecipe): boolean =>
+            plan.type !== "components" || r.subsystem === "components";
+
+          const markup = (r: UsageRecipe) => {
+            if (!renderable(r)) return undefined;
+            // components mode: the merged rule targets the own class; every other mode wants the full
+            // composition list `getClass` returns.
+            const name =
+              plan.type === "components"
+                ? (selectorFor(r.subsystem, r.group, r.variant) ?? "").replace(/^\./, "")
+                : getClass(r.subsystem, r.group, r.variant);
+            return name ? { attrs: { class: name } } : undefined;
+          };
+
+          const base = { markup, modeAttribute: "data-theme" } as const;
+
+          switch (plan.type) {
+            case "single":
+              return { ...base, stylesheets: keep(plan.file) };
+
+            case "split":
+              // Load-order contract — the styles file references vars the variables file defines.
+              return { ...base, stylesheets: keep(plan.variables, plan.file) };
+
+            case "subsystem": {
+              // Every subsystem's variables before any rules, for the same reason. Names come from the
+              // plan's `filename` fn but are intersected with what was actually written.
+              const subsystems = Object.keys(model.subsystems);
+              return {
+                ...base,
+                stylesheets: [
+                  ...keep(...subsystems.map(s => plan.filename(s, "variables"))),
+                  ...keep(...subsystems.map(s => plan.filename(s, "styles"))),
+                ],
+                groupBy: r => r.subsystem,
+              };
+            }
+
+            case "components": {
+              const componentFile = (r: UsageRecipe): string =>
+                plan.filename({ group: r.group, variant: r.variant });
+              const variables = plan.variables === false ? [] : keep(plan.variables);
+              // Every component file, in emit order, after the variables file (if any).
+              const componentFiles = files.filter(f => !variables.includes(f));
+              return {
+                ...base,
+                stylesheets: [...variables, ...componentFiles],
+                groupBy: r => (renderable(r) ? componentFile(r) : "not emitted in components mode"),
+                notes:
+                  plan.variables === false && plan.inline === false
+                    ? [
+                        "This target emits component rules that reference CSS variables but no variables " +
+                          "file (`variables: false`), so the preview renders them undefined — supply the " +
+                          "variables yourself in the consuming app.",
+                      ]
+                    : undefined,
+              };
+            }
+          }
+        },
+
         // Surface the CSS-named aggregate outputs on the theme (computed on demand — no stored bag),
         // plus `theme.media` = the plain core descriptor pass-through (an SC adapter would wrap it).
         extend() {

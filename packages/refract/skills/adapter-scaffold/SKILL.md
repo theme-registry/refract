@@ -30,6 +30,16 @@ onto the theme. You author an `AdapterSpec<TUnit>` and wrap it with `defineAdapt
 - **Optional:** `renderToken`, aggregator overrides (`renderAllRecipes`/`…Variables`/`renderAll`),
   `extend(theme)` (attach runtime glue), `emit(plan?)` (build-time files — switch on `plan.type`
   and throw a clear error for modes you don't support).
+- **Optional self-description** (each feeds an opt-in build artifact; both are additive, so an
+  adapter that implements neither still works):
+  - `describeUsage()` → the machine-facing `guide` (`llms.txt` + `manifest.json`). `defineAdapter`
+    supplies a generic default; override it to add format-specific consumption prose.
+  - `describePreview(plan, files)` → the human-facing `preview.html`. **No default.** Implement it
+    only if a browser can load your emitted files *as-is*; otherwise return
+    `{ stylesheets: [], unavailable: "why not" }` and the preview renders token plates plus your
+    explanation. Take the file names from the `files` argument — in `subsystem`/`components` mode
+    `filename` is a user function, so names can't be re-derived from the plan. See
+    **docs/extending.md → Writing `describePreview`**.
 
 `defineAdapter(spec)` supplies the default aggregators as pure Model walks — override only if the
 full document isn't a flat concatenation.

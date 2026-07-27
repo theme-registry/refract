@@ -61,18 +61,46 @@ export const readVendorSource = (source: string): string => {
  * with the CSS `emit()` never needs it. It's pulled in ONLY on the two paths that actually transpile
  * TS: loading a `.ts` config and vendoring a shared helper module. If it's absent when one of those
  * runs, we throw a clear, actionable error instead of an opaque module-resolution failure.
+ *
+ * §19 — **resolving is not enough.** TypeScript 7 (the native port) resolves fine but its main entry
+ * exports only `{ version, versionMajorMinor }`; the compiler API moved behind `./unstable/*` with a
+ * different shape. Without the second check below, `transpileModule`/`createProgram` sail through as
+ * `undefined` and every `.ts` config dies three frames later on the opaque
+ * `Cannot read properties of undefined (reading 'ESNext')`. We do NOT support TS 7 (decided
+ * 2026-07-28: `./unstable/*` is explicitly not a stability promise), so this fails loud and names
+ * the way out instead.
  */
+
+/** The compiler entry points refract actually drives — the surface a usable `typescript` must have. */
+const REQUIRED_TS_API = ["transpileModule", "createProgram"] as const;
+
 async function loadTypescript(): Promise<typeof ts> {
+  let mod: ({ default?: typeof ts } & typeof ts) | undefined;
   try {
-    const mod = (await import("typescript")) as unknown as { default?: typeof ts } & typeof ts;
-    return mod.default ?? mod;
+    mod = (await import("typescript")) as unknown as { default?: typeof ts } & typeof ts;
   } catch {
     throw new Error(
       'refract: the optional peer dependency "typescript" is required to transpile a `.ts` ' +
         "theme.config or vendor a shared helper module, but it could not be resolved. Install it " +
-        "(`npm i -D typescript`), or use a `.mjs`/`.js` config and avoid the `helpers` opt-in.",
+        "(`npm i -D typescript@5`), or use a `.mjs`/`.js` config and avoid the `helpers` opt-in.",
     );
   }
+
+  const tsc = mod.default ?? mod;
+  const missing = REQUIRED_TS_API.filter(
+    name => typeof (tsc as unknown as Record<string, unknown>)?.[name] !== "function",
+  );
+  if (missing.length > 0) {
+    const version = (tsc as { version?: string })?.version;
+    throw new Error(
+      `refract: the installed "typescript" (${version ?? "unknown version"}) does not expose the ` +
+        `compiler API refract needs (missing: ${missing.join(", ")}). TypeScript 7 moved these ` +
+        "behind `./unstable/*` subpaths, which are explicitly not a stability promise, so refract " +
+        "does not use them. Install `typescript@5` (`npm i -D typescript@5`), or switch to a " +
+        "`.mjs`/`.js` theme.config — those are imported directly and never load typescript.",
+    );
+  }
+  return tsc;
 }
 
 /**

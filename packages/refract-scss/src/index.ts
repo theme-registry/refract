@@ -23,7 +23,7 @@ import type { Literal, Ref, RuleSet, RuleSetOverride, ThemeModel } from "@theme-
 import { buildTokenMap, mergeComponentRuleSet, parseRuleSetReference } from "@theme-registry/refract";
 import type { MergedRuleSet } from "@theme-registry/refract";
 import type { MediaDescriptor, MediaVariant } from "@theme-registry/refract";
-import type { AdapterSpec, RenderContext, ThemeAdapter, UsageDescriptor, UsageRecipe } from "@theme-registry/refract";
+import type { AdapterSpec, PreviewDescriptor, RenderContext, ThemeAdapter, UsageDescriptor, UsageRecipe } from "@theme-registry/refract";
 import { defineAdapter } from "@theme-registry/refract";
 import type { ResolvedComponentClass, ScssAdapterOptions, ScssUnit } from "./types";
 
@@ -347,6 +347,18 @@ export const createScssAdapter = (options: ScssAdapterOptions = {}): ThemeAdapte
           if (ruleSet?.kind === "reset" || ruleSet?.kind === "globals") return "";
           if (subsystem === "components") return scssClassName("components", group, variant, prefix);
           return selectors[subsystem]?.[group]?.[variant] ?? "";
+        },
+
+        // Preview (§20): a browser can't load Sass — the partials must be compiled first. Token
+        // plates still render from the format-neutral export; recipes are listed by name only.
+        describePreview(): PreviewDescriptor {
+          return {
+            stylesheets: [],
+            unavailable:
+              "This target emits Sass partials, which a browser cannot load directly — compile them " +
+              "to CSS first (or add a CSS target to this config) for a live render. Token values " +
+              "below are exact; recipe class names are the ones the partials compile to.",
+          };
         },
 
         // Self-documentation: the REAL class names recipes compile to (globals/reset carry no class),
