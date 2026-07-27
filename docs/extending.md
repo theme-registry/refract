@@ -83,6 +83,10 @@ interface BoundSpec<TUnit> {
   extend?(theme): Record<string, unknown>;   // attach runtime helpers to the theme (the theme.media / theme.css pattern)
   emit?(plan?): EmitOutput;                  // build-time: self-contained files (vendor your own runtime helpers)
 
+  // Optional self-description (both feed opt-in build-time artifacts):
+  describeUsage?(): UsageDescriptor;                            // machine-facing → llms.txt + manifest.json
+  describePreview?(plan, files): PreviewDescriptor;             // human-facing  → preview.html
+
   // Optional aggregator overrides (defaults cover the common case):
   renderAllRecipes?(): TUnit;
   renderAllVariables?(): TUnit;
@@ -98,6 +102,44 @@ interface BoundSpec<TUnit> {
 - **`extend`** attaches the runtime surface (`theme.css`, `theme.media`, `theme.classes`, …).
 - **`emit`** returns self-contained build files; it receives the normalized `emit` plan
   (§ `emit` modes) and should throw a clear error for a mode it doesn't honor.
+- **`describeUsage`** describes how to *consume* the output — it feeds the opt-in `guide`
+  (`llms.txt` + `manifest.json`). `defineAdapter` supplies a generic default (recipe identities via
+  `recipeName`), so overriding it is optional; do so to add format-specific consumption prose.
+- **`describePreview`** describes how to *render* the output for a human — it feeds the opt-in
+  `preview` (`preview.html`). Unlike `describeUsage` it has **no default**: an absent implementation
+  means "I don't know how to show this in a browser", and the preview falls back to token plates
+  only. That is the correct behavior for an adapter that has never heard of previews, which is why
+  the contract stays additive.
+
+#### Writing `describePreview`
+
+```ts
+describePreview(plan: NormalizedEmit, files: readonly string[]): PreviewDescriptor;
+
+interface PreviewDescriptor {
+  stylesheets: readonly string[];                     // emitted files a browser can load AS-IS, in load order
+  markup?(recipe: UsageRecipe): { tag?, attrs } | undefined;  // how to render one recipe
+  groupBy?(recipe: UsageRecipe): string | undefined;  // page layout grouping (subsystem, component file…)
+  modeAttribute?: string;                             // attribute on <html> that forces a mode (CSS: "data-theme")
+  unavailable?: string;                               // why a live render isn't possible (when stylesheets is empty)
+  notes?: readonly string[];                          // caveats to surface even when rendering works
+}
+```
+
+Three rules worth internalizing before you write one:
+
+1. **Say nothing rather than something false.** If your format isn't loadable by a browser — Sass
+   needs compiling, JS modules need a framework, JSON has no rendered form — return
+   `{ stylesheets: [], unavailable: "…" }`. The preview then renders token plates and names every
+   recipe, instead of showing a grid of unstyled boxes that misrepresents the theme.
+2. **Never re-derive filenames from the plan.** In `subsystem` / `components` mode `filename` is a
+   *user-supplied function*, so the plan alone cannot tell you what was written — that's exactly why
+   `files` is an argument. (The build layer also intersects your `stylesheets` with the real
+   listing, so drift degrades gracefully rather than producing a broken page; don't rely on it.)
+3. **The plan can change the right answer, not just the file list.** `split` has a load-order
+   contract (variables first). `components` emits merged, self-contained rules keyed by a *different*
+   class than the composition list every other mode uses, and emits only the components subsystem —
+   so both `markup` and which recipes are renderable differ in that mode.
 
 ### Naming overrides
 

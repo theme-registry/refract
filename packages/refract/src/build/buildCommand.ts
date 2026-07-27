@@ -100,6 +100,7 @@ export async function runBuild(options: BuildOptions = {}): Promise<BuildResult>
       units: config.units,
       baseFontSize: config.baseFontSize,
       guide: target.guide,
+      preview: target.preview,
     });
     summaries.push({
       name: target.name,

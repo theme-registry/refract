@@ -35,7 +35,7 @@
     "@theme-registry/refract": "workspace:^"
   },
   "peerDependencies": {
-    "typescript": "*"
+    "typescript": ">=5.0.0 <6"
   },
   "peerDependenciesMeta": {
     "typescript": {

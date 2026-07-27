@@ -34,7 +34,7 @@ export default defineConfig({
 ```
 
 `ThemeConfig` = `{ raw, targets, media?, units?, baseFontSize? }`. Each `EmitTarget` =
-`{ adapter, outDir, name?, emit?, helpers? }`. Resolution order: `theme.config.ts` → `.mjs` →
+`{ adapter, outDir, name?, emit?, helpers?, guide?, preview? }`. Resolution order: `theme.config.ts` → `.mjs` →
 `.js` (a `.ts` config lazy-loads the optional `typescript` peer — it must be **5.x**; a bare
 `npm i -D typescript` resolves to 7.x, whose main entry doesn't expose the compiler API, and the
 build then fails with `Cannot read properties of undefined (reading 'ESNext')`. A `.mjs`/`.js`
@@ -65,6 +65,30 @@ tree-shake, so the CSS-only modes are redundant).
 - `refract help`.
 
 Run via `npx refract <cmd>`. `outDir` resolves relative to the config file's directory.
+
+## Emitted extras (`guide` / `preview` on a target)
+
+Both are **off by default** and land inside the target's `outDir`, so they travel with any
+distribution form. A build with neither set is byte-identical to before.
+
+- `guide: true` → `llms.txt` + `manifest.json` — the **machine-facing** consumption guide (real
+  class names / export ids / token paths). Object form: `{ packageName?, llmsFile?, manifestFile? }`.
+- `preview: true` → `preview.html` — the **human-facing** rendered specimen. Object form:
+  `{ file?, title?, inline? }`; `inline` defaults **true** (one self-contained shareable file), set
+  it `false` to emit relative `<link>`s that reflect a rebuilt stylesheet on refresh.
+
+**What `preview` shows depends on the adapter, and you should say so rather than over-promise.**
+Token plates (colours, type ramp, spacing, radii, shadows, breakpoints) render from the
+format-neutral token export, so **every** adapter gets them. *Live* recipe plates need output a
+browser can load as-is — **CSS only** today. An SCSS / styled-components / JSON target still renders
+every token and lists every recipe by its real identity, and states why it can't render them live.
+If a user wants a live design-review page from an SC or SCSS theme, tell them to **add a CSS target
+to the same config** — same recipes through the same core, so it's a faithful specimen.
+
+The page follows the target's `emit` mode (variables load before styles in `split`; plates group by
+subsystem or by component file), gains a light/dark toggle when the theme declares `modes`, and
+frame-width buttons when it declares `breakpoints`. A theme with **no recipes** (e.g. straight out of
+`refract create`) renders its tokens and says explicitly that recipes are missing.
 
 ## Dark-mode strategy (differs by target)
 

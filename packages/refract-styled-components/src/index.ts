@@ -17,7 +17,7 @@
  */
 import type { RuleSet as ModelRuleSet, ThemeModel } from "@theme-registry/refract";
 import type { AdapterSpec, RenderContext, ThemeAdapter, NormalizedEmit, EmitOutput } from "@theme-registry/refract";
-import type { UsageDescriptor } from "@theme-registry/refract";
+import type { PreviewDescriptor, UsageDescriptor } from "@theme-registry/refract";
 import type { MediaDescriptor } from "@theme-registry/refract";
 import { defineAdapter } from "@theme-registry/refract";
 import { css, createGlobalStyle } from "styled-components";
@@ -232,6 +232,19 @@ export const createStyledComponentsAdapter = (
       return {
         recipeName(subsystem, group, variant) {
           return ids.recipeExportName(subsystem, group, variant);
+        },
+
+        // Preview (§20): the output is JS modules that need React + styled-components to render, so
+        // there is no stylesheet to load. Token plates still work; for a live design-review page add a
+        // CSS target to the same config — same recipes through the same core IR, so it's faithful.
+        describePreview(): PreviewDescriptor {
+          return {
+            stylesheets: [],
+            unavailable:
+              "This target emits JavaScript modules that render through React + styled-components, " +
+              "so there is no stylesheet a browser can load. Token values below are exact. For a live " +
+              "render, add a CSS target to the same config — it compiles the same recipes.",
+          };
         },
 
         // Self-documentation: the REAL export identifiers (the tree-shakeable `css` consts) plus

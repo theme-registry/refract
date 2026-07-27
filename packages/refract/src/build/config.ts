@@ -23,6 +23,7 @@ import type { RawTheme } from "../core/rawTheme";
 import type { MediaConfig } from "../core/media";
 import type { UnitsConfig } from "../core/units";
 import type { GuideConfig } from "./emitTheme";
+import type { PreviewConfig } from "./preview";
 import { compileTsConfigGraph } from "./paths";
 
 /** One emit target: an adapter + where to write it, plus which shared vendored helpers it wants. */
@@ -41,6 +42,14 @@ export interface EmitTarget {
    * file names or adds a `packageName` for a by-specifier import overlay. Off by default.
    */
   readonly guide?: boolean | GuideConfig;
+  /**
+   * §20 — emit a human-facing `preview.html` specimen into this target's `outDir`: token plates
+   * rendered from the format-neutral export (so every adapter gets them) plus live recipe plates
+   * when the adapter's output is browser-loadable (CSS today). The audience-flipped sibling of
+   * `guide`. `true` uses defaults; an object tunes the filename/title or opts out of inlining.
+   * Off by default.
+   */
+  readonly preview?: boolean | PreviewConfig;
 }
 
 /** The `theme.config` shape: the raw theme + one or more emit targets. */

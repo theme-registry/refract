@@ -27,6 +27,7 @@ import { VENDOR_HELPERS, findVendorHelper } from "./vendor";
 import { readVendorSource, transpileToEsm } from "./paths";
 import { resolveEmitPlan } from "./emit";
 import { buildGuide } from "./guide";
+import { buildPreview, type PreviewConfig } from "./preview";
 import { toDTCG } from "../dtcg";
 
 /** Opt-in self-documenting output config (§C). `true` uses defaults; the object tunes names/overlay. */
@@ -58,6 +59,8 @@ export interface EmitThemeOptions {
   readonly baseFontSize?: number;
   /** §C — emit a self-documenting `llms.txt` + `manifest.json` into `outDir`. Off by default. */
   readonly guide?: boolean | GuideConfig;
+  /** §20 — emit a human-facing `preview.html` specimen into `outDir`. Off by default. */
+  readonly preview?: boolean | PreviewConfig;
 }
 
 export interface EmitThemeResult {
@@ -67,7 +70,7 @@ export interface EmitThemeResult {
 }
 
 export async function emitTheme(options: EmitThemeOptions): Promise<EmitThemeResult> {
-  const { raw, adapter, outDir, helpers = [], emit, media: mediaConfig, units, baseFontSize, guide } = options;
+  const { raw, adapter, outDir, helpers = [], emit, media: mediaConfig, units, baseFontSize, guide, preview } = options;
 
   const theme = createTheme(raw, { adapter, media: mediaConfig, units, baseFontSize });
 
@@ -83,7 +86,9 @@ export async function emitTheme(options: EmitThemeOptions): Promise<EmitThemeRes
   if (!bound.emit) {
     throw new Error(`Adapter "${adapter.name}" does not implement emit(); it cannot build to disk.`);
   }
-  const emitted = bound.emit(resolveEmitPlan(emit));
+  // Hoisted: `guide` and `preview` both describe THIS emit, and `describePreview` is handed the plan.
+  const plan = resolveEmitPlan(emit);
+  const emitted = bound.emit(plan);
 
   const written: string[] = [];
   mkdirSync(outDir, { recursive: true });
@@ -122,6 +127,25 @@ export async function emitTheme(options: EmitThemeOptions): Promise<EmitThemeRes
       llmsFile: cfg.llmsFile,
       manifestFile: cfg.manifestFile,
     });
+    for (const [name, contents] of Object.entries(built.files)) write(name, contents);
+  }
+
+  // §20 — human-facing `preview.html`: the same theme rendered as a specimen page. `describePreview`
+  // is OPTIONAL and gets the plan plus the REAL emitted names (`filename` is a user function in
+  // subsystem/components mode, so the names cannot be re-derived from the plan). An adapter that
+  // doesn't implement it yields a tokens-only page rather than an error.
+  if (preview) {
+    const cfg: PreviewConfig = preview === true ? {} : preview;
+    const files = Object.keys(emitted.files);
+    const built = buildPreview(
+      {
+        usage: bound.describeUsage(),
+        preview: bound.describePreview?.(plan, files),
+        tokens: toDTCG(theme),
+        model: theme.model,
+      },
+      { files, contents: emitted.files, plan, file: cfg.file, inline: cfg.inline, title: cfg.title },
+    );
     for (const [name, contents] of Object.entries(built.files)) write(name, contents);
   }
 

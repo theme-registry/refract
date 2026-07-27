@@ -54,6 +54,11 @@ For AI-assisted consumers, refract can emit a **self-documenting guide** into `o
 the build target (see **build-config**). Because the guide sits in `outDir`, it travels with any
 distribution form, package specifier or not.
 
+Its human-facing sibling is `preview: true`, which writes a `preview.html` specimen into the same
+folder — token plates for any adapter, plus live recipe plates when the output is browser-loadable
+(CSS). Reach for it when a person needs to *see* the theme (design review, a handoff, a sanity check
+after a retune) rather than consume it.
+
 While *authoring* against a live project, the **`@theme-registry/refract-mcp`** server exposes the
 same information as **live tools + resources** (schema 1) — `getClass` / `resolveToken` / `renderRecipe`
 and a `refract://manifest.json` resource — answering against the real compiled theme. Prefer it when
