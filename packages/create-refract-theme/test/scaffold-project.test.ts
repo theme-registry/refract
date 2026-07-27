@@ -178,3 +178,44 @@ describe("scaffoldProject — guards", () => {
     expect(isDirectoryUsable(empty)).toBe(false);
   });
 });
+
+describe("scaffoldProject — agent tooling", () => {
+  it("writes no agent files unless asked", () => {
+    const result = scaffold();
+    expect(result.skills).toBeUndefined();
+    expect(result.mcp).toBe(false);
+    expect(existsSync(join(result.directory, ".mcp.json"))).toBe(false);
+    expect(existsSync(join(result.directory, ".refract"))).toBe(false);
+    const pkg = JSON.parse(readFileSync(join(result.directory, "package.json"), "utf8"));
+    expect(pkg.devDependencies["@theme-registry/refract-mcp"]).toBeUndefined();
+  });
+
+  it("wires the MCP server into both the config file and the dependencies", () => {
+    const result = scaffold({ mcp: true });
+    const cfg = JSON.parse(readFileSync(join(result.directory, ".mcp.json"), "utf8"));
+    expect(cfg.mcpServers.refract.command).toBe("npx");
+    expect(cfg.mcpServers.refract.args).toContain("@theme-registry/refract-mcp");
+    // It points at the build config, because the server loads the theme at startup.
+    expect(cfg.mcpServers.refract.args).toContain("theme.config.ts");
+    const pkg = JSON.parse(readFileSync(join(result.directory, "package.json"), "utf8"));
+    expect(pkg.devDependencies["@theme-registry/refract-mcp"]).toBeDefined();
+    expect(result.files).toContain(".mcp.json");
+  });
+
+  it("installs skills for the agents it is given", () => {
+    const result = scaffold({ skillAgents: ["claude", "codex"] });
+    expect(result.skills?.agents).toEqual(["claude", "codex"]);
+    expect(result.skills?.skills.length).toBeGreaterThan(10);
+    // Claude gets native per-skill dirs; everyone else a router + on-demand bodies.
+    expect(existsSync(join(result.directory, ".claude/skills/theme-scaffold/SKILL.md"))).toBe(true);
+    expect(existsSync(join(result.directory, "AGENTS.md"))).toBe(true);
+    expect(existsSync(join(result.directory, ".refract/skills/theme-scaffold.md"))).toBe(true);
+  });
+
+  it("installing skills does not throw from an ESM entry point", () => {
+    // Regression: findPackageRoot() defaulted to __dirname, which is undefined in the ESM bundle —
+    // so every ESM consumer of the build layer died on package-root discovery. This test runs
+    // through exactly that path.
+    expect(() => scaffold({ skillAgents: ["claude"] })).not.toThrow();
+  });
+});
