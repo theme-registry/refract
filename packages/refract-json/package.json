@@ -1,6 +1,6 @@
 {
   "name": "@theme-registry/refract-json",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "The JSON output adapter for @theme-registry/refract — lowers a ThemeModel to a structured JSON document.",
   "author": {
     "name": "Petyo Stoyanov",
