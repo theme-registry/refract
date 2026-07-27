@@ -793,6 +793,7 @@ document.head.<span class="n">append</span>(
   Object.<span class="n">assign</span>(document.<span class="n">createElement</span>(<span class="s">"style"</span>), { textContent: theme.css })
 );</pre>
           </div>
+          <div class="note"><b>Optional peers.</b> <code>styled-components</code> is needed only for that adapter, and <code>typescript</code> only if your build config is a <code>.ts</code> file (a <code>.mjs</code> or <code>.js</code> config never loads it). Install <b><code>typescript@5</code></b> explicitly — a bare <code>npm i -D typescript</code> now resolves to <b>7.x</b>, the native port, whose main entry exports only a version string; the compiler API refract transpiles a <code>.ts</code> config with lives behind its <code>./unstable/*</code> subpaths and isn't stable yet. Scaffolded projects already pin <code>^5</code>.</div>
         </section>
 
         <section class="doc-section" id="scaffold">
@@ -1151,7 +1152,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
           <div class="eyebrow">Agent-native <b>/ MCP server</b></div>
           <h2>MCP server</h2>
           <p class="lead">A <b>Model Context Protocol</b> server that exposes <b>your project's theme</b> as <b>live tools</b> an agent calls directly — so it answers "what class do I use here?" against the <b>real compiled theme</b>, and validates its own work as it goes. It's the one capability a plain token file can't offer.</p>
-          <div class="note"><b>Project-scoped.</b> The server loads your <code>theme.config.(ts|js|mjs)</code> once at startup (auto-discovered in the cwd, or via <code>--config</code>) and holds it — so the query tools take <b>no <code>theme</code> argument</b>; the agent asks about the loaded theme without resending it. It reloads on change, and runs on the official <code>@modelcontextprotocol/sdk</code> over stdio. Published on the npm <code>latest</code> tag, versioned in lockstep with core and the adapters. A <code>.ts</code> config needs the <code>typescript</code> optional peer (same as <code>refract build</code>).</div>
+          <div class="note"><b>Project-scoped.</b> The server loads your <code>theme.config.(ts|js|mjs)</code> once at startup (auto-discovered in the cwd, or via <code>--config</code>) and holds it — so the query tools take <b>no <code>theme</code> argument</b>; the agent asks about the loaded theme without resending it. It reloads on change, and runs on the official <code>@modelcontextprotocol/sdk</code> over stdio. Published on the npm <code>latest</code> tag, versioned in lockstep with core and the adapters. A <code>.ts</code> config needs the <code>typescript</code> optional peer at <b>5.x</b> (same as <code>refract build</code> — see <a href="#install">Installation</a>).</div>
 
           <h3>The tools</h3>
           <p>Eleven read/validate tools over the loaded theme:</p>

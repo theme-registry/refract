@@ -35,7 +35,10 @@ export default defineConfig({
 
 `ThemeConfig` = `{ raw, targets, media?, units?, baseFontSize? }`. Each `EmitTarget` =
 `{ adapter, outDir, name?, emit?, helpers? }`. Resolution order: `theme.config.ts` → `.mjs` →
-`.js` (a `.ts` config lazy-loads the optional `typescript` peer).
+`.js` (a `.ts` config lazy-loads the optional `typescript` peer — it must be **5.x**; a bare
+`npm i -D typescript` resolves to 7.x, whose main entry doesn't expose the compiler API, and the
+build then fails with `Cannot read properties of undefined (reading 'ESNext')`. A `.mjs`/`.js`
+config never loads it).
 
 ## Emit modes (`emit` on a target)
 
