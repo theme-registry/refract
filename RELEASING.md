@@ -39,6 +39,22 @@ package whose version isn't already on the registry: run `pnpm version-packages`
 then `pnpm release` publishes core **and** the initializer, with the dependency rewritten to the
 version that just went out. Only reach for a standalone initializer publish when core is unchanged.
 
+### Does this change need the initializer republished?
+
+**It depends on which package the changed code lives in — not on which package the user runs.**
+
+Both of these ship behaviour to `npm create refract-theme`, and they release differently:
+
+| Changed file | Reaches users by |
+| --- | --- |
+| `packages/refract/src/build/*` (the interview, the prompts, the generator) | **Core release alone.** The published initializer resolves the new core through its `^0.1.x` range — no republish. |
+| `packages/create-refract-theme/src/*` (project questions, templates, flags) | **A republish of the initializer.** Nothing else can deliver it. |
+
+This has been got wrong once: the arrow-key prompts live in core and genuinely needed no republish, and
+that conclusion was then carried across to a change in the initializer's own source, which shipped a
+release where `npx create-refract-theme@latest --skills` failed with `Unknown option`. The
+[smoke test](#smoke-test-after-a-release) is what caught it — run it every time.
+
 ### npm token scope
 
 The publish token is a **granular access token**. Granular tokens scope by package or by *scope* — a
@@ -59,19 +75,38 @@ rm -f /tmp/pub.npmrc
 Only needed again for the **next new unscoped package**. Publish with `pnpm`, never `npm` — only pnpm
 rewrites `workspace:^` to a real range, and `npm publish` would ship a spec no consumer can resolve.
 
+> **Outstanding:** delete that short-lived all-packages token, and add `create-refract-theme` to the
+> regular publish token's allowlist — it's selectable now that the package exists. Until then the
+> initializer only publishes with a broader token than it should need.
+
 ### Smoke test after a release
 
 Workspace links hide packaging bugs — a missing dependency resolves from a sibling, and a bin that
 never runs looks fine when invoked directly. Three such bugs shipped as far as a packed tarball before
 being caught. So after publishing, install from the registry as a user would:
 
+**Clear the npx cache first, or the test is a lie.** `npx` keys its cache directory on the package
+*spec*, not on the resolved dependency tree — so when the initializer's own version hasn't changed,
+`create-refract-theme@latest` still resolves to the same version, npx finds a matching install on disk
+and reuses it **along with the core version pinned inside it at first run**. You get last release's
+code and no indication anything is stale.
+
 ```sh
+rm -rf ~/.npm/_npx/*/            # or just the entry holding create-refract-theme
 cd $(mktemp -d)
-npx create-refract-theme@latest my-theme --yes
+npx --prefer-online create-refract-theme@latest my-theme --yes --skills --mcp
 cd my-theme && npm install && npm run build && npm run audit && npm run typecheck
 ```
 
-Expect a `dist/css/theme.css` and `7/7 pass, 0 fail`.
+`--prefer-online` additionally revalidates registry metadata, which `~/.npm/_cacache` holds with a TTL
+— relevant in the minutes right after a publish.
+
+Expect a `dist/css/theme.css`, `7/7 pass, 0 fail`, and — with the agent flags — the skills and
+`.mcp.json`. Confirm the resolved core is the version you just published:
+
+```sh
+node -p "require('@theme-registry/refract/package.json').version"
+```
 
 ## Versioning model (0.x)
 
