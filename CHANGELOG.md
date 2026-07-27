@@ -9,6 +9,22 @@ This project adheres to [Semantic Versioning](https://semver.org). While on `0.x
 carry breaking changes; **pin exact versions**. What is and isn't frozen is spelled out under
 [Stability](#stability) below.
 
+## 0.1.7
+
+Bug fix in the MCP server; the rest of the group bumps for lockstep only.
+
+- **`refract-mcp` no longer wakes on its own compiler output.** Loading a `.ts` `theme.config`
+  graph-compiles it to hidden `.mjs` files emitted beside each compiled source, which are imported and
+  then unlinked — and those writes matched the config watcher's source pattern, so every load triggered
+  a reload, which emitted them again. The result was an endless reload loop with no user edit involved,
+  churning the config's directory (an editor showing a file tree that never stops refreshing). The
+  watcher now skips any hidden path, which also drops the spurious reloads caused by `.next` / `.turbo`
+  / `.cache` build churn when the config sits at a monorepo root, and reloads no longer overlap. Only
+  `.ts` configs were affected; `.mjs`/`.js` are imported directly and emit nothing.
+
+> **0.1.3 – 0.1.6** shipped `refract create`, the `create-refract-theme` initializer, and the arrow-key
+> interview without an entry here. They are recorded in each package's own `CHANGELOG.md`.
+
 ## 0.1.2
 
 Post-publish review pass — surface the rigor and close the silent-failure/drift traps. Additive; no
