@@ -67,6 +67,28 @@ export interface ProjectSpec {
   readonly refractRange: string;
   /** The raw-theme file the config will import, e.g. `theme.raw.ts`. */
   readonly rawFilename: string;
+  /** Wire the MCP server — adds the dependency and writes `.mcp.json`. */
+  readonly mcp?: boolean;
+}
+
+/**
+ * `.mcp.json` — project-scoped MCP wiring, so anyone who opens the repo gets an agent pointed at
+ * *this* theme. The server reads the build config at startup, which is why it takes `--config`
+ * rather than a theme argument.
+ */
+export function mcpConfig(configFile = "theme.config.ts"): string {
+  return `${JSON.stringify(
+    {
+      mcpServers: {
+        refract: {
+          command: "npx",
+          args: ["-y", "@theme-registry/refract-mcp", "--config", configFile],
+        },
+      },
+    },
+    null,
+    2,
+  )}\n`;
 }
 
 /**
@@ -99,6 +121,9 @@ export function packageJson(spec: ProjectSpec): string {
     typescript: "^5.4.2",
   };
   for (const a of spec.adapters) devDeps[a.pkg] = spec.refractRange;
+  // Declared as well as referenced in `.mcp.json`: the config runs it through `npx`, but pinning it
+  // here keeps the agent on the same version as the theme it's answering questions about.
+  if (spec.mcp) devDeps["@theme-registry/refract-mcp"] = spec.refractRange;
 
   return `${JSON.stringify(
     {

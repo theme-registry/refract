@@ -8,10 +8,19 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
-import { runCreate, rawThemeImport, type CreateResult, type InterviewAnswers } from "@theme-registry/refract/build";
+import {
+  runCreate,
+  rawThemeImport,
+  runSkillsInstall,
+  type AgentTarget,
+  type CreateResult,
+  type InterviewAnswers,
+  type SkillsInstallResult,
+} from "@theme-registry/refract/build";
 import {
   ADAPTERS,
   gitignore,
+  mcpConfig,
   packageJson,
   readme,
   themeConfig,
@@ -33,6 +42,10 @@ export interface ScaffoldProjectOptions {
   readonly force?: boolean;
   /** Override the refract version range written into `package.json` (default: the installed one). */
   readonly refractRange?: string;
+  /** Install the bundled AI skills for these agent CLIs. Empty or omitted installs none. */
+  readonly skillAgents?: readonly AgentTarget[];
+  /** Wire the MCP server: add the dependency and write `.mcp.json`. */
+  readonly mcp?: boolean;
 }
 
 export interface ScaffoldProjectResult {
@@ -43,6 +56,10 @@ export interface ScaffoldProjectResult {
   readonly create: CreateResult;
   readonly adapters: readonly AdapterChoice[];
   readonly refractRange: string;
+  /** What the skills installer wrote, when skills were requested. */
+  readonly skills?: SkillsInstallResult;
+  /** Whether `.mcp.json` was written. */
+  readonly mcp: boolean;
 }
 
 /**
@@ -94,6 +111,8 @@ export function scaffoldProject(options: ScaffoldProjectOptions): ScaffoldProjec
 
   const refract = resolveRefractPackage();
   const refractRange = options.refractRange ?? refract.range;
+  const skillAgents = options.skillAgents ?? [];
+  const mcp = Boolean(options.mcp);
 
   // The theme first — `runCreate` owns generation, contrast and serialization.
   const create = runCreate({
@@ -103,7 +122,7 @@ export function scaffoldProject(options: ScaffoldProjectOptions): ScaffoldProjec
     packageName: refract.name,
   });
   const rawFilename = create.path.split(/[\\/]/).pop() as string;
-  const spec: ProjectSpec = { name: options.name, adapters: chosen, refractRange, rawFilename };
+  const spec: ProjectSpec = { name: options.name, adapters: chosen, refractRange, rawFilename, mcp };
 
   const rawImport = rawThemeImport({
     path: create.path,
@@ -118,7 +137,16 @@ export function scaffoldProject(options: ScaffoldProjectOptions): ScaffoldProjec
     [".gitignore", gitignore()],
     ["README.md", readme(spec)],
   ];
+  if (mcp) files.push([".mcp.json", mcpConfig()]);
   for (const [name, body] of files) writeFileSync(join(directory, name), body, "utf8");
+
+  // Skills are installed rather than templated: the installer owns the per-agent layout (Claude gets
+  // native per-skill directories, everyone else a router plus on-demand bodies) and writes a lock
+  // file so `refract skills update` can work later. Duplicating that here would drift immediately.
+  let skills: SkillsInstallResult | undefined;
+  if (skillAgents.length) {
+    skills = runSkillsInstall({ agents: skillAgents, cwd: directory });
+  }
 
   return {
     directory,
@@ -126,5 +154,7 @@ export function scaffoldProject(options: ScaffoldProjectOptions): ScaffoldProjec
     create,
     adapters: chosen,
     refractRange,
+    skills,
+    mcp,
   };
 }

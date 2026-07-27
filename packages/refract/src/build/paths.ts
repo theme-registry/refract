@@ -12,10 +12,26 @@
  */
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type ts from "typescript";
 
+/**
+ * This module's own directory, in **both** bundle formats.
+ *
+ * `__dirname` only exists in the CJS build. The `./build` subpath also ships an ESM bundle, and
+ * defaulting to a bare `__dirname` made every ESM consumer of this layer throw `__dirname is not
+ * defined` the moment it reached package-root discovery — `runInit`, `runCreate`, `runSkillsInstall`.
+ * It went unnoticed because the only consumer was refract's own CLI, which is bundled as CJS.
+ *
+ * `typeof` guards rather than a feature test, because referencing an undeclared `__dirname` in ESM
+ * would be a ReferenceError. Rollup rewrites `import.meta.url` for the CJS output, so the fallback
+ * expression is valid in both.
+ */
+const moduleDir = (): string =>
+  typeof __dirname !== "undefined" ? __dirname : dirname(fileURLToPath(import.meta.url));
+
 /** Walk up from `startDir` to the first ancestor that contains a `package.json`. */
-export const findPackageRoot = (startDir: string = __dirname): string => {
+export const findPackageRoot = (startDir: string = moduleDir()): string => {
   let dir = startDir;
   for (;;) {
     if (existsSync(join(dir, "package.json"))) return dir;

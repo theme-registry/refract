@@ -8,7 +8,16 @@
 import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { Prompter, bold, dim, green, promptCreateAnswers, createReportLines } from "@theme-registry/refract/build";
+import {
+  AGENT_TARGETS,
+  Prompter,
+  bold,
+  createReportLines,
+  dim,
+  green,
+  promptCreateAnswers,
+  type AgentTarget,
+} from "@theme-registry/refract/build";
 import { createTheme, createNoopAdapter } from "@theme-registry/refract";
 import { scaffoldProject, isDirectoryUsable } from "./scaffoldProject";
 import { ADAPTERS, type AdapterChoice } from "./templates";
@@ -25,6 +34,10 @@ Options:
   --name <name>          Package name (also the directory).
   --dir <path>           Where to create it (default: ./<name>).
   --adapters <a,b>       css · styled-components · scss · json (default: css).
+  --skills               Install the bundled AI skills.
+  --agent <a,b>          Which agent CLIs to install skills for (default: claude).
+  --mcp                  Wire the MCP server (.mcp.json + dependency).
+  --no-agent             Skip the agent-tooling question entirely.
   --seed <color>         Primary colour (default: #4c6ef5).
   --colors <n|list>      Brand colour count, or a comma list with --manual.
   --scheme <name>        Harmony scheme when more than one fits the count.
@@ -50,6 +63,10 @@ export async function main(argv: string[]): Promise<number> {
       name: { type: "string" },
       dir: { type: "string" },
       adapters: { type: "string" },
+      skills: { type: "boolean", default: false },
+      agent: { type: "string" },
+      mcp: { type: "boolean", default: false },
+      "no-agent": { type: "boolean", default: false },
       seed: { type: "string" },
       colors: { type: "string" },
       scheme: { type: "string" },
@@ -99,6 +116,38 @@ export async function main(argv: string[]): Promise<number> {
       process.stderr.write("create-refract-theme: pick at least one output format.\n");
       return 1;
     }
+    // ── agent tooling ──
+    // Both are project setup rather than theme design, so they live here rather than in the shared
+    // interview: `refract create` writes one artefact and shouldn't be installing agent config.
+    const tooling = values["no-agent"]
+      ? []
+      : values.skills || values.mcp
+        ? [...(values.skills ? ["skills" as const] : []), ...(values.mcp ? ["mcp" as const] : [])]
+        : await p.multiselect<"skills" | "mcp">(
+            "Agent tooling",
+            [
+              { value: "skills", label: "AI skills", hint: "refract's authoring guides, installed for your agent" },
+              { value: "mcp", label: "MCP server", hint: "live queries against the built theme (.mcp.json)" },
+            ],
+            [],
+          );
+
+    const wantSkills = tooling.includes("skills");
+    const wantMcp = tooling.includes("mcp");
+
+    let skillAgents: AgentTarget[] = [];
+    if (wantSkills) {
+      skillAgents = values.agent
+        ? (values.agent.split(",").map(s => s.trim()).filter(Boolean) as AgentTarget[])
+        : await p.multiselect<AgentTarget>(
+            "Install skills for",
+            AGENT_TARGETS.map(a => ({ value: a, label: a })),
+            [0],
+          );
+      if (!skillAgents.length) {
+        p.write(`  ${dim("no agent selected — skipping skills")}`);
+      }
+    }
     p.write();
 
     const answers = await promptCreateAnswers(p, {
@@ -123,6 +172,8 @@ export async function main(argv: string[]): Promise<number> {
       adapters: adapters as AdapterChoice["id"][],
       answers,
       force: Boolean(values.force),
+      skillAgents,
+      mcp: wantMcp,
     });
 
     let variableCount = 0;
@@ -139,6 +190,13 @@ export async function main(argv: string[]): Promise<number> {
     p.write();
     p.write(`  ${green("✓")} ${bold(name)} ${dim(`· ${result.files.length} files`)}`);
     for (const f of result.files) p.write(`      ${dim(f)}`);
+    if (result.skills) {
+      p.write();
+      p.write(
+        `  ${green("✓")} ${result.skills.skills.length} skills → ${result.skills.agents.join(", ")} ${dim(`(${result.skills.files.length} files)`)}`,
+      );
+    }
+    if (result.mcp) p.write(`  ${green("✓")} MCP server wired ${dim("— your agent can query the built theme")}`);
     p.write();
     p.write(`  ${dim("Next:")}`);
     p.write(`      cd ${name}`);
