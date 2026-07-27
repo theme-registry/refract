@@ -1,6 +1,6 @@
 {
   "name": "@theme-registry/refract-styled-components",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "The styled-components output adapter for @theme-registry/refract — emits TS/JS theme modules (literal theme object + tree-shakeable css recipes + GlobalStyle).",
   "author": {
     "name": "Petyo Stoyanov",

@@ -1,5 +1,14 @@
 # @theme-registry/refract
 
+## 0.1.6
+
+### Patch Changes
+
+- 5a8f126: Fix `__dirname is not defined` when the `./build` subpath is used from an ESM consumer. Package-root
+  discovery defaulted to `__dirname`, which only exists in the CJS bundle — so `runInit`, `runCreate`
+  and `runSkillsInstall` all threw for ESM callers. It went unnoticed because the only consumer was
+  refract's own CLI, which ships as CJS.
+
 ## 0.1.5
 
 ### Patch Changes

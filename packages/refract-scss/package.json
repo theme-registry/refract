@@ -1,6 +1,6 @@
 {
   "name": "@theme-registry/refract-scss",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "The SCSS output adapter for @theme-registry/refract — lowers a ThemeModel to SCSS variables + mixins.",
   "author": {
     "name": "Petyo Stoyanov",
