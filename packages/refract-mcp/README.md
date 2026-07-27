@@ -8,6 +8,11 @@
 It is **project-scoped**: it loads your `theme.config.(ts|js|mjs)` once at startup and serves queries
 against it, so the agent asks about *your* theme without ever resending it. It reloads on change.
 
+The reload watches the config's directory recursively — so a theme split across `./tokens/*.ts` reloads
+too, not just an edit to the config itself. Hidden paths are never watched (that includes `.git`,
+`.next`, `.turbo`, and the hidden `.mjs` files a `.ts` config's graph-compile emits beside your sources
+and unlinks again), and neither are `node_modules` / `dist` / `out` / `coverage`. Reloads never overlap.
+
 ## Tools
 
 | Tool | Answers |

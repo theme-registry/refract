@@ -25,7 +25,7 @@ import {
   type NamedTheme,
   type Builder,
 } from "../src/tools";
-import { callTool, loadTheme, guideFiles, serverVersion, isBinEntry, type Held } from "../src/server";
+import { callTool, loadTheme, guideFiles, serverVersion, isBinEntry, shouldReload, type Held } from "../src/server";
 
 const raw = {
   colors: {
@@ -298,6 +298,53 @@ describe("loadTheme — loads and reloads a project config", () => {
     writeConfig(dir, "#e8590c"); // edit the theme
     h = await loadTheme(cfg); // what the `reload` tool / fs.watch does
     expect((callTool("resolveToken", { path: "colors.brand" }, h) as { value: string }).value).toBe("rgb(232, 89, 12)");
+  });
+});
+
+describe("watch filter — the server must never wake on its own compiler output", () => {
+  it("rejects hidden paths and build dirs, accepts authored sources", () => {
+    expect(shouldReload("theme.config.ts")).toBe(true);
+    expect(shouldReload("tokens/colors.ts")).toBe(true);
+    expect(shouldReload("tokens/palette.json")).toBe(true);
+    expect(shouldReload("theme.config.mjs")).toBe(true);
+    expect(shouldReload("README.md")).toBe(false);
+    // The emitted temp entry + one beside a compiled sibling — the pair that caused the reload loop.
+    expect(shouldReload(".theme.config.12345-0.mjs")).toBe(false);
+    expect(shouldReload("tokens/.colors.12345-1.mjs")).toBe(false);
+    expect(shouldReload("tokens\\.colors.12345-1.mjs")).toBe(false); // windows separator
+    expect(shouldReload("node_modules/pkg/index.js")).toBe(false);
+    expect(shouldReload("dist/theme.js")).toBe(false);
+    expect(shouldReload(".git/index.json")).toBe(false);
+    expect(shouldReload(".next/server/app.js")).toBe(false);
+  });
+
+  it("filters the real names a `.ts` config graph-compile emits beside its sources", async () => {
+    const dir = mkTmp();
+    // A probe imported by the config lists the directory mid-load — i.e. while the emitted temp files are
+    // still on disk (they're unlinked the moment the import finishes). So this asserts against the REAL
+    // emitted names rather than a second copy of the pattern that could drift from the emitter.
+    writeFileSync(
+      join(dir, "probe.ts"),
+      [
+        `import { readdirSync, writeFileSync } from "node:fs";`,
+        `import { dirname, join } from "node:path";`,
+        `import { fileURLToPath } from "node:url";`,
+        `const here = dirname(fileURLToPath(import.meta.url));`,
+        `writeFileSync(join(here, "listing.json"), JSON.stringify(readdirSync(here)));`,
+        `export const brand = "#4c6ef5";\n`,
+      ].join("\n"),
+    );
+    writeFileSync(
+      join(dir, "theme.config.ts"),
+      `import { brand } from "./probe";\nexport default { raw: { colors: { brand: { base: brand, text: "#fff" } } }, targets: [] };\n`,
+    );
+    await loadTheme(join(dir, "theme.config.ts"));
+
+    const seen = JSON.parse(readFileSync(join(dir, "listing.json"), "utf8")) as string[];
+    const emitted = seen.filter((f) => f.endsWith(".mjs"));
+    expect(emitted.length).toBeGreaterThan(0); // the compiler really did emit beside the sources…
+    expect(emitted.filter(shouldReload)).toEqual([]); // …and not one of them would trigger a reload
+    expect(seen.filter(shouldReload).sort()).toEqual(["probe.ts", "theme.config.ts"]); // the authored ones still do
   });
 });
 
