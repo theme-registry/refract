@@ -1,5 +1,13 @@
 # create-refract-theme
 
+## 0.2.0
+
+### Minor Changes
+
+- Offer AI skills and the MCP server while scaffolding. A new "Agent tooling" prompt installs refract's
+  bundled skills for the agent CLIs you pick, and wires a project-scoped `.mcp.json` plus the
+  `@theme-registry/refract-mcp` dependency. Flags: `--skills`, `--agent <a,b>`, `--mcp`, `--no-agent`.
+
 ## 0.1.0
 
 Initial release.

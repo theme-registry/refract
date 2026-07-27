@@ -1,6 +1,6 @@
 {
   "name": "create-refract-theme",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scaffold a publishable design-system package powered by refract — one seed colour in, a theme package out.",
   "keywords": [
     "refract",
