@@ -1,5 +1,12 @@
 # @theme-registry/refract-mcp
 
+## 0.1.15
+
+### Patch Changes
+
+- Updated dependencies [2520506]
+  - @theme-registry/refract@0.1.15
+
 ## 0.1.14
 
 ### Patch Changes
