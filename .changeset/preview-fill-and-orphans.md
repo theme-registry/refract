@@ -9,3 +9,8 @@ Fix unstyled plates in `preview.html`, and let a dimensionless recipe fill its s
 **Dimensionless recipes fill their stage.** A pure colour recipe (`background` + `color`, nothing else) has nothing to size it, so it collapsed to a text-sized blob adrift on a large stage — which tells you almost nothing about the colour. Those now stretch edge to edge and read as a swatch. Recipes that size themselves are untouched, because that size is the thing being shown; composition is followed, so a variant that declares nothing but references a recipe with padding still keeps its natural size.
 
 The modes, base-elements and components section heads also now use the same heading + count pill as every other section, rather than a leftover eyebrow style that no longer had CSS behind it.
+
+**Every colour family gets its own card.** Previously only families with a numeric ladder did; everything else was merged into one "Semantic" grid, so three unrelated families ran together as fifteen undifferentiated chips — losing exactly the separation that makes a swatch sheet readable. Each family now shows its base swatch (carrying the WCAG readout for its declared `text` pairing), its ladder if it has one, and its own members. Only a family with no variants at all joins a shared "Single tokens" grid, since a whole card for one chip is waste.
+
+Contrast is now computed at **build time** rather than by a script in the page, so the readout can't drift from the swatch it sits on and the page is complete without JavaScript. Unmapped dimension tokens (breakpoints among them) render as scaled bars instead of bare labels — a dimension has magnitude, so the specimen should show magnitude.
+
