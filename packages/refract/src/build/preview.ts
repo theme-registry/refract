@@ -844,8 +844,13 @@ const CHROME_CSS = `
  --rfp-ui:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
  font-family:var(--rfp-ui);font-size:14px;line-height:1.55;color:var(--rfp-ink);
  background:var(--rfp-ground);-webkit-font-smoothing:antialiased;
- display:grid;grid-template-columns:216px minmax(0,1fr);gap:56px;max-width:1260px;margin:0 auto;
- padding:0 32px 96px;align-items:start;box-sizing:border-box}
+ display:grid;grid-template-columns:216px minmax(0,1fr);gap:56px;width:100%;min-height:100vh;
+ padding:0 40px 96px;align-items:start;box-sizing:border-box}
+/* Full-bleed geometry. :where() gives these ZERO specificity, so a theme's own globals rules
+   still win - the chrome resets the UA gutter and declares a scheme without ever outranking the
+   theme it is displaying. The ground is painted by .rfp itself, which now fills the viewport. */
+:where(html){color-scheme:light dark}
+:where(body){margin:0}
 @media (prefers-color-scheme:dark){.rfp{--rfp-ground:#0f1114;--rfp-panel:#1a1e24;--rfp-panel-2:#232830;
  --rfp-ink:#e9ebef;--rfp-ink-2:#a8b0bd;--rfp-ink-3:#7b8492;--rfp-rule:#2b313a;--rfp-rule-2:#3b434f;
  --rfp-focus:#8ea2ff;--rfp-live:#4ec48d;--rfp-spec:#8791a0;--rfp-spec-2:#4a5361;--rfp-hatch:#333b46;

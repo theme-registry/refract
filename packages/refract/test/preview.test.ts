@@ -166,4 +166,21 @@ describe("preview.html", () => {
     const html = readFileSync(join(outDir, "preview.html"), "utf8");
     expect(html).toContain("1300");
   });
+
+  it("fills the viewport instead of floating as a capped panel on an unpainted body", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // The shell paints the ground, so it has to COVER the viewport — a max-width cap left it as a
+    // panel floating over an unpainted body, with mismatched bands down both edges.
+    expect(html).toContain("width:100%");
+    expect(html).toContain("min-height:100vh");
+    expect(html).not.toMatch(/\.rfp\{[^}]*max-width:\s*\d/);
+
+    // The UA gutter and colour scheme are reset at ZERO specificity, so a theme's own globals
+    // rules still win — the chrome must never outrank the theme it is displaying.
+    expect(html).toContain(":where(body){margin:0}");
+    expect(html).toContain(":where(html){color-scheme:light dark}");
+  });
 });
