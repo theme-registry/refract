@@ -1,5 +1,12 @@
 # @theme-registry/refract-css
 
+## 0.1.11
+
+### Patch Changes
+
+- Updated dependencies [821d673]
+  - @theme-registry/refract@0.1.11
+
 ## 0.1.10
 
 ### Patch Changes
