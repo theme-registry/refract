@@ -228,8 +228,11 @@ describe("CSS adapter preview.html", () => {
     await emitTheme({ raw, adapter: createCssAdapter(), outDir, preview: true });
     const html = readFileSync(join(outDir, "preview.html"), "utf8");
 
-    const scored = [...html.matchAll(/data-fg="/g)].length;
-    expect(scored).toBe(1); // the base, and only the base
+    // Contrast is computed at build time, so the readout is in the HTML rather than added by
+    // script — the page is complete without JS and the number can't drift from its swatch.
+    const scored = [...html.matchAll(/class="rfp-ratio"/g)].length;
+    expect(scored).toBe(1); // the family base, and only the base
+    expect(html).toMatch(/rfp-ratio">[\d.]+:1 · (AAA|AA|AA large|fail)</);
     expect(html).toContain("colors.brand");
     expect(html).toContain("colors.brand.light"); // the tint still renders, just unscored
   });

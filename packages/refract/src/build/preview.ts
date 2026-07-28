@@ -337,7 +337,7 @@ function renderPalette(
   }
 
   const cards: string[] = [];
-  const semantic: string[] = [];
+  const singles: string[] = [];
   let total = 0;
   let passing = 0;
 
@@ -348,71 +348,93 @@ function renderPalette(
     const path = `colors.${family}`;
 
     // The one contrast pairing the author actually declared.
+    let ratioBadge = "";
     if (base && text) {
       const ratio = contrastRatio(base, text);
       if (ratio !== undefined) {
         total += 1;
         if (ratio >= 4.5) passing += 1;
+        ratioBadge = contrastBadge(base, text);
       }
     }
 
-    if (rungs.length >= 3) {
-      const lands = baseLandsOn(base, rungs);
-      const strip = rungs
-        .map(([step, hex]) => {
-          const isLanding = lands !== undefined && step === lands;
-          return (
-            `<div class="rfp-rung"${isLanding ? " data-lands" : ""}` +
-            ` title="colors.${esc(family)}.${esc(step)} · ${esc(hex)}${isLanding ? " · base lands here" : ""}">` +
-            `<div class="rfp-sw" style="background:${cssValue(hex)}"></div>` +
-            `<div class="rfp-rung-foot">${esc(step)}</div></div>`
-          );
-        })
-        .join("");
+    // Everything that isn't the base or a rung is a declared member of THIS family.
+    const memberChips = members
+      .filter(([name]) => !isRung(name) && name !== "base")
+      .map(([member, hex]) => chipOf(`${path}.${member}`, member, hex, tagFor(`${path}.${member}`), tokenName))
+      .join("");
 
-      // Anything that isn't a rung is a declared member — show it with its provenance.
-      const chips = members
-        .filter(([name]) => !isRung(name) && name !== "base")
-        .map(([member, hex]) => chipOf(`${path}.${member}`, member, hex, tagFor(`${path}.${member}`), tokenName))
-        .join("");
-
-      cards.push(
-        `<section class="rfp-card"><div class="rfp-pal-top">` +
-          `<div class="rfp-pal-base" style="background:${cssValue(base ?? rungs[Math.floor(rungs.length / 2)][1])}"></div>` +
-          `<h3 class="rfp-pal-name">${esc(family)}` +
-          `<small>${base ? `base ${esc(base)}` : ""}${lands ? ` · lands &asymp; ${esc(lands)}` : ""} · ${rungs.length} rungs</small>` +
-          idButton(path, tokenName?.(path)) +
-          `</h3></div>` +
-          `<div class="rfp-row-label">Lightness ladder ${tagFor(`${path}.${rungs[0][0]}`) || '<span class="rfp-tag rfp-gen">gen</span>'}</div>` +
-          `<div class="rfp-rungs">${strip}</div>` +
-          (chips ? `<div class="rfp-row-label">Declared members</div><div class="rfp-chips">${chips}</div>` : "") +
-          `</section>`,
-      );
+    // A family with no internal structure is a one-off, not a palette — those share a grid rather
+    // than each taking a whole card to show a single chip.
+    if (!rungs.length && !memberChips && base) {
+      singles.push(chipOf(path, family, base, tagFor(path), tokenName, text));
       continue;
     }
 
-    // No ladder — the family is a semantic colour (or a small set), so it joins the swatch grid.
-    for (const [member, hex] of members) {
-      if (member === "text") continue;
-      const isBase = member === "base";
-      const memberPath = isBase ? path : `${path}.${member}`;
-      semantic.push(
-        chipOf(memberPath, isBase ? family : member, hex, tagFor(memberPath), tokenName, isBase ? text : undefined),
-      );
-    }
+    const swatch = base ?? rungs[Math.floor(rungs.length / 2)]?.[1];
+    if (!swatch) continue;
+    const lands = rungs.length >= 3 ? baseLandsOn(base, rungs) : undefined;
+
+    const strip = rungs.length
+      ? `<div class="rfp-row-label">Lightness ladder <span class="rfp-tag rfp-gen">gen</span></div>` +
+        `<div class="rfp-rungs">` +
+        rungs
+          .map(([step, hex]) => {
+            const isLanding = lands !== undefined && step === lands;
+            return (
+              `<div class="rfp-rung"${isLanding ? " data-lands" : ""}` +
+              ` title="colors.${esc(family)}.${esc(step)} · ${esc(hex)}${isLanding ? " · base lands here" : ""}">` +
+              `<div class="rfp-sw" style="background:${cssValue(hex)}"></div>` +
+              `<div class="rfp-rung-foot">${esc(step)}</div></div>`
+            );
+          })
+          .join("") +
+        `</div>`
+      : "";
+
+    const meta = [
+      base ? `base ${esc(base)}` : "",
+      lands ? `lands &asymp; ${esc(lands)}` : "",
+      rungs.length ? `${rungs.length} rungs` : "",
+      memberChips ? `${members.filter(([n]) => !isRung(n) && n !== "base").length} member(s)` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    // EVERY family gets its own card — a palette is a unit, and merging three of them into one
+    // grid (as an earlier pass did for anything without a ladder) loses exactly the separation
+    // that makes a swatch sheet readable.
+    cards.push(
+      `<section class="rfp-card"><div class="rfp-pal-top">` +
+        `<div class="rfp-pal-base" style="background:${cssValue(swatch)}${text ? `;color:${cssValue(text)}` : ""}">${ratioBadge}</div>` +
+        `<h3 class="rfp-pal-name">${esc(family)}<small>${meta}</small>` +
+        idButton(path, tokenName?.(path)) +
+        `</h3></div>` +
+        strip +
+        (memberChips ? `<div class="rfp-row-label">Declared members</div><div class="rfp-chips">${memberChips}</div>` : "") +
+        `</section>`,
+    );
   }
 
   let html = cards.join("");
-  if (semantic.length) {
+  if (singles.length) {
     html +=
-      `<section class="rfp-card"><div class="rfp-card-head"><span class="rfp-card-name">Semantic</span>` +
-      `<span class="rfp-card-sub">contrast scored only where a <code>text</code> pairing is declared</span></div>` +
-      `<div class="rfp-chips">${semantic.join("")}</div></section>`;
+      `<section class="rfp-card"><div class="rfp-card-head"><span class="rfp-card-name">Single tokens</span>` +
+      `<span class="rfp-card-sub">${singles.length} · families with no variants of their own</span></div>` +
+      `<div class="rfp-chips">${singles.join("")}</div></section>`;
   }
   return { html, pairings: { total, passing } };
 }
 
-/** One colour chip: swatch (+ live contrast when a pairing is declared), label, tag, value. */
+/** The WCAG readout for a declared pairing, or "" when either colour can't be parsed. */
+function contrastBadge(bg: string, fg: string): string {
+  const ratio = contrastRatio(bg, fg);
+  if (ratio === undefined) return "";
+  const grade = ratio >= 7 ? "AAA" : ratio >= 4.5 ? "AA" : ratio >= 3 ? "AA large" : "fail";
+  return `<span class="rfp-ratio">${ratio.toFixed(2)}:1 · ${grade}</span>`;
+}
+
+/** One colour chip: swatch (+ contrast when a pairing is declared), label, tag, value. */
 function chipOf(
   path: string,
   label: string,
@@ -423,9 +445,8 @@ function chipOf(
 ): string {
   return (
     `<div class="rfp-chip"><div class="rfp-sw rfp-chip-sw"` +
-    (pairedText ? ` data-bg="${esc(hex)}" data-fg="${esc(pairedText)}"` : "") +
     ` style="background:${cssValue(hex)}${pairedText ? `;color:${cssValue(pairedText)}` : ""}">` +
-    (pairedText ? `<span class="rfp-ratio"></span>` : "") +
+    (pairedText ? contrastBadge(hex, pairedText) : "") +
     `</div><div class="rfp-cap"><div class="rfp-lbl">${esc(label)}${tag}</div>` +
     `<div class="rfp-val-sm">${esc(hex)}${pairedText ? ` on ${esc(pairedText)}` : ""}</div>` +
     idButton(path, tokenName?.(path)) +
@@ -615,14 +636,23 @@ function renderMotion(leaves: readonly TokenLeaf[], tokenName?: (p: string) => s
 // ── Generic fallback (unknown groups keep their tokens visible) ─────────────
 
 function renderGeneric(group: string, leaves: readonly TokenLeaf[], tokenName?: (p: string) => string | undefined): string {
+  // A dimension has magnitude, so show magnitude — breakpoints in particular read as a set of
+  // widths, which a column of bare labels doesn't convey at all.
+  const max = Math.max(...leaves.map(l => pxOf(l.value) ?? 0), 1);
   const rows = leaves
-    .map(leaf =>
-      rowOf(
+    .map(leaf => {
+      const px = pxOf(leaf.value);
+      const specimen =
+        leaf.type === "dimension" && px !== undefined && px > 0
+          ? `<div class="rfp-bar rfp-ghost" style="width:${Math.max(1, (px / max) * 100)}%"></div>`
+          : `<div class="rfp-specimen">${esc(leafLabel(leaf))}</div>`;
+      return rowOf(
         idButton(leafPath(leaf), tokenName?.(leafPath(leaf))),
-        `<div class="rfp-specimen">${esc(leafLabel(leaf))}</div>`,
+        specimen,
         String(leaf.value),
-      ),
-    )
+        leaf.type === "dimension",
+      );
+    })
     .join("");
   return plate(group, `${leaves.length} token(s)`, `<div class="rfp-rows">${rows}</div>`);
 }
@@ -630,8 +660,8 @@ function renderGeneric(group: string, leaves: readonly TokenLeaf[], tokenName?: 
 // ── Shared bits ────────────────────────────────────────────────────────────
 
 const plate = (name: string, sub: string, body: string, action = ""): string =>
-  `<section class="rfp-plate"><div class="rfp-plate-head">` +
-  `<span class="rfp-plate-name">${esc(name)}</span><span class="rfp-plate-sub">${sub}</span>${action}` +
+  `<section class="rfp-card"><div class="rfp-card-head">` +
+  `<span class="rfp-card-name">${esc(name)}</span><span class="rfp-card-sub">${sub}</span>${action}` +
   `</div>${body}</section>`;
 
 const tile = (stage: string, id: string, value: string): string =>
@@ -723,9 +753,9 @@ function renderModes(model: ThemeModel, totalTokens: number, tokenName?: (p: str
     : "";
 
   return (
-    `<section class="rfp-section" id="rfp-modes"><div class="rfp-section-head"><div>` +
-    `<div class="rfp-eyebrow">Appearance</div><h2>What changes in ${esc(modes.join(" / "))}</h2></div>` +
-    `<span class="rfp-tag">${modes.length} mode(s) declared</span></div>` +
+    `<section class="rfp-section" id="rfp-modes"><div class="rfp-section-head">` +
+    `<h2>What changes in ${esc(modes.join(" / "))}</h2>` +
+    `<span class="rfp-count">${modes.length} mode(s) declared</span></div>` +
     `<p class="rfp-note">Flipping the toggle shows you the result; this shows the cause. Only these tokens carry an override — everything else is inherited.</p>` +
     plate(
       `mode: ${modes.join(", ")}`,
@@ -785,9 +815,9 @@ function renderGlobals(model: ThemeModel, live: boolean): string {
   if (has("h3")) parts.push(`<h3>Variants are structural deltas</h3>`);
 
   return (
-    `<section class="rfp-section" id="rfp-globals"><div class="rfp-section-head"><div>` +
-    `<div class="rfp-eyebrow">Base elements</div><h2>Unclassed markup</h2></div>` +
-    `<span class="rfp-tag">globals.elements</span></div>` +
+    `<section class="rfp-section" id="rfp-globals"><div class="rfp-section-head">` +
+    `<h2>Unclassed markup</h2>` +
+    `<span class="rfp-count">globals.elements · ${selectors.length}</span></div>` +
     `<p class="rfp-note">These style bare elements with no class involved, so plain HTML from a CMS or a markdown ` +
       `pipeline already looks right. Nothing else in this document renders without a class.</p>` +
     plate(
@@ -803,6 +833,52 @@ function renderGlobals(model: ThemeModel, live: boolean): string {
 // Recipes
 // ---------------------------------------------------------------------------
 
+/**
+ * CSS properties that give a rule-set a size of its own. Anything here means the specimen already
+ * knows how big it wants to be; anything else (a pure colour rule) collapses to its text.
+ */
+const SIZING = [
+  "width", "height", "minwidth", "minheight", "maxwidth", "maxheight",
+  "padding", "inlinesize", "blocksize", "aspectratio", "flexbasis", "flex", "size",
+];
+
+const declaresSize = (declarations: Readonly<Record<string, unknown>> | undefined): boolean =>
+  Object.keys(declarations ?? {}).some(key => {
+    const k = key.toLowerCase().replace(/-/g, "");
+    return SIZING.some(prop => k === prop || k.startsWith(`${prop}`));
+  });
+
+/**
+ * Does this recipe size itself?
+ *
+ * A colour recipe (`background` + `color`, nothing else) has no dimensions, so it renders as a
+ * text-sized blob adrift on the stage — which tells you almost nothing about the colour. Those
+ * specimens should fill their stage and read as a swatch instead. A button that declares its own
+ * padding must NOT be stretched: its real size IS the thing being shown.
+ *
+ * Composition counts — `components.buttons.bare` may declare nothing itself while referencing a
+ * recipe that declares padding, so the referenced chain is walked too.
+ */
+function hasIntrinsicSize(model: ThemeModel, recipe: UsageRecipe, seen = new Set<string>()): boolean {
+  const key = `${recipe.subsystem}.${recipe.group}.${recipe.variant}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+
+  const ruleSet = model.subsystems[recipe.subsystem]?.ruleSets?.[recipe.group]?.[recipe.variant];
+  if (!ruleSet) return false;
+  if (declaresSize(ruleSet.declarations)) return true;
+
+  for (const reference of ruleSet.references ?? []) {
+    // `"colors:solid.primary"` → the referenced rule-set's own address.
+    const [subsystem, rest] = reference.split(":");
+    const dot = rest?.indexOf(".") ?? -1;
+    if (!subsystem || !rest || dot < 0) continue;
+    const referenced = { subsystem, group: rest.slice(0, dot), variant: rest.slice(dot + 1), name: "" };
+    if (hasIntrinsicSize(model, referenced, seen)) return true;
+  }
+  return false;
+}
+
 function inferTag(recipe: UsageRecipe): string {
   const group = recipe.group.toLowerCase();
   if (group.includes("button") || group.includes("btn")) return "button";
@@ -813,12 +889,18 @@ function inferTag(recipe: UsageRecipe): string {
 }
 
 /** One rendered specimen. `pin` adds the adapter's state-pinning class so a state can be shown at rest. */
-function specimen(recipe: UsageRecipe, descriptor: PreviewDescriptor | undefined, pin?: string): string | undefined {
+function specimen(
+  recipe: UsageRecipe,
+  descriptor: PreviewDescriptor | undefined,
+  pin?: string,
+  fill?: boolean,
+): string | undefined {
   const markup = descriptor?.markup?.(recipe);
   if (!markup) return undefined;
   const tag = markup.tag ?? inferTag(recipe);
   const attrs = { ...markup.attrs };
   if (pin) attrs.class = `${attrs.class ?? ""} ${pin}`.trim();
+  if (fill) attrs.class = `${attrs.class ?? ""} rfp-fill`.trim();
   const rendered = Object.entries(attrs)
     .map(([k, v]) => ` ${esc(k)}="${esc(v)}"`)
     .join("");
@@ -830,6 +912,7 @@ function renderRecipes(
   usage: UsageDescriptor,
   descriptor: PreviewDescriptor | undefined,
   live: boolean,
+  model: ThemeModel,
 ): string {
   if (usage.recipes.length === 0) {
     // The scaffolder writes tokens and no recipes, so this is the FIRST thing a new user sees here.
@@ -890,10 +973,13 @@ function renderRecipes(
 
     const cards = recipes
       .map(recipe => {
-        const rendered = live ? specimen(recipe, descriptor) : undefined;
+        // A recipe with no dimensions of its own reads as a swatch, so let it fill the stage
+        // rather than float in the middle of it as a text-sized blob.
+        const fill = live && !hasIntrinsicSize(model, recipe);
+        const rendered = live ? specimen(recipe, descriptor, undefined, fill) : undefined;
         return (
           `<div class="rfp-recipe">` +
-          (rendered ? `<div class="rfp-recipe-stage">${rendered}</div>` : "") +
+          (rendered ? `<div class="rfp-recipe-stage${fill ? " rfp-stage-fill" : ""}">${rendered}</div>` : "") +
           `<div class="rfp-recipe-foot"><span class="rfp-addr">` +
           esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`) +
           `</span><button class="rfp-id" type="button">${esc(recipe.name)}</button></div></div>`
@@ -1070,7 +1156,7 @@ const CHROME_CSS = `
 .rfp-gen{background:var(--rfp-sunk);color:var(--rfp-ink-3);border:1px solid var(--rfp-line)}
 /* ── Palette ── */
 .rfp-pal-top{display:flex;align-items:center;gap:16px}
-.rfp-pal-base{width:84px;height:84px;border-radius:12px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+.rfp-pal-base{width:104px;height:88px;border-radius:12px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);display:flex;align-items:flex-end;justify-content:center;padding:7px}
 .rfp-pal-name{margin:0;font-size:18px;font-weight:680;letter-spacing:-.015em}
 .rfp-pal-name small{display:block;font-family:var(--rfp-mono);font-weight:400;color:var(--rfp-ink-3);font-size:11.5px;margin-top:4px}
 .rfp-rungs{display:flex;border-radius:9px;overflow:hidden;border:1px solid var(--rfp-line)}
@@ -1086,7 +1172,7 @@ const CHROME_CSS = `
 .rfp-cap{padding:8px 9px 9px}
 .rfp-lbl{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;justify-content:space-between}
 .rfp-val-sm{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);margin-top:3px;font-variant-numeric:tabular-nums}
-.rfp-ratio{font-family:var(--rfp-mono);font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid currentColor}
+.rfp-ratio{font-family:var(--rfp-mono);font-size:9.5px;padding:1px 6px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
 /* ── Rows ── */
 .rfp-rows{display:flex;flex-direction:column}
 .rfp-row{display:grid;grid-template-columns:200px minmax(0,1fr) 104px;gap:20px;align-items:baseline;
@@ -1137,6 +1223,12 @@ const CHROME_CSS = `
 .rfp-recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .rfp-recipe{border:1px solid var(--rfp-line);border-radius:12px;overflow:hidden;background:var(--rfp-card)}
 .rfp-recipe-stage{min-height:92px;display:grid;place-items:center;padding:18px;background:var(--rfp-sunk)}
+/* A dimensionless recipe (a pure colour rule) has nothing to size it, so it collapses to its text.
+   Stretch it edge to edge instead — for a swatch that IS the specimen. Recipes that declare their
+   own padding or width keep their natural size, because that size is what is being shown. */
+.rfp-recipe-stage.rfp-stage-fill{padding:0}
+.rfp-recipe-stage.rfp-stage-fill>.rfp-fill{width:100%;min-height:92px;display:flex;align-items:center;
+ justify-content:center;box-sizing:border-box}
 .rfp-recipe-foot{padding:9px 12px;border-top:1px solid var(--rfp-line)}
 .rfp-addr{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);display:block}
 .rfp-compose{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
@@ -1169,17 +1261,6 @@ const CHROME_CSS = `
 const CHROME_JS = `
 (function(){
  var root=document.documentElement;
- function srgb(c){c/=255;return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
- function lum(hex){var m=/^#([0-9a-f]{6})$/i.exec(hex.trim());if(!m)return null;var n=parseInt(m[1],16);
-  return 0.2126*srgb((n>>16)&255)+0.7152*srgb((n>>8)&255)+0.0722*srgb(n&255);}
- // Contrast is computed here rather than baked in, so it can never drift from the swatch beside it.
- document.querySelectorAll(".rfp-pair-swatch[data-fg]").forEach(function(el){
-  var out=el.querySelector(".rfp-pair-ratio");if(!out)return;
-  var a=lum(el.getAttribute("data-bg")||""),b=lum(el.getAttribute("data-fg")||"");
-  if(a===null||b===null){out.remove();return;}
-  var r=(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
-  out.textContent=r.toFixed(2)+":1 · "+(r>=7?"AAA":r>=4.5?"AA":r>=3?"AA large":"fail");
- });
  function bind(sel,onPick){
   var btns=[].slice.call(document.querySelectorAll(sel));
   btns.forEach(function(b){b.addEventListener("click",function(){
@@ -1383,10 +1464,10 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     sectionHtml +
     modesHtml +
     globalsHtml +
-    `<section class="rfp-section" id="rfp-recipes"><div class="rfp-section-head"><div>` +
-    `<div class="rfp-eyebrow">Components</div><h2>Recipes${live ? " and their states" : ""}</h2></div>` +
-    `<span class="rfp-tag">${live ? "rendered live" : "names only"}</span></div>` +
-    renderRecipes(usage, preview, live) +
+    `<section class="rfp-section" id="rfp-recipes"><div class="rfp-section-head">` +
+    `<h2>Recipes${live ? " and their states" : ""}</h2>` +
+    `<span class="rfp-count">${usage.recipes.length} · ${live ? "rendered live" : "names only"}</span></div>` +
+    renderRecipes(usage, preview, live, model) +
     `</section>` +
     `</div></main></div></div>` +
     `<script>\n${CHROME_JS}\n</script>`;
