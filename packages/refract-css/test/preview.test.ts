@@ -213,11 +213,11 @@ describe("CSS adapter preview.html", () => {
     await emitTheme({ raw, adapter: createCssAdapter(), outDir, preview: true });
     const html = readFileSync(join(outDir, "preview.html"), "utf8");
 
-    expect(html).toContain('data-lands="true"');
+    expect(html).toMatch(/<div class="rfp-rung" data-lands/);
     expect(html).toMatch(/lands &asymp; \d+/);
     expect(html).toContain("base lands here");
     // The retired equality-based marker must not come back.
-    expect(html).not.toContain('data-base="true"');
+    expect(html).not.toContain("data-base");
   });
 
   it("scores contrast only where a text pairing is declared, not on derived tints", async () => {

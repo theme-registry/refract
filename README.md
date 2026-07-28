@@ -212,11 +212,16 @@ stylesheets by default, so the page is one self-contained file that survives bei
 { name: "css", adapter: createCssAdapter(), outDir: "dist/theme", preview: true }
 ```
 
-It reads as a style guide, not a token dump: a sticky section rail, colour families as contiguous
-ladders with live WCAG contrast readouts on each `text` pairing, the type ramp set in its own sizes,
-spacing shown as a measure *and* as an applied inset, a **state matrix** per recipe, and a
-copy-on-click identifier beside every specimen. Sections appear only when the theme has tokens of
-that kind.
+It reads as a style guide, not a token dump. The page is a light **paper** and each plate a
+**card**: a masthead in your theme's own first palette with headline counts (including a WCAG pass
+ratio), an index that is the shape of the theme, one card per colour family with a large base
+swatch and its lightness ladder, the type ramp set in its own sizes, spacing as a measure *and* an
+applied inset, a **state matrix** per recipe, and a copy-on-click identifier beside every specimen.
+Sections appear only when the theme has tokens of that kind.
+
+Two things follow from what refract knows: every value is tagged **src** or **gen** — authored by
+you, or synthesised by refract — and the sheet is deliberately **light-only**, because colour can't
+be judged against a moving backdrop. The appearance control moves the specimen, not the sheet.
 
 Token plates render from the format-neutral token export, so **every** adapter gets them. Live
 recipe plates additionally need output a browser can load as-is, which today means CSS; an
