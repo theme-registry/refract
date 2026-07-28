@@ -216,4 +216,44 @@ describe("preview.html", () => {
     expect(orphans).toEqual([]);
     expect(emitted.size).toBeGreaterThan(20); // guard against the check trivially passing
   });
+
+  it("files each subsystem's recipes into its own section, not a catch-all", async () => {
+    const outDir = makeTmp();
+    const raw = {
+      colors: {
+        brand: { base: "#14b8a6", text: "#ffffff" },
+        recipes: { solid: { brand: { background: "brand", color: "brand.text" } } },
+      },
+      components: { recipes: { buttons: { primary: { colors: "solid.brand" } } } },
+    };
+    await emitTheme({ raw, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    const sectionOf = (id: string): string => {
+      const start = html.indexOf(`id="rfp-${id}"`);
+      const next = html.indexOf('class="rfp-section"', start + 1);
+      return html.slice(start, next < 0 ? html.length : next);
+    };
+
+    // A colours rule-set is part of the colour story — it renders beside the palette it is made
+    // of, not twenty plates below under a "Components" heading.
+    expect(sectionOf("palette")).toContain("colors.solid.brand");
+    expect(sectionOf("palette")).not.toContain("components.buttons.primary");
+
+    // Only genuinely composed rule-sets remain in Components.
+    expect(sectionOf("recipes")).toContain("components.buttons.primary");
+    expect(sectionOf("recipes")).not.toContain("colors.solid.brand");
+  });
+
+  it("gives a section a place on recipes alone, with no tokens of its own", async () => {
+    const outDir = makeTmp();
+    // `components` contributes no tokens at all — the section must still appear for its recipes.
+    const raw = {
+      colors: { brand: { base: "#14b8a6" } },
+      components: { recipes: { buttons: { primary: { css: { cursor: "pointer" } } } } },
+    };
+    await emitTheme({ raw, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+    expect(html).toContain("components.buttons.primary");
+  });
 });

@@ -164,6 +164,24 @@ const SECTIONS: readonly SectionDef[] = [
   { id: "other", title: "Other tokens", eyebrow: "Additional" },
 ];
 
+/**
+ * Which section a SUBSYSTEM's recipes belong in.
+ *
+ * A `colors.solid` rule-set is part of the colour story, not a component — reading it under a
+ * "Components" heading twenty plates below the palette it is made of loses the connection. Each
+ * subsystem's recipes render inside its own section, in that section's idiom. Anything unmapped
+ * (`components`, or a subsystem this file has never heard of) falls through to the components
+ * section, which is the honest home for "a thing you compose out of the others".
+ */
+const RECIPE_SECTION_OF: Readonly<Record<string, string>> = {
+  colors: "palette",
+  typography: "type",
+  layout: "space",
+  borders: "shape",
+  effects: "shape",
+  animation: "motion",
+};
+
 /** Group → section. Anything unmapped falls into `other`, so a new subsystem is never dropped. */
 const SECTION_OF: Readonly<Record<string, string>> = {
   color: "palette",
@@ -909,12 +927,15 @@ function specimen(
 }
 
 function renderRecipes(
-  usage: UsageDescriptor,
+  recipes_: readonly UsageRecipe[],
   descriptor: PreviewDescriptor | undefined,
   live: boolean,
   model: ThemeModel,
+  emptyNotice = true,
 ): string {
+  const usage = { recipes: recipes_ } as UsageDescriptor;
   if (usage.recipes.length === 0) {
+    if (!emptyNotice) return "";
     // The scaffolder writes tokens and no recipes, so this is the FIRST thing a new user sees here.
     return (
       `<div class="rfp-notice"><span class="rfp-notice-mark">Empty</span><div>` +
@@ -1144,10 +1165,11 @@ const CHROME_CSS = `
 .rfp-idx p{margin:7px 0 0;font-size:12.5px;color:var(--rfp-ink-2)}
 /* ── Identifiers ── */
 .rfp-id{font-family:var(--rfp-mono);font-size:11.5px;color:var(--rfp-ink-2);background:none;border:0;
- padding:1px 4px;margin-left:-4px;border-radius:3px;cursor:copy;text-align:left;display:inline-block}
+ padding:1px 4px;margin-left:-4px;border-radius:3px;cursor:copy;text-align:left;display:inline-block;
+ max-width:100%;overflow-wrap:anywhere}
 .rfp-id:hover{background:var(--rfp-sunk);color:var(--rfp-ink)}
 .rfp-id.rfp-copied{background:var(--rfp-ink);color:var(--rfp-card)}
-.rfp-var{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);display:block;margin-top:1px}
+.rfp-var{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);display:block;margin-top:1px;overflow-wrap:anywhere}
 .rfp-hex{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);font-variant-numeric:tabular-nums;display:block;margin-top:1px}
 /* ── Provenance tags ── */
 .rfp-tag{font-family:var(--rfp-mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
@@ -1167,9 +1189,9 @@ const CHROME_CSS = `
 .rfp-rung[data-lands] .rfp-rung-foot{color:var(--rfp-ink);font-weight:700}
 .rfp-rung[data-lands] .rfp-rung-foot::before{content:"◆ "}
 .rfp-chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
-.rfp-chip{border:1px solid var(--rfp-line);border-radius:10px;overflow:hidden;background:var(--rfp-card)}
+.rfp-chip{border:1px solid var(--rfp-line);border-radius:10px;overflow:hidden;background:var(--rfp-card);min-width:0}
 .rfp-chip-sw{height:50px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05);display:flex;align-items:flex-end;padding:6px}
-.rfp-cap{padding:8px 9px 9px}
+.rfp-cap{padding:8px 9px 9px;min-width:0}
 .rfp-lbl{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;justify-content:space-between}
 .rfp-val-sm{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);margin-top:3px;font-variant-numeric:tabular-nums}
 .rfp-ratio{font-family:var(--rfp-mono);font-size:9.5px;padding:1px 6px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
@@ -1332,6 +1354,16 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
   const bodies = new Map<string, string>();
   const counts = new Map<string, number>();
   let pairings = { total: 0, passing: 0 };
+
+  // Recipes go to their own subsystem's section; whatever has no section lands in Components.
+  const recipesBySection = new Map<string, UsageRecipe[]>();
+  for (const recipe of usage.recipes) {
+    const id = RECIPE_SECTION_OF[recipe.subsystem] ?? "recipes";
+    const bucket = recipesBySection.get(id);
+    if (bucket) bucket.push(recipe);
+    else recipesBySection.set(id, [recipe]);
+  }
+  const recipeCount = (id: string): number => recipesBySection.get(id)?.length ?? 0;
   for (const [group, items] of groups) {
     const section = SECTION_OF[group] ?? "other";
     counts.set(section, (counts.get(section) ?? 0) + items.length);
@@ -1339,7 +1371,10 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
 
   for (const section of SECTIONS) {
     const own = [...groups.entries()].filter(([g]) => (SECTION_OF[g] ?? "other") === section.id);
-    if (!own.length) continue;
+    const sectionRecipes = recipesBySection.get(section.id) ?? [];
+    // A section earns its place on tokens OR recipes — a subsystem can declare rule-sets without
+    // contributing a single token of its own.
+    if (!own.length && !sectionRecipes.length) continue;
     let body = "";
     if (section.id === "palette") {
       const palette = renderPalette(own.flatMap(([, l]) => l), model, tokenName);
@@ -1351,6 +1386,9 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     else if (section.id === "shape") body = renderShape(new Map(own), tokenName);
     else if (section.id === "motion") body = renderMotion(own.flatMap(([, l]) => l), tokenName);
     else body = own.map(([g, l]) => renderGeneric(g, l, tokenName)).join("");
+
+    // …then this subsystem's own recipes, in the same section, under the same card language.
+    body += renderRecipes(sectionRecipes, preview, live, model, false);
     if (body) bodies.set(section.id, body);
   }
 
@@ -1372,12 +1410,14 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
   for (const section of SECTIONS) {
     if (!bodies.has(section.id)) continue;
     navItems.push(
-      `<a href="#rfp-${section.id}">${esc(section.eyebrow)}<span class="rfp-n">${counts.get(section.id) ?? 0}</span></a>`,
+      `<a href="#rfp-${section.id}">${esc(section.eyebrow)}` +
+        `<span class="rfp-n">${(counts.get(section.id) ?? 0) + recipeCount(section.id)}</span></a>`,
     );
   }
   if (modesHtml) navItems.push(`<a href="#rfp-modes">Appearance</a>`);
   if (globalsHtml) navItems.push(`<a href="#rfp-globals">Base elements</a>`);
-  navItems.push(`<a href="#rfp-recipes">Components<span class="rfp-n">${usage.recipes.length}</span></a>`);
+  const componentRecipes = recipesBySection.get("recipes") ?? [];
+  navItems.push(`<a href="#rfp-recipes">Components<span class="rfp-n">${componentRecipes.length}</span></a>`);
 
   // ── Masthead ────────────────────────────────────────────────────────────
   const title = options.title ?? `${usage.format} theme`;
@@ -1416,7 +1456,8 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     .map(
       s =>
         `<section class="rfp-section" id="rfp-${s.id}"><div class="rfp-section-head">` +
-        `<h2>${s.title}</h2><span class="rfp-count">${counts.get(s.id) ?? 0} token(s)</span></div>` +
+        `<h2>${s.title}</h2><span class="rfp-count">${counts.get(s.id) ?? 0} token(s)` +
+        `${recipeCount(s.id) ? ` · ${recipeCount(s.id)} recipe(s)` : ""}</span></div>` +
         (s.note ? `<p class="rfp-note">${s.note}</p>` : "") +
         bodies.get(s.id) +
         `</section>`,
@@ -1466,8 +1507,12 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     globalsHtml +
     `<section class="rfp-section" id="rfp-recipes"><div class="rfp-section-head">` +
     `<h2>Recipes${live ? " and their states" : ""}</h2>` +
-    `<span class="rfp-count">${usage.recipes.length} · ${live ? "rendered live" : "names only"}</span></div>` +
-    renderRecipes(usage, preview, live, model) +
+    `<span class="rfp-count">${componentRecipes.length} · ${live ? "rendered live" : "names only"}</span></div>` +
+    `<p class="rfp-note">Composed rule-sets — the ones built out of the other subsystems. Each ` +
+    `subsystem's own recipes render in its own section, beside the tokens they are made of.</p>` +
+    // The empty notice stays HERE and only here: a theme with no recipes at all should be told so
+    // once, not once per section.
+    renderRecipes(componentRecipes, preview, live, model, usage.recipes.length === 0) +
     `</section>` +
     `</div></main></div></div>` +
     `<script>\n${CHROME_JS}\n</script>`;
