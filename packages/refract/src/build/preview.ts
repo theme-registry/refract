@@ -1041,6 +1041,30 @@ function hasIntrinsicSize(model: ThemeModel, recipe: UsageRecipe): boolean {
   });
 }
 
+/**
+ * What a subsystem's classes are FOR.
+ *
+ * The page prints two monospace strings per specimen — a token address and a class name — and
+ * nothing said which one you type into markup, or onto what. A reader had to infer it. These are
+ * one line per section, not per card, because the answer is a property of the subsystem.
+ */
+const USAGE_HINT: Readonly<Record<string, string>> = {
+  colors:
+    "Apply to the element you want coloured. A <code>border</code> rule-set carries only the colour — pair it with your own border-width, or with a <code>borders</code> rule-set.",
+  layout: "Apply to the container whose spacing or measure you are setting, not to its children.",
+  typography: "Apply to the text element, or to a wrapper the text inherits from.",
+  borders: "Apply alongside a colour rule-set — stroke geometry carries no colour of its own.",
+  effects: "Apply to the element receiving the shadow or filter.",
+  animation: "Apply to the element being animated; the keyframes are emitted alongside.",
+  components: "Apply to the component root. A composed recipe emits a class LIST — use all of them, in order.",
+};
+
+/** The label a specimen's identity carries, so the class is never confused with a token path. */
+const identityOf = (recipe: UsageRecipe): string =>
+  `<span class="rfp-addr">${esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`)}</span>` +
+  `<span class="rfp-ident"><span class="rfp-key">class</span>` +
+  `<button class="rfp-id" type="button">${esc(recipe.name)}</button></span>`;
+
 function inferTag(recipe: UsageRecipe): string {
   const group = recipe.group.toLowerCase();
   if (group.includes("button") || group.includes("btn")) return "button";
@@ -1190,8 +1214,7 @@ function renderRecipes(
             })
             .join("");
           return (
-            `<tr><td><span class="rfp-addr">${esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`)}</span>` +
-            `<button class="rfp-id" type="button">${esc(recipe.name)}</button>` +
+            `<tr><td>${identityOf(recipe)}` +
             (reveal ? aidNote(reveal) : "") +
             `</td>${cells}</tr>`
           );
@@ -1230,9 +1253,8 @@ function renderRecipes(
           (empty
             ? `<div class="rfp-recipe-stage"><span class="rfp-empty">emits no declarations</span></div>`
             : "") +
-          `<div class="rfp-recipe-foot"><span class="rfp-addr">` +
-          esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`) +
-          `</span><button class="rfp-id" type="button">${esc(recipe.name)}</button>` +
+          `<div class="rfp-recipe-foot">` +
+          identityOf(recipe) +
           (aid ? aidNote(aid) : "") +
           `</div></div>`
         );
@@ -1483,11 +1505,18 @@ const CHROME_CSS = `
 /* A dimensionless recipe (a pure colour rule) has nothing to size it, so it collapses to its text.
    Stretch it edge to edge instead — for a swatch that IS the specimen. Recipes that declare their
    own padding or width keep their natural size, because that size is what is being shown. */
-.rfp-recipe-stage.rfp-stage-fill{padding:0}
-.rfp-recipe-stage.rfp-stage-fill>.rfp-fill{width:100%;min-height:92px;display:flex;align-items:center;
+.rfp-recipe-stage.rfp-stage-fill{padding:10px}
+.rfp-recipe-stage.rfp-stage-fill>.rfp-fill{width:100%;min-height:72px;display:flex;align-items:center;
  justify-content:center;box-sizing:border-box}
+/* Zero specificity: a theme's own border-radius overrides this without a fight. */
+:where(.rfp-stage-fill>.rfp-fill,.rfp-matrix td>.rfp-fill){border-radius:8px}
 .rfp-recipe-foot{padding:9px 12px;border-top:1px solid var(--rfp-line)}
 .rfp-addr{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);display:block}
+.rfp-ident{display:flex;align-items:baseline;gap:6px;margin-top:3px;flex-wrap:wrap}
+.rfp-key{font-family:var(--rfp-mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;
+ color:var(--rfp-ink-3);border:1px solid var(--rfp-line-2);border-radius:3px;padding:0 4px;flex:none}
+.rfp-usage{background:var(--rfp-sunk);border:1px solid var(--rfp-line);border-radius:8px;
+ padding:9px 12px;margin:14px 0 0;max-width:none}
 .rfp-empty{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);font-style:italic}
 .rfp-demo-inset{background:repeating-linear-gradient(-45deg,var(--rfp-hatch) 0 4px,transparent 4px 8px);
  border:1px solid var(--rfp-line-2);border-radius:8px;display:inline-block;box-sizing:border-box}
@@ -1498,7 +1527,7 @@ const CHROME_CSS = `
 .rfp-aid{display:inline-block;margin-top:5px;font-family:var(--rfp-mono);font-size:9.5px;letter-spacing:.04em;
  padding:1px 6px;border-radius:4px;background:var(--rfp-sunk);color:var(--rfp-ink-3);border:1px dashed var(--rfp-line-2)}
 .rfp-matrix td>.rfp-fill{min-width:104px;min-height:44px;display:flex;align-items:center;justify-content:center;
- border-radius:6px;box-sizing:border-box}
+ box-sizing:border-box}
 .rfp-compose{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .rfp-cls{font-family:var(--rfp-mono);font-size:11.5px;padding:3px 9px;border-radius:6px;
  border:1px solid var(--rfp-line);background:var(--rfp-sunk)}
@@ -1634,6 +1663,8 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     else body = own.map(([g, l]) => renderGeneric(g, l, tokenName)).join("");
 
     // …then this subsystem's own recipes, in the same section, under the same card language.
+    const hint = sectionRecipes.length ? USAGE_HINT[sectionRecipes[0].subsystem] : undefined;
+    if (hint) body += `<p class="rfp-note-sm rfp-usage">${hint}</p>`;
     body += renderRecipes(sectionRecipes, preview, live, model, false);
     if (body) bodies.set(section.id, body);
   }
@@ -1756,6 +1787,7 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     `<span class="rfp-count">${componentRecipes.length} · ${live ? "rendered live" : "names only"}</span></div>` +
     `<p class="rfp-note">Composed rule-sets — the ones built out of the other subsystems. Each ` +
     `subsystem's own recipes render in its own section, beside the tokens they are made of.</p>` +
+    (componentRecipes.length ? `<p class="rfp-note-sm rfp-usage">${USAGE_HINT.components}</p>` : "") +
     // The empty notice stays HERE and only here: a theme with no recipes at all should be told so
     // once, not once per section.
     renderRecipes(componentRecipes, preview, live, model, usage.recipes.length === 0) +

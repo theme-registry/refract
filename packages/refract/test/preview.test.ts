@@ -298,4 +298,28 @@ describe("preview.html", () => {
     expect(html).toContain('class="rfp-row-label">Base<');
     expect(html).toContain('class="rfp-row-label">Variants<');
   });
+
+  it("labels the class name and says what a subsystem's classes are for", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // Two monospace strings per specimen — a token address and a class name — and nothing said
+    // which one you type into markup. The class now carries a label.
+    expect(html).toContain('class="rfp-key">class<');
+    // …and each section says what its classes are applied TO, once, not per card.
+    expect(html).toContain("rfp-usage");
+    expect(html).toContain("Apply to the element you want coloured");
+  });
+
+  it("rounds filled specimens without outranking a theme's own radius", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // A square-cornered swatch reads as a flush block, and a border rule-set needs the curve for
+    // its stroke to be legible. But the radius is the THEME's business — so the default is written
+    // with :where(), giving it zero specificity for any theme rule to override.
+    expect(html).toContain(":where(.rfp-stage-fill>.rfp-fill,.rfp-matrix td>.rfp-fill){border-radius:8px}");
+  });
 });
