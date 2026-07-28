@@ -549,15 +549,20 @@ function renderSpace(groups: Map<string, TokenLeaf[]>, tokenName?: (p: string) =
         const path = leafPath(leaf);
         const px = pxOf(leaf.value);
         const width = px === undefined ? "100%" : `${Math.max(1, (px / max) * 100)}%`;
-        return rowOf(
-          idButton(path, tokenName?.(path)),
-          `<div class="rfp-bar${group === "spacing" ? "" : " rfp-ghost"}" style="width:${width}"></div>`,
-          String(leaf.value),
-          true,
-        );
+        // A gutter is "spacing between content tracks" — so render the tracks. The hatching is the
+        // gutter itself, matching the applied-inset plate where hatch always means measured space.
+        const specimen =
+          group === "gutters"
+            ? `<div class="rfp-tracks" style="gap:${cssValue(leaf.value)}"><i></i><i></i><i></i></div>`
+            : `<div class="rfp-bar${group === "spacing" ? "" : " rfp-ghost"}" style="width:${width}"></div>`;
+        return rowOf(idButton(path, tokenName?.(path)), specimen, String(leaf.value), true);
       })
       .join("");
-    out.push(plate(`layout.${group}`, `${leaves.length} steps · measure`, `<div class="rfp-rows">${rows}</div>`));
+    const subtitle =
+      group === "gutters"
+        ? `${leaves.length} steps · the space between content tracks (<code>column-gap</code> / <code>row-gap</code> / <code>gap</code> in grid, flex and multi-column)`
+        : `${leaves.length} steps · measure`;
+    out.push(plate(`layout.${group}`, subtitle, `<div class="rfp-rows">${rows}</div>`));
 
     // Spacing gets two applied views on top of the measure: there is no `padding` token, so this is
     // the only place a reader can see what a step feels like as an inset or a gap.
@@ -992,6 +997,33 @@ function inferTag(recipe: UsageRecipe): string {
   return "div";
 }
 
+/**
+ * A layout rule-set expresses a *measure*, and a measure needs something to measure against.
+ *
+ * `layout.spacing` tokens already get this right — a hatched inset with a solid core, a row of
+ * blocks with a gap between them. The recipes made of those same tokens were rendering as bare
+ * boxes: padding with no contrast between inset and content, and `gap`, which does literally
+ * nothing on an element with one child, showing absolutely nothing at all.
+ *
+ * So a layout recipe borrows its own section's idiom. As with REVEALS, the scaffolding is the
+ * preview's and is disclosed as such.
+ */
+function layoutDemo(keys: ReadonlySet<string>): { kind: "inset" | "gap"; label: string } | undefined {
+  // A rule-set that also sets a width, height or margin is a STRUCTURE (a centring container, a
+  // grid) rather than a measure — it has a real size of its own and should be shown at it. Only a
+  // pure measure gets the hatched inset / gap demo.
+  const structural = /^(width|height|min-|max-|margin|flex|aspect-ratio|inline-size|block-size)/;
+  if ([...keys].some(key => structural.test(key))) return undefined;
+
+  if ([...keys].some(key => /^padding/.test(key))) {
+    return { kind: "inset", label: "a content box, so the inset is visible" };
+  }
+  if ([...keys].some(key => key === "gap" || /^(row|column)-gap$/.test(key))) {
+    return { kind: "gap", label: "display:flex + sample items, so the gap is visible" };
+  }
+  return undefined;
+}
+
 /** Does this rule-set emit anything at all? Composition counts — a reference paints via its class. */
 function emitsNothing(model: ThemeModel, recipe: UsageRecipe): boolean {
   const ruleSet = model.subsystems[recipe.subsystem]?.ruleSets?.[recipe.group]?.[recipe.variant];
@@ -1010,6 +1042,22 @@ function emitsNothing(model: ThemeModel, recipe: UsageRecipe): boolean {
 const aidNote = (reveal: Reveal): string =>
   `<span class="rfp-aid" title="Not part of your theme — added so the declared colour is visible">` +
   `preview adds ${esc(reveal.labels.join(" · "))}</span>`;
+
+/**
+ * A layout measure rendered the way its own section renders tokens: the recipe's real class carries
+ * the padding or the gap, and the preview supplies only what makes that measure legible.
+ */
+function measureSpecimen(
+  recipe: UsageRecipe,
+  descriptor: PreviewDescriptor | undefined,
+  kind: "inset" | "gap",
+): string | undefined {
+  const cls = descriptor?.markup?.(recipe)?.attrs.class;
+  if (!cls) return undefined;
+  return kind === "inset"
+    ? `<div class="${esc(cls)} rfp-demo-inset"><span class="rfp-inset-core">${esc(recipe.variant)}</span></div>`
+    : `<div class="${esc(cls)} rfp-demo-gap"><i></i><i></i><i></i><i></i></div>`;
+}
 
 /** One rendered specimen. `pin` adds the adapter's state-pinning class so a state can be shown at rest. */
 function specimen(
@@ -1113,9 +1161,16 @@ function renderRecipes(
         // A recipe with no dimensions of its own reads as a swatch, so let it fill the stage
         // rather than float in the middle of it as a text-sized blob.
         const empty = live && emitsNothing(model, recipe);
-        const fill = live && !empty && !hasIntrinsicSize(model, recipe);
-        const reveal = live && !empty ? revealFor(declarationKeys(model, recipe)) : undefined;
-        const rendered = live && !empty ? specimen(recipe, descriptor, undefined, fill, reveal?.style) : undefined;
+        const keys = live && !empty ? declarationKeys(model, recipe) : new Set<string>();
+        const demo = recipe.subsystem === "layout" ? layoutDemo(keys) : undefined;
+        const fill = live && !empty && !demo && !hasIntrinsicSize(model, recipe);
+        const reveal = live && !empty && !demo ? revealFor(keys) : undefined;
+        const rendered = live && !empty
+          ? demo
+            ? measureSpecimen(recipe, descriptor, demo.kind)
+            : specimen(recipe, descriptor, undefined, fill, reveal?.style)
+          : undefined;
+        const aid = reveal ?? (demo ? { style: "", labels: [demo.label] } : undefined);
         return (
           `<div class="rfp-recipe">` +
           (rendered ? `<div class="rfp-recipe-stage${fill ? " rfp-stage-fill" : ""}">${rendered}</div>` : "") +
@@ -1125,7 +1180,7 @@ function renderRecipes(
           `<div class="rfp-recipe-foot"><span class="rfp-addr">` +
           esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`) +
           `</span><button class="rfp-id" type="button">${esc(recipe.name)}</button>` +
-          (reveal ? aidNote(reveal) : "") +
+          (aid ? aidNote(aid) : "") +
           `</div></div>`
         );
       })
@@ -1331,6 +1386,10 @@ const CHROME_CSS = `
 .rfp-bar.rfp-ghost{background:var(--rfp-spec-2)}
 .rfp-gap{display:flex;border:1px dashed var(--rfp-line-2);border-radius:8px;padding:10px;background:var(--rfp-sunk)}
 .rfp-gap>i{flex:1 1 0;height:30px;background:var(--rfp-spec-2);border-radius:3px}
+.rfp-tracks{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--rfp-line-2);
+ border-radius:8px;overflow:hidden;
+ background:repeating-linear-gradient(-45deg,var(--rfp-hatch) 0 4px,transparent 4px 8px)}
+.rfp-tracks>i{height:38px;background:var(--rfp-spec)}
 .rfp-inset{border:1px solid var(--rfp-line-2);border-radius:10px;
  background:repeating-linear-gradient(-45deg,var(--rfp-hatch) 0 4px,transparent 4px 8px)}
 .rfp-inset-core{background:var(--rfp-spec);color:var(--rfp-card);border-radius:4px;font-family:var(--rfp-mono);
@@ -1377,6 +1436,12 @@ const CHROME_CSS = `
 .rfp-recipe-foot{padding:9px 12px;border-top:1px solid var(--rfp-line)}
 .rfp-addr{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);display:block}
 .rfp-empty{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);font-style:italic}
+.rfp-demo-inset{background:repeating-linear-gradient(-45deg,var(--rfp-hatch) 0 4px,transparent 4px 8px);
+ border:1px solid var(--rfp-line-2);border-radius:8px;display:inline-block;box-sizing:border-box}
+.rfp-demo-inset>.rfp-inset-core{display:block}
+.rfp-demo-gap{display:flex;border:1px dashed var(--rfp-line-2);border-radius:8px;background:var(--rfp-sunk);
+ padding:10px;box-sizing:border-box}
+.rfp-demo-gap>i{width:26px;height:26px;background:var(--rfp-spec);border-radius:4px;flex:none}
 .rfp-aid{display:inline-block;margin-top:5px;font-family:var(--rfp-mono);font-size:9.5px;letter-spacing:.04em;
  padding:1px 6px;border-radius:4px;background:var(--rfp-sunk);color:var(--rfp-ink-3);border:1px dashed var(--rfp-line-2)}
 .rfp-matrix td>.rfp-fill{min-width:104px;min-height:44px;display:flex;align-items:center;justify-content:center;

@@ -292,4 +292,55 @@ describe("CSS adapter preview.html", () => {
     const cells = [...html.matchAll(/<td><div class="[^"]*rfp-fill/g)].length;
     expect(cells).toBeGreaterThanOrEqual(2); // base + hover
   });
+
+  it("renders a layout measure in its own section's idiom, not as a bare box", async () => {
+    const outDir = makeTmp();
+    const raw = {
+      layout: {
+        spacing: { base: 4, variants: { sm: 8, md: 12, lg: 16 } },
+        recipes: {
+          padding: { control: { paddingX: "md", paddingY: "md" } },
+          gap: { control: { gap: "sm" } },
+          // A centring wrapper is a STRUCTURE, not a measure — it has a real size of its own.
+          shell: { main: { paddingX: "lg", maxWidth: 960 } },
+        },
+      },
+    };
+    await emitTheme({ raw, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // `gap` does literally nothing on an element with one child, so without help it showed nothing.
+    expect(html).toMatch(/class="dt-layout-gap-control rfp-demo-gap"/);
+    expect(html).toContain("display:flex + sample items");
+
+    // Padding with no content box has no contrast between inset and content.
+    expect(html).toMatch(/class="dt-layout-padding-control rfp-demo-inset"/);
+    expect(html).toContain("a content box, so the inset is visible");
+
+    // …but a rule-set that also sets a width is shown at its real size.
+    expect(html).not.toMatch(/dt-layout-shell-main[^"]*rfp-demo-inset/);
+  });
+
+  it("shows a gutter as the space between content tracks, not as a bar", async () => {
+    const outDir = makeTmp();
+    const raw = {
+      layout: {
+        spacing: { base: 4, variants: { sm: 8 } },
+        gutters: { base: 32, variants: { minimal: 16 } },
+        sizes: { base: 40 },
+      },
+    };
+    await emitTheme({ raw, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // A gutter is defined by what it separates. A bar gives the magnitude but not the meaning, so
+    // the specimen renders real tracks and lets the gutter be the space between them.
+    expect(html).toMatch(/class="rfp-tracks" style="gap:32px"/);
+    expect(html).toMatch(/class="rfp-tracks" style="gap:16px"/);
+    expect(html).toContain("the space between content tracks");
+
+    // `sizes` is a magnitude, not a separation — it keeps the bar.
+    const sizes = html.slice(html.indexOf("layout.sizes"));
+    expect(sizes).not.toContain("rfp-tracks");
+  });
 });
