@@ -208,6 +208,40 @@ const idButton = (path: string, varName?: string): string =>
 const leafPath = (leaf: TokenLeaf): string => leaf.path.join(".");
 const leafLabel = (leaf: TokenLeaf): string => leaf.path.slice(1).join(".") || leaf.path[0];
 
+/**
+ * Split a group's leaves into its `base` and everything else.
+ *
+ * Colour already does this — the family base is the big swatch, its variants are chips — and the
+ * distinction matters just as much for a scale: the base IS the unit the variants are derived
+ * from, and burying it as the first row of an undifferentiated list hides that.
+ */
+function splitBase(leaves: readonly TokenLeaf[]): { base?: TokenLeaf; variants: TokenLeaf[] } {
+  const base = leaves.find(l => l.path[l.path.length - 1] === "base");
+  return { base, variants: leaves.filter(l => l !== base) };
+}
+
+/**
+ * How wide to draw a length.
+ *
+ * Scaling every set so its largest member fills the row is a lie about magnitude: an 80px spacing
+ * drawn ~900px wide reads as ten times its value, and 4px vs 8px become indistinguishable from
+ * 40px vs 80px. Draw at TRUE SIZE whenever the set fits the column — a reader can then compare a
+ * specimen against a ruler, which is the entire point of a measure.
+ *
+ * Only fall back to proportional when the values simply cannot fit (breakpoints run to 1280px in a
+ * ~900px column), and say so on the plate rather than letting the reader assume true scale.
+ */
+const TRUE_SCALE_LIMIT = 560;
+const barWidth = (px: number | undefined, max: number, trueScale: boolean): string =>
+  px === undefined ? "100%" : trueScale ? `${px}px` : `${Math.max(1, (px / max) * 100)}%`;
+
+/** Rows preceded by a labelled band, so `base` reads as the unit rather than as another entry. */
+const labelledRows = (baseRow: string, variantRows: string): string =>
+  baseRow && variantRows
+    ? `<div class="rfp-row-label">Base</div><div class="rfp-rows">${baseRow}</div>` +
+      `<div class="rfp-row-label">Variants</div><div class="rfp-rows">${variantRows}</div>`
+    : `<div class="rfp-rows">${baseRow}${variantRows}</div>`;
+
 /** A three-column row: identifier · specimen · value. */
 const rowOf = (id: string, specimen: string, value: string, centred = false): string =>
   `<div class="rfp-row${centred ? " rfp-centred" : ""}"><div>${id}</div>${specimen}` +
@@ -485,8 +519,7 @@ function renderTypography(leaves: readonly TokenLeaf[], tokenName?: (p: string) 
 
   const out: string[] = [];
   for (const [prop, items] of byProp) {
-    const rows = items
-      .map(leaf => {
+    const render = (leaf: TokenLeaf): string => {
         const path = leafPath(leaf);
         const id = idButton(path, tokenName?.(path));
         const value = String(leaf.value);
@@ -511,9 +544,15 @@ function renderTypography(leaves: readonly TokenLeaf[], tokenName?: (p: string) 
           );
         }
         return rowOf(id, `<div class="rfp-specimen">${esc(value)}</div>`, value);
-      })
-      .join("");
-    out.push(plate(`typography.${prop}`, `${items.length} token(s)`, `<div class="rfp-rows">${rows}</div>`));
+    };
+    const { base, variants } = splitBase(items);
+    out.push(
+      plate(
+        `typography.${prop}`,
+        `${items.length} token(s)`,
+        labelledRows(base ? render(base) : "", variants.map(render).join("")),
+      ),
+    );
   }
   return out.join("");
 }
@@ -544,25 +583,32 @@ function renderSpace(groups: Map<string, TokenLeaf[]>, tokenName?: (p: string) =
     }
 
     const max = Math.max(...leaves.map(l => pxOf(l.value) ?? 0), 1);
-    const rows = leaves
-      .map(leaf => {
-        const path = leafPath(leaf);
-        const px = pxOf(leaf.value);
-        const width = px === undefined ? "100%" : `${Math.max(1, (px / max) * 100)}%`;
-        // A gutter is "spacing between content tracks" — so render the tracks. The hatching is the
-        // gutter itself, matching the applied-inset plate where hatch always means measured space.
-        const specimen =
-          group === "gutters"
-            ? `<div class="rfp-tracks" style="gap:${cssValue(leaf.value)}"><i></i><i></i><i></i></div>`
-            : `<div class="rfp-bar${group === "spacing" ? "" : " rfp-ghost"}" style="width:${width}"></div>`;
-        return rowOf(idButton(path, tokenName?.(path)), specimen, String(leaf.value), true);
-      })
-      .join("");
+    const trueScale = max <= TRUE_SCALE_LIMIT;
+    const render = (leaf: TokenLeaf): string => {
+      const path = leafPath(leaf);
+      const px = pxOf(leaf.value);
+      // A gutter is "spacing between content tracks" — so render the tracks. The hatching is the
+      // gutter itself, matching the applied-inset plate where hatch always means measured space.
+      const specimen =
+        group === "gutters"
+          ? `<div class="rfp-tracks" style="gap:${cssValue(leaf.value)}"><i></i><i></i><i></i></div>`
+          : `<div class="rfp-bar${group === "spacing" ? "" : " rfp-ghost"}" style="width:${barWidth(px, max, trueScale)}"></div>`;
+      return rowOf(idButton(path, tokenName?.(path)), specimen, String(leaf.value), true);
+    };
+
+    const { base, variants } = splitBase(leaves);
+    const scaleNote = group === "gutters" ? "" : trueScale ? " · true scale" : " · scaled to fit";
     const subtitle =
       group === "gutters"
         ? `${leaves.length} steps · the space between content tracks (<code>column-gap</code> / <code>row-gap</code> / <code>gap</code> in grid, flex and multi-column)`
-        : `${leaves.length} steps · measure`;
-    out.push(plate(`layout.${group}`, subtitle, `<div class="rfp-rows">${rows}</div>`));
+        : `${leaves.length} steps${scaleNote}`;
+    out.push(
+      plate(
+        `layout.${group}`,
+        subtitle,
+        labelledRows(base ? render(base) : "", variants.map(render).join("")),
+      ),
+    );
 
     // Spacing gets two applied views on top of the measure: there is no `padding` token, so this is
     // the only place a reader can see what a step feels like as an inset or a gap.
@@ -613,10 +659,15 @@ function renderShape(groups: Map<string, TokenLeaf[]>, tokenName?: (p: string) =
   const tilesFor = (group: string, build: (leaf: TokenLeaf) => string, sub?: string): void => {
     const leaves = groups.get(group);
     if (!leaves?.length) return;
-    const tiles = leaves
-      .map(leaf => tile(build(leaf), idButton(leafPath(leaf), tokenName?.(leafPath(leaf))), String(leaf.value)))
-      .join("");
-    out.push(plate(group, sub ?? `${leaves.length} token(s)`, `<div class="rfp-tiles">${tiles}</div>`));
+    const asTile = (leaf: TokenLeaf): string =>
+      tile(build(leaf), idButton(leafPath(leaf), tokenName?.(leafPath(leaf))), String(leaf.value));
+    const { base, variants } = splitBase(leaves);
+    const body =
+      base && variants.length
+        ? `<div class="rfp-row-label">Base</div><div class="rfp-tiles">${asTile(base)}</div>` +
+          `<div class="rfp-row-label">Variants</div><div class="rfp-tiles">${variants.map(asTile).join("")}</div>`
+        : `<div class="rfp-tiles">${leaves.map(asTile).join("")}</div>`;
+    out.push(plate(group, sub ?? `${leaves.length} token(s)`, body));
   };
 
   tilesFor("radius", l => `<div class="rfp-obj" style="border-radius:${cssValue(l.value)}"></div>`);
@@ -662,22 +713,24 @@ function renderGeneric(group: string, leaves: readonly TokenLeaf[], tokenName?: 
   // A dimension has magnitude, so show magnitude — breakpoints in particular read as a set of
   // widths, which a column of bare labels doesn't convey at all.
   const max = Math.max(...leaves.map(l => pxOf(l.value) ?? 0), 1);
-  const rows = leaves
-    .map(leaf => {
-      const px = pxOf(leaf.value);
-      const specimen =
-        leaf.type === "dimension" && px !== undefined && px > 0
-          ? `<div class="rfp-bar rfp-ghost" style="width:${Math.max(1, (px / max) * 100)}%"></div>`
-          : `<div class="rfp-specimen">${esc(leafLabel(leaf))}</div>`;
-      return rowOf(
-        idButton(leafPath(leaf), tokenName?.(leafPath(leaf))),
-        specimen,
-        String(leaf.value),
-        leaf.type === "dimension",
-      );
-    })
-    .join("");
-  return plate(group, `${leaves.length} token(s)`, `<div class="rfp-rows">${rows}</div>`);
+  const trueScale = max <= TRUE_SCALE_LIMIT;
+  const render = (leaf: TokenLeaf): string => {
+    const px = pxOf(leaf.value);
+    const specimen =
+      leaf.type === "dimension" && px !== undefined && px > 0
+        ? `<div class="rfp-bar rfp-ghost" style="width:${barWidth(px, max, trueScale)}"></div>`
+        : `<div class="rfp-specimen">${esc(leafLabel(leaf))}</div>`;
+    return rowOf(
+      idButton(leafPath(leaf), tokenName?.(leafPath(leaf))),
+      specimen,
+      String(leaf.value),
+      leaf.type === "dimension",
+    );
+  };
+  const { base, variants } = splitBase(leaves);
+  const dimensional = leaves.some(l => l.type === "dimension");
+  const subtitle = `${leaves.length} token(s)${dimensional ? (trueScale ? " · true scale" : " · scaled to fit") : ""}`;
+  return plate(group, subtitle, labelledRows(base ? render(base) : "", variants.map(render).join("")));
 }
 
 // ── Shared bits ────────────────────────────────────────────────────────────

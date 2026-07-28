@@ -256,4 +256,46 @@ describe("preview.html", () => {
     const html = readFileSync(join(outDir, "preview.html"), "utf8");
     expect(html).toContain("components.buttons.primary");
   });
+
+  it("draws a length at true size rather than scaling the largest to fill the row", async () => {
+    const outDir = makeTmp();
+    const raw = { layout: { spacing: { base: 4, variants: { sm: 8, xl: 24, huge: 80 } } } };
+    await emitTheme({ raw, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // Scaling the set so its largest member fills the row overstates every value — an 80px spacing
+    // drawn ~900px wide reads as ten times what it is, and 4 vs 8 becomes indistinguishable from
+    // 40 vs 80. Drawn at true size, a reader can hold a specimen against a ruler.
+    expect(html).toMatch(/rfp-bar" style="width:80px"/);
+    expect(html).toMatch(/rfp-bar" style="width:8px"/);
+    expect(html).toContain("true scale");
+    expect(html).not.toMatch(/rfp-bar" style="width:100%"/);
+  });
+
+  it("falls back to proportional only when the values cannot fit, and says so", async () => {
+    const outDir = makeTmp();
+    // Breakpoints run past the width of any specimen column, so true scale is impossible — but the
+    // page must not let a reader assume it.
+    const raw = { breakpoints: { sm: 640, xl: 1280 }, colors: { brand: { base: "#14b8a6" } } };
+    await emitTheme({ raw, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    expect(html).toContain("scaled to fit");
+    expect(html).not.toContain("true scale");
+  });
+
+  it("separates base from variants the way colour does", async () => {
+    const outDir = makeTmp();
+    const raw = {
+      layout: { spacing: { base: 4, variants: { sm: 8, lg: 16 } } },
+      typography: { fontSize: { base: 16, variants: { lg: 20 } } },
+    };
+    await emitTheme({ raw, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // The base IS the unit its variants derive from; as the first row of an undifferentiated list
+    // that relationship is invisible.
+    expect(html).toContain('class="rfp-row-label">Base<');
+    expect(html).toContain('class="rfp-row-label">Variants<');
+  });
 });
