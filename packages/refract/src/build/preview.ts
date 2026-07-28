@@ -860,41 +860,127 @@ const SIZING = [
   "padding", "inlinesize", "blocksize", "aspectratio", "flexbasis", "flex", "size",
 ];
 
-const declaresSize = (declarations: Readonly<Record<string, unknown>> | undefined): boolean =>
-  Object.keys(declarations ?? {}).some(key => {
-    const k = key.toLowerCase().replace(/-/g, "");
-    return SIZING.some(prop => k === prop || k.startsWith(`${prop}`));
-  });
+/**
+ * Every CSS property a recipe declares, including those it inherits by composition, normalized to
+ * lowercase kebab. One walk serves both the sizing question and the visibility question below.
+ */
+function declarationKeys(model: ThemeModel, recipe: UsageRecipe, seen = new Set<string>()): Set<string> {
+  const keys = new Set<string>();
+  const address = `${recipe.subsystem}.${recipe.group}.${recipe.variant}`;
+  if (seen.has(address)) return keys;
+  seen.add(address);
+
+  const ruleSet = model.subsystems[recipe.subsystem]?.ruleSets?.[recipe.group]?.[recipe.variant];
+  if (!ruleSet) return keys;
+  for (const key of Object.keys(ruleSet.declarations ?? {})) {
+    keys.add(key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase());
+  }
+  for (const reference of ruleSet.references ?? []) {
+    const [subsystem, rest] = reference.split(":");
+    const dot = rest?.indexOf(".") ?? -1;
+    if (!subsystem || !rest || dot < 0) continue;
+    for (const key of declarationKeys(model, { subsystem, group: rest.slice(0, dot), variant: rest.slice(dot + 1), name: "" }, seen)) {
+      keys.add(key);
+    }
+  }
+  return keys;
+}
+
+/**
+ * Properties that paint NOTHING on their own.
+ *
+ * `border-color` without a width and style is invisible — a `colors.border` recipe emits exactly
+ * that one declaration and renders a completely blank box. The specimen has to supply the missing
+ * companion so the colour can be seen, and then SAY it did: a reader must never conclude their
+ * theme sets a 3px border when the preview added it.
+ *
+ * Only applied when the recipe doesn't declare the companion itself.
+ */
+const REVEALS: ReadonlyArray<{
+  readonly needs: RegExp;
+  readonly companions: readonly string[];
+  readonly style: string;
+  readonly label: string;
+}> = [
+  {
+    needs: /^border(-(top|right|bottom|left|inline|block)(-(start|end))?)?-color$/,
+    companions: ["border-style", "border-width", "border"],
+    style: "border-style:solid;border-width:3px",
+    label: "border-width + border-style",
+  },
+  {
+    needs: /^outline-color$/,
+    companions: ["outline-style", "outline-width", "outline"],
+    style: "outline-style:solid;outline-width:3px;outline-offset:2px",
+    label: "outline-width + outline-style",
+  },
+  // The symmetric case, and just as invisible: `border-style` initial value is `none`, so a
+  // rule-set that sets only a width paints nothing either. `border-color` needs no companion here
+  // — its initial value is `currentColor`, which is visible.
+  {
+    needs: /^border(-(top|right|bottom|left|inline|block)(-(start|end))?)?-width$/,
+    companions: ["border-style", "border"],
+    style: "border-style:solid",
+    label: "border-style",
+  },
+  {
+    needs: /^outline-width$/,
+    companions: ["outline-style", "outline"],
+    style: "outline-style:solid",
+    label: "outline-style",
+  },
+  {
+    needs: /^text-decoration-color$/,
+    companions: ["text-decoration-line", "text-decoration"],
+    style: "text-decoration-line:underline;text-decoration-thickness:3px",
+    label: "text-decoration-line",
+  },
+  {
+    needs: /^column-rule-color$/,
+    companions: ["column-rule-style", "column-rule-width", "column-rule"],
+    style: "column-rule-style:solid;column-rule-width:3px",
+    label: "column-rule-width + style",
+  },
+];
+
+interface Reveal {
+  /** Inline declarations the preview supplies so the recipe's own values become visible. */
+  readonly style: string;
+  /** What was supplied, for the on-page disclosure. */
+  readonly labels: readonly string[];
+}
+
+function revealFor(keys: ReadonlySet<string>): Reveal | undefined {
+  const styles: string[] = [];
+  const labels: string[] = [];
+  for (const reveal of REVEALS) {
+    const declares = [...keys].some(key => reveal.needs.test(key));
+    if (!declares) continue;
+    if (reveal.companions.some(c => keys.has(c))) continue; // the theme supplies it already
+    styles.push(reveal.style);
+    labels.push(reveal.label);
+  }
+  return styles.length ? { style: styles.join(";"), labels } : undefined;
+}
 
 /**
  * Does this recipe size itself?
  *
  * A colour recipe (`background` + `color`, nothing else) has no dimensions, so it renders as a
  * text-sized blob adrift on the stage — which tells you almost nothing about the colour. Those
- * specimens should fill their stage and read as a swatch instead. A button that declares its own
- * padding must NOT be stretched: its real size IS the thing being shown.
- *
- * Composition counts — `components.buttons.bare` may declare nothing itself while referencing a
- * recipe that declares padding, so the referenced chain is walked too.
+ * specimens fill their stage and read as a swatch instead. A recipe that declares its own padding
+ * must NOT be stretched: its real size IS the thing being shown.
  */
-function hasIntrinsicSize(model: ThemeModel, recipe: UsageRecipe, seen = new Set<string>()): boolean {
-  const key = `${recipe.subsystem}.${recipe.group}.${recipe.variant}`;
-  if (seen.has(key)) return false;
-  seen.add(key);
-
-  const ruleSet = model.subsystems[recipe.subsystem]?.ruleSets?.[recipe.group]?.[recipe.variant];
-  if (!ruleSet) return false;
-  if (declaresSize(ruleSet.declarations)) return true;
-
-  for (const reference of ruleSet.references ?? []) {
-    // `"colors:solid.primary"` → the referenced rule-set's own address.
-    const [subsystem, rest] = reference.split(":");
-    const dot = rest?.indexOf(".") ?? -1;
-    if (!subsystem || !rest || dot < 0) continue;
-    const referenced = { subsystem, group: rest.slice(0, dot), variant: rest.slice(dot + 1), name: "" };
-    if (hasIntrinsicSize(model, referenced, seen)) return true;
-  }
-  return false;
+function hasIntrinsicSize(model: ThemeModel, recipe: UsageRecipe): boolean {
+  // A `components` rule-set IS a component: show it at whatever size it really is, even when that
+  // is text-sized, because that is the truth about the recipe. Stretching a button to fill its
+  // stage would misrepresent it. Filling is for rule-sets that express a *value* — a colour, a
+  // surface — where the swatch is the point and the box is arbitrary.
+  if (recipe.subsystem === "components") return true;
+  return [...declarationKeys(model, recipe)].some(key => {
+    const k = key.replace(/-/g, "");
+    return SIZING.some(prop => k === prop || k.startsWith(prop));
+  });
 }
 
 function inferTag(recipe: UsageRecipe): string {
@@ -906,12 +992,32 @@ function inferTag(recipe: UsageRecipe): string {
   return "div";
 }
 
+/** Does this rule-set emit anything at all? Composition counts — a reference paints via its class. */
+function emitsNothing(model: ThemeModel, recipe: UsageRecipe): boolean {
+  const ruleSet = model.subsystems[recipe.subsystem]?.ruleSets?.[recipe.group]?.[recipe.variant];
+  if (!ruleSet) return false;
+  return (
+    Object.keys(ruleSet.declarations ?? {}).length === 0 &&
+    (ruleSet.references?.length ?? 0) === 0 &&
+    (ruleSet.overrides?.length ?? 0) === 0
+  );
+}
+
+/**
+ * The on-page disclosure for a supplied companion. Without this the page would quietly imply the
+ * theme sets a 3px border, which is exactly the kind of small lie a specimen sheet must not tell.
+ */
+const aidNote = (reveal: Reveal): string =>
+  `<span class="rfp-aid" title="Not part of your theme — added so the declared colour is visible">` +
+  `preview adds ${esc(reveal.labels.join(" · "))}</span>`;
+
 /** One rendered specimen. `pin` adds the adapter's state-pinning class so a state can be shown at rest. */
 function specimen(
   recipe: UsageRecipe,
   descriptor: PreviewDescriptor | undefined,
   pin?: string,
   fill?: boolean,
+  reveal?: string,
 ): string | undefined {
   const markup = descriptor?.markup?.(recipe);
   if (!markup) return undefined;
@@ -919,6 +1025,8 @@ function specimen(
   const attrs = { ...markup.attrs };
   if (pin) attrs.class = `${attrs.class ?? ""} ${pin}`.trim();
   if (fill) attrs.class = `${attrs.class ?? ""} rfp-fill`.trim();
+  // Supplied by the preview, never by the theme — see REVEALS.
+  if (reveal) attrs.style = `${attrs.style ? `${attrs.style};` : ""}${reveal}`;
   const rendered = Object.entries(attrs)
     .map(([k, v]) => ` ${esc(k)}="${esc(v)}"`)
     .join("");
@@ -967,16 +1075,24 @@ function renderRecipes(
       const body = recipes
         .map(recipe => {
           const own = descriptor.states?.(recipe) ?? [];
+          // A stateful colour recipe is still a colour recipe: give its cells the same swatch
+          // treatment the stateless grid gets, or `colors.container` reads as tiny blobs beside
+          // `colors.surface`'s full swatches for no reason a reader can see.
+          const keys = declarationKeys(model, recipe);
+          const fill = !hasIntrinsicSize(model, recipe);
+          const reveal = revealFor(keys);
           const cells = ["base", ...states]
             .map(state => {
               if (state !== "base" && !own.includes(state)) return `<td class="rfp-none">—</td>`;
               const pin = state === "base" ? undefined : descriptor.statePinClass?.(state);
-              return `<td>${specimen(recipe, descriptor, pin) ?? ""}</td>`;
+              return `<td>${specimen(recipe, descriptor, pin, fill, reveal?.style) ?? ""}</td>`;
             })
             .join("");
           return (
             `<tr><td><span class="rfp-addr">${esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`)}</span>` +
-            `<button class="rfp-id" type="button">${esc(recipe.name)}</button></td>${cells}</tr>`
+            `<button class="rfp-id" type="button">${esc(recipe.name)}</button>` +
+            (reveal ? aidNote(reveal) : "") +
+            `</td>${cells}</tr>`
           );
         })
         .join("");
@@ -996,14 +1112,21 @@ function renderRecipes(
       .map(recipe => {
         // A recipe with no dimensions of its own reads as a swatch, so let it fill the stage
         // rather than float in the middle of it as a text-sized blob.
-        const fill = live && !hasIntrinsicSize(model, recipe);
-        const rendered = live ? specimen(recipe, descriptor, undefined, fill) : undefined;
+        const empty = live && emitsNothing(model, recipe);
+        const fill = live && !empty && !hasIntrinsicSize(model, recipe);
+        const reveal = live && !empty ? revealFor(declarationKeys(model, recipe)) : undefined;
+        const rendered = live && !empty ? specimen(recipe, descriptor, undefined, fill, reveal?.style) : undefined;
         return (
           `<div class="rfp-recipe">` +
           (rendered ? `<div class="rfp-recipe-stage${fill ? " rfp-stage-fill" : ""}">${rendered}</div>` : "") +
+          (empty
+            ? `<div class="rfp-recipe-stage"><span class="rfp-empty">emits no declarations</span></div>`
+            : "") +
           `<div class="rfp-recipe-foot"><span class="rfp-addr">` +
           esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`) +
-          `</span><button class="rfp-id" type="button">${esc(recipe.name)}</button></div></div>`
+          `</span><button class="rfp-id" type="button">${esc(recipe.name)}</button>` +
+          (reveal ? aidNote(reveal) : "") +
+          `</div></div>`
         );
       })
       .join("");
@@ -1253,6 +1376,11 @@ const CHROME_CSS = `
  justify-content:center;box-sizing:border-box}
 .rfp-recipe-foot{padding:9px 12px;border-top:1px solid var(--rfp-line)}
 .rfp-addr{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);display:block}
+.rfp-empty{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);font-style:italic}
+.rfp-aid{display:inline-block;margin-top:5px;font-family:var(--rfp-mono);font-size:9.5px;letter-spacing:.04em;
+ padding:1px 6px;border-radius:4px;background:var(--rfp-sunk);color:var(--rfp-ink-3);border:1px dashed var(--rfp-line-2)}
+.rfp-matrix td>.rfp-fill{min-width:104px;min-height:44px;display:flex;align-items:center;justify-content:center;
+ border-radius:6px;box-sizing:border-box}
 .rfp-compose{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .rfp-cls{font-family:var(--rfp-mono);font-size:11.5px;padding:3px 9px;border-radius:6px;
  border:1px solid var(--rfp-line);background:var(--rfp-sunk)}
