@@ -549,15 +549,20 @@ function renderSpace(groups: Map<string, TokenLeaf[]>, tokenName?: (p: string) =
         const path = leafPath(leaf);
         const px = pxOf(leaf.value);
         const width = px === undefined ? "100%" : `${Math.max(1, (px / max) * 100)}%`;
-        return rowOf(
-          idButton(path, tokenName?.(path)),
-          `<div class="rfp-bar${group === "spacing" ? "" : " rfp-ghost"}" style="width:${width}"></div>`,
-          String(leaf.value),
-          true,
-        );
+        // A gutter is "spacing between content tracks" — so render the tracks. The hatching is the
+        // gutter itself, matching the applied-inset plate where hatch always means measured space.
+        const specimen =
+          group === "gutters"
+            ? `<div class="rfp-tracks" style="gap:${cssValue(leaf.value)}"><i></i><i></i><i></i></div>`
+            : `<div class="rfp-bar${group === "spacing" ? "" : " rfp-ghost"}" style="width:${width}"></div>`;
+        return rowOf(idButton(path, tokenName?.(path)), specimen, String(leaf.value), true);
       })
       .join("");
-    out.push(plate(`layout.${group}`, `${leaves.length} steps · measure`, `<div class="rfp-rows">${rows}</div>`));
+    const subtitle =
+      group === "gutters"
+        ? `${leaves.length} steps · the space between content tracks (<code>column-gap</code> / <code>row-gap</code> / <code>gap</code> in grid, flex and multi-column)`
+        : `${leaves.length} steps · measure`;
+    out.push(plate(`layout.${group}`, subtitle, `<div class="rfp-rows">${rows}</div>`));
 
     // Spacing gets two applied views on top of the measure: there is no `padding` token, so this is
     // the only place a reader can see what a step feels like as an inset or a gap.
@@ -1381,6 +1386,10 @@ const CHROME_CSS = `
 .rfp-bar.rfp-ghost{background:var(--rfp-spec-2)}
 .rfp-gap{display:flex;border:1px dashed var(--rfp-line-2);border-radius:8px;padding:10px;background:var(--rfp-sunk)}
 .rfp-gap>i{flex:1 1 0;height:30px;background:var(--rfp-spec-2);border-radius:3px}
+.rfp-tracks{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--rfp-line-2);
+ border-radius:8px;overflow:hidden;
+ background:repeating-linear-gradient(-45deg,var(--rfp-hatch) 0 4px,transparent 4px 8px)}
+.rfp-tracks>i{height:38px;background:var(--rfp-spec)}
 .rfp-inset{border:1px solid var(--rfp-line-2);border-radius:10px;
  background:repeating-linear-gradient(-45deg,var(--rfp-hatch) 0 4px,transparent 4px 8px)}
 .rfp-inset-core{background:var(--rfp-spec);color:var(--rfp-card);border-radius:4px;font-family:var(--rfp-mono);

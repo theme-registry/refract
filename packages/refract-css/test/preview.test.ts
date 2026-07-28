@@ -320,4 +320,27 @@ describe("CSS adapter preview.html", () => {
     // …but a rule-set that also sets a width is shown at its real size.
     expect(html).not.toMatch(/dt-layout-shell-main[^"]*rfp-demo-inset/);
   });
+
+  it("shows a gutter as the space between content tracks, not as a bar", async () => {
+    const outDir = makeTmp();
+    const raw = {
+      layout: {
+        spacing: { base: 4, variants: { sm: 8 } },
+        gutters: { base: 32, variants: { minimal: 16 } },
+        sizes: { base: 40 },
+      },
+    };
+    await emitTheme({ raw, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // A gutter is defined by what it separates. A bar gives the magnitude but not the meaning, so
+    // the specimen renders real tracks and lets the gutter be the space between them.
+    expect(html).toMatch(/class="rfp-tracks" style="gap:32px"/);
+    expect(html).toMatch(/class="rfp-tracks" style="gap:16px"/);
+    expect(html).toContain("the space between content tracks");
+
+    // `sizes` is a magnitude, not a separation — it keeps the bar.
+    const sizes = html.slice(html.indexOf("layout.sizes"));
+    expect(sizes).not.toContain("rfp-tracks");
+  });
 });
