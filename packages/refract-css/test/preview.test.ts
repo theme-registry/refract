@@ -243,7 +243,7 @@ describe("CSS adapter preview.html", () => {
     // exactly that one declaration, so without help the specimen is a completely blank box.
     const raw = {
       colors: {
-        primary: { base: "#374571" },
+        primary: { base: "#4c6ef5" },
         recipes: {
           surface: { high: { background: "primary", color: "primary" } },
           border: { primary: { borderColor: "primary" } },
@@ -273,7 +273,7 @@ describe("CSS adapter preview.html", () => {
     // as text-sized blobs in a matrix — same kind of thing, two presentations, for no visible reason.
     const raw = {
       colors: {
-        primary: { base: "#374571" },
+        primary: { base: "#4c6ef5" },
         recipes: {
           container: {
             primary: {
@@ -299,8 +299,8 @@ describe("CSS adapter preview.html", () => {
       layout: {
         spacing: { base: 4, variants: { sm: 8, md: 12, lg: 16 } },
         recipes: {
-          padding: { control: { paddingX: "md", paddingY: "md" } },
-          gap: { control: { gap: "sm" } },
+          padding: { field: { paddingX: "md", paddingY: "md" } },
+          gap: { row: { gap: "sm" } },
           // A centring wrapper is a STRUCTURE, not a measure — it has a real size of its own.
           shell: { main: { paddingX: "lg", maxWidth: 960 } },
         },
@@ -310,11 +310,11 @@ describe("CSS adapter preview.html", () => {
     const html = readFileSync(join(outDir, "preview.html"), "utf8");
 
     // `gap` does literally nothing on an element with one child, so without help it showed nothing.
-    expect(html).toMatch(/class="dt-layout-gap-control rfp-demo-gap"/);
+    expect(html).toMatch(/class="dt-layout-gap-row rfp-demo-gap"/);
     expect(html).toContain("display:flex + sample items");
 
     // Padding with no content box has no contrast between inset and content.
-    expect(html).toMatch(/class="dt-layout-padding-control rfp-demo-inset"/);
+    expect(html).toMatch(/class="dt-layout-padding-field rfp-demo-inset"/);
     expect(html).toContain("a content box, so the inset is visible");
 
     // …but a rule-set that also sets a width is shown at its real size.
