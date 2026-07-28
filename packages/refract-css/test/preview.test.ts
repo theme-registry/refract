@@ -30,7 +30,15 @@ const RAW = {
   },
   layout: { spacing: { base: 8, variants: { lg: 24 } } },
   components: {
-    recipes: { buttons: { primary: { colors: "solid.primary", css: { cursor: "pointer" } } } },
+    recipes: {
+      buttons: {
+        primary: {
+          colors: "solid.primary",
+          css: { cursor: "pointer" },
+          states: { hover: { css: { opacity: 0.9 } }, disabled: { css: { opacity: 0.45 } } },
+        },
+      },
+    },
   },
 };
 
@@ -61,7 +69,7 @@ describe("CSS adapter preview.html", () => {
 
     // Token plates come from the DTCG export, so they exist regardless of adapter.
     expect(html).toContain("#4dabf7");
-    expect(html).toContain('rfp-plate-title">color ');
+    expect(html).toContain('id="rfp-palette"');
   });
 
   it("split: links variables BEFORE styles (the load-order contract)", async () => {
@@ -146,5 +154,50 @@ describe("CSS adapter preview.html", () => {
     const outDir = makeTmp();
     await emitTheme({ raw: RAW, adapter: createCssAdapter(), outDir });
     expect(readdirSync(outDir)).not.toContain("preview.html");
+  });
+
+  it("renders a state matrix with pinnable classes, and ships the rules that make them work", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // A column per declared state, and only the declared ones — `focus` was never authored.
+    expect(html).toContain("<th>hover</th>");
+    expect(html).toContain("<th>disabled</th>");
+    expect(html).not.toContain("<th>focus</th>");
+
+    // The specimen carries the pin class so the state renders AT REST — `:hover` can't be
+    // triggered from markup, which is the whole reason the pin exists.
+    expect(html).toMatch(/<button class="[^"]*dt-components-buttons-primary rfp-s-hover"/);
+
+    // …and the parallel rules that give those classes meaning are inlined into the page.
+    expect(html).toContain("data-rfp-state-pins");
+    expect(html).toContain(".dt-components-buttons-primary.rfp-s-hover");
+    expect(html).toContain(".dt-components-buttons-primary.rfp-s-disabled");
+
+    // Crucially they are NOT in the shipped stylesheet — they exist only to drive a specimen sheet.
+    expect(readFileSync(join(outDir, "theme.css"), "utf8")).not.toContain("rfp-s-hover");
+  });
+
+  it("breaks a composed identity into its parts, attributing each class to its source recipe", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    expect(html).toContain("rfp-compose");
+    expect(html).toContain("from colors.solid.primary"); // the referenced recipe, by address
+    expect(html).toContain("own delta");
+  });
+
+  it("names the emitted custom property beside each token, and diffs what the dark mode changes", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // tokenName → the variable a reader actually types.
+    expect(html).toContain("--dt-colors-primary");
+    // The mode diff shows the cause, not just the result.
+    expect(html).toContain("rfp-diff");
+    expect(html).toContain("What changes in dark");
   });
 });

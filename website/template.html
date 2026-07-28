@@ -1541,6 +1541,7 @@ files by specifier (e.g. `@acme/theme/theme.css`) instead of by relative path.
   ],
 });</pre>
           </div>
+          <p>It reads as a proper style guide rather than a token dump: a sticky section rail, colour families as contiguous ladders with live WCAG contrast readouts on each <code>text</code> pairing, the type ramp set in its own sizes, spacing shown both as a measure <em>and</em> as an applied inset (there is no separate <code>padding</code> token &mdash; spacing <em>is</em> the padding scale), a state matrix for every recipe, and a copy-on-click identifier beside each specimen. Sections appear only when the theme has tokens of that kind.</p>
           <p>The page has two halves, and they degrade independently:</p>
           <div class="table-wrap">
             <table class="api-table">
@@ -1552,6 +1553,7 @@ files by specifier (e.g. `@acme/theme/theme.css`) instead of by relative path.
             </table>
           </div>
           <p>For a target whose output isn't browser-loadable, the page still renders every token and still lists every recipe by its real identity — it just says, in that adapter's own words, why it can't render them live. SCSS needs compiling first; styled-components emits JS modules that need React; JSON is data with no rendered form. <b>For a live design-review page from a styled-components or SCSS theme, add a CSS target to the same config</b> — it compiles the same recipes through the same core, so it's a faithful specimen.</p>
+          <div class="note"><b>Three things only a compiler's specimen sheet can show.</b> <b>States</b> render side by side rather than on hover &mdash; a CSS pseudo-class can't be triggered from markup, so the adapter emits a parallel pinnable rule that is inlined into the page and <i>never</i> added to the stylesheet you ship. <b>Appearance modes</b> get a diff table of the tokens that actually carry an override, so you can see the cause and not just the result. <b>Composition</b> is broken into its parts, attributing each class in a component's identity to the recipe it came from. Bare elements themed by the <a href="#globals">globals subsystem</a> get their own prose specimen, since they carry no class at all.</div>
           <div class="note"><b>The preview follows your <code>emit</code> mode.</b> It references the files that were actually written — <code>split</code> loads the variables file before the styles file, <code>subsystem</code> loads every pair and groups the plates by subsystem, and <code>components</code> groups them by the file each component landed in and marks the recipes that mode doesn't emit. A theme with appearance <code>modes</code> gets a light/dark toggle; one with <code>breakpoints</code> gets frame-width buttons. Off by default — a build with no <code>preview</code> is byte-identical.</div>
           <div class="note"><b>No recipes yet?</b> A freshly scaffolded theme (see <a href="#scaffold">Scaffold a theme</a>) has tokens and no recipes, so the preview renders your palette and ramps and then tells you exactly what's missing — it's the fastest way to see what you got before writing your first recipe.</div>
         </section>
@@ -4660,14 +4662,14 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="note"><b>What the lineage proves — and doesn't.</b> The <b>design</b> (author → override → runtime-or-prebuilt, foundations included) is battle-tested across real multi-brand estates: a flagship + ~130 regional sites on one shared infrastructure; a multi-brand media group with per-brand child overrides side by side; a pan-European NGO federation, override-per-member at federation scale; and a multi-identity civic institution, distinct identities on one platform without forking. <b>The idea has the better part of a decade of production behind it; the published package is new</b> — a clean, standardized rewrite that earns its own miles. Client names are withheld — the credibility is in the shapes, not the logos.</div>
 
           <h3>Tested &amp; gated</h3>
-          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">738</b> tests across <b data-q="testfiles">66</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">744</b> tests across <b data-q="testfiles">66</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
               <tbody>
                 <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
                 <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
-                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">738</b>-case suite</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">744</b>-case suite</td></tr>
                 <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
                 <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
               </tbody>

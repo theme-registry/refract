@@ -896,7 +896,8 @@ export const deriveContainerContextNodes = (
 
 // --- State → selector table + canonical ordering ---
 
-const CSS_STATE_SELECTORS: Record<string, string> = {
+/** state name → its CSS selector suffix. Exported so the preview can build pinnable twins. */
+export const CSS_STATE_SELECTORS: Record<string, string> = {
   link: ":link",
   visited: ":visited",
   hover: ":hover",

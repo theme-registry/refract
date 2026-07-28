@@ -123,8 +123,21 @@ interface PreviewDescriptor {
   modeAttribute?: string;                             // attribute on <html> that forces a mode (CSS: "data-theme")
   unavailable?: string;                               // why a live render isn't possible (when stylesheets is empty)
   notes?: readonly string[];                          // caveats to surface even when rendering works
+
+  tokenName?(path): string | undefined;               // the emitted name for a token path (CSS: --dt-…)
+  states?(recipe): readonly string[];                 // the states this rule-set declares
+  statePinClass?(state): string | undefined;          // class that forces `state` to render at rest
+  statePinCss?: string;                               // the rules that give those classes meaning
+  composition?(recipe): Array<{ className, from? }>;  // a composed identity, split into its parts
 }
 ```
+
+The five optional fields below the break drive the style-guide plates. `states` + `statePinClass` +
+`statePinCss` are one feature: a CSS pseudo-class (`:hover`) or attribute selector (`[disabled]`)
+**cannot be switched on from markup**, so a specimen sheet can never show a state at rest. The
+adapter answers by emitting a parallel rule keyed on a plain class — same declarations, pinnable
+selector — which the preview inlines into the page. Keep those rules **out of `emit()`**: they exist
+only to drive a specimen sheet and must never reach a consumer's bundle.
 
 Three rules worth internalizing before you write one:
 

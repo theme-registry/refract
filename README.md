@@ -212,13 +212,24 @@ stylesheets by default, so the page is one self-contained file that survives bei
 { name: "css", adapter: createCssAdapter(), outDir: "dist/theme", preview: true }
 ```
 
-Token plates — colours, the type ramp, spacing, radii, shadows, breakpoints — render from the
-format-neutral token export, so **every** adapter gets them. Live recipe plates additionally need
-output a browser can load as-is, which today means CSS; an SCSS/styled-components/JSON target still
-renders every token and names every recipe, and says why it can't render them live. (For a live
-design-review page from an SC or SCSS theme, add a CSS target to the same config — same recipes,
-same core.) The page follows the target's `emit` mode, and gains a light/dark toggle when the theme
-declares modes plus frame-width buttons when it declares breakpoints. Off by default.
+It reads as a style guide, not a token dump: a sticky section rail, colour families as contiguous
+ladders with live WCAG contrast readouts on each `text` pairing, the type ramp set in its own sizes,
+spacing shown as a measure *and* as an applied inset, a **state matrix** per recipe, and a
+copy-on-click identifier beside every specimen. Sections appear only when the theme has tokens of
+that kind.
+
+Token plates render from the format-neutral token export, so **every** adapter gets them. Live
+recipe plates additionally need output a browser can load as-is, which today means CSS; an
+SCSS/styled-components/JSON target still renders every token and names every recipe, and says why it
+can't render them live. (For a live design-review page from an SC or SCSS theme, add a CSS target to
+the same config — same recipes, same core.)
+
+Three things only a compiler's specimen sheet can show: **states** side by side (a CSS pseudo-class
+can't be triggered from markup, so the adapter emits a parallel pinnable rule that is inlined into
+the page and never added to the stylesheet you ship), an **appearance-mode diff** of the tokens that
+actually carry an override, and **composition** broken into its parts — each class in a component's
+identity attributed to the recipe it came from. Bare elements themed by the `globals` subsystem get
+their own prose specimen, since they carry no class at all. Off by default.
 
 Its machine-facing sibling is `guide: true`, which writes an `llms.txt` + `manifest.json`
 consumption guide into the same folder.

@@ -190,6 +190,43 @@ export interface PreviewDescriptor {
   readonly unavailable?: string;
   /** Caveats worth surfacing on the page even when rendering does work (e.g. "`variables: false` — …"). */
   readonly notes?: readonly string[];
+
+  /**
+   * A token path → the name the emitted output gives it (`colors.brand` → `--dt-colors-brand`).
+   * Shown beside each value, so a reader can go straight from the specimen to the thing they type.
+   * Return `undefined` for a path that mints no name.
+   */
+  readonly tokenName?: (path: string) => string | undefined;
+
+  /**
+   * The states a recipe actually declares (`["hover", "focus", "disabled"]`), so the page can render
+   * a state matrix instead of one at-rest specimen. Only states that also answer to
+   * {@link statePinClass} are rendered — a state nobody can pin can't be shown at rest.
+   */
+  readonly states?: (recipe: UsageRecipe) => readonly string[];
+
+  /**
+   * The class that forces `state` to render at rest. CSS states are pseudo-classes (`:hover`) and
+   * attribute selectors (`[disabled]`) that markup cannot switch on, so the adapter emits a parallel
+   * pinnable rule (see {@link statePinCss}) and names its class here.
+   */
+  readonly statePinClass?: (state: string) => string | undefined;
+
+  /**
+   * Extra stylesheet the page inlines to make {@link statePinClass} work. Kept out of the emitted
+   * theme on purpose: these rules exist only to drive a specimen sheet and must never reach a
+   * consumer's bundle.
+   */
+  readonly statePinCss?: string;
+
+  /**
+   * A composed recipe's identity broken into its parts — each emitted class plus the recipe address
+   * it came from (`undefined` ⇒ this rule-set's own delta). Rendering the joined string without
+   * saying why it's two classes reads as a bug.
+   */
+  readonly composition?: (
+    recipe: UsageRecipe,
+  ) => ReadonlyArray<{ readonly className: string; readonly from?: string }> | undefined;
 }
 
 /** The Model-derived context bound alongside the Model. */
