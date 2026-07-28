@@ -1,5 +1,12 @@
 # @theme-registry/refract-scss
 
+## 0.1.16
+
+### Patch Changes
+
+- Updated dependencies [bbb64ad]
+  - @theme-registry/refract@0.1.16
+
 ## 0.1.15
 
 ### Patch Changes
