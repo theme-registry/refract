@@ -157,7 +157,7 @@ const SECTIONS: readonly SectionDef[] = [
   { id: "type", title: "Type scale", eyebrow: "Typography" },
   { id: "space", title: "Spacing and size", eyebrow: "Space",
     note: "There is no separate <code>padding</code> token — spacing <em>is</em> the padding scale, so it is shown both as a measure and as an applied inset." },
-  { id: "shape", title: "Borders, radius and elevation", eyebrow: "Shape &amp; depth" },
+  { id: "shape", title: "Borders, radius and elevation", eyebrow: "Shape & depth" },
   { id: "motion", title: "Transitions", eyebrow: "Motion" },
   { id: "layout", title: "Breakpoints", eyebrow: "Layout",
     note: "These drive the Width control at the top — pick one to reflow the whole specimen at that viewport." },
@@ -208,6 +208,71 @@ function lightnessOf(value: string): number | undefined {
   }
 }
 
+/** WCAG relative luminance of a hex colour, or `undefined` when it isn't one. */
+function luminance(value: string): number | undefined {
+  const hex = value.trim();
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return undefined;
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (c: number): number => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * ch((n >> 16) & 255) + 0.7152 * ch((n >> 8) & 255) + 0.0722 * ch(n & 255);
+}
+
+/** WCAG contrast ratio between two hex colours, or `undefined` if either isn't parseable. */
+function contrastRatio(a: string, b: string): number | undefined {
+  const la = luminance(a);
+  const lb = luminance(b);
+  if (la === undefined || lb === undefined) return undefined;
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/**
+ * Provenance — did the author write this value, or did refract synthesise it?
+ *
+ * refract knows, and nothing else in the toolchain does: a literal `Ref` carries `value`, while a
+ * synthesised one carries `ref` / `fn` / `modifiers` (a tonal step, a harmony rotation, a
+ * derivation chain). It has to be read from the MODEL: the DTCG export resolves both kinds down to
+ * a literal, so by the time a token reaches the token plates the distinction is gone.
+ */
+type Provenance = "src" | "gen";
+
+function colorProvenance(model: ThemeModel): Map<string, Provenance> {
+  const out = new Map<string, Provenance>();
+  const properties = model.subsystems.colors?.properties ?? {};
+  const mark = (path: string, ref: Ref | undefined): void => {
+    if (!ref) return;
+    const derived = ref.ref !== undefined || ref.fn !== undefined || (ref.modifiers?.length ?? 0) > 0;
+    out.set(path, derived ? "gen" : "src");
+  };
+  for (const [family, property] of Object.entries(properties)) {
+    mark(`colors.${family}`, property.base);
+    for (const [extra, ref] of Object.entries(property.extras ?? {})) mark(`colors.${family}.${extra}`, ref);
+    for (const [variant, model2] of Object.entries(property.variants ?? {})) {
+      mark(`colors.${family}.${variant}`, model2.base);
+    }
+  }
+  return out;
+}
+
+/**
+ * The masthead wears the theme's own first palette — the one place the chrome takes a hue, and it
+ * takes the theme's rather than asserting one. Falls back to ink when no colour token parses.
+ */
+function mastheadColor(leaves: readonly TokenLeaf[]): { bg: string; fg: string } | undefined {
+  const usable = (l: TokenLeaf): boolean =>
+    l.type === "color" && /^#[0-9a-f]{6}$/i.test(String(l.value).trim());
+  // A family's `base` — NOT merely the first colour leaf, which is a ladder rung (`50`) and comes
+  // out near-white. Fall back to any colour only when no family declares a base.
+  const first = leaves.find(l => usable(l) && l.path[l.path.length - 1] === "base") ?? leaves.find(usable);
+  if (!first) return undefined;
+  const bg = String(first.value).trim();
+  const L = lightnessOf(bg);
+  // A light brand needs dark type on it; anything else takes white.
+  return { bg, fg: L !== undefined && L > 62 ? "#14171c" : "#ffffff" };
+}
+
 /**
  * Which rung the family's `base` LANDS on — never which rung it *is*.
  *
@@ -238,8 +303,30 @@ function pxOf(value: unknown): number | undefined {
 
 // ── Colour ─────────────────────────────────────────────────────────────────
 
-function renderPalette(leaves: readonly TokenLeaf[], tokenName?: (p: string) => string | undefined): string {
-  // family → member → hex. `color.<family>.<member>`; a family may also be a bare leaf.
+interface PaletteResult {
+  readonly html: string;
+  /** Declared `base` + `text` pairings and how many clear WCAG AA — the masthead headline. */
+  readonly pairings: { readonly total: number; readonly passing: number };
+}
+
+/**
+ * Colour, as one CARD per family.
+ *
+ * The flat row-per-token list this replaces gave every family the same weight and let them run
+ * together; a card gives each family an edge, a large base swatch to judge against, and room to
+ * separate what the author WROTE from what refract derived.
+ */
+function renderPalette(
+  leaves: readonly TokenLeaf[],
+  model: ThemeModel,
+  tokenName?: (p: string) => string | undefined,
+): PaletteResult {
+  const provenance = colorProvenance(model);
+  const tagFor = (path: string): string => {
+    const kind = provenance.get(path);
+    return kind ? `<span class="rfp-tag rfp-${kind}">${kind}</span>` : "";
+  };
+
   const families = new Map<string, Array<[string, string]>>();
   for (const leaf of leaves) {
     const family = leaf.path[1] ?? "color";
@@ -249,76 +336,101 @@ function renderPalette(leaves: readonly TokenLeaf[], tokenName?: (p: string) => 
     else families.set(family, [[member, String(leaf.value)]]);
   }
 
-  const ladders: string[] = [];
-  const pairs: string[] = [];
+  const cards: string[] = [];
+  const semantic: string[] = [];
+  let total = 0;
+  let passing = 0;
 
   for (const [family, members] of families) {
-    const rungs = members.filter(([name]) => isRung(name));
+    const rungs = members.filter(([name]) => isRung(name)).sort((a, b) => Number(a[0]) - Number(b[0]));
     const base = members.find(([name]) => name === "base")?.[1];
+    const text = members.find(([name]) => name === "text")?.[1];
+    const path = `colors.${family}`;
+
+    // The one contrast pairing the author actually declared.
+    if (base && text) {
+      const ratio = contrastRatio(base, text);
+      if (ratio !== undefined) {
+        total += 1;
+        if (ratio >= 4.5) passing += 1;
+      }
+    }
 
     if (rungs.length >= 3) {
-      // A ladder: contiguous rungs read as a ramp in a way a row-per-token list never does.
-      rungs.sort((a, b) => Number(a[0]) - Number(b[0]));
       const lands = baseLandsOn(base, rungs);
       const strip = rungs
         .map(([step, hex]) => {
           const isLanding = lands !== undefined && step === lands;
           return (
-            `<div class="rfp-rung"${isLanding ? ' data-lands="true"' : ""}` +
+            `<div class="rfp-rung"${isLanding ? " data-lands" : ""}` +
             ` title="colors.${esc(family)}.${esc(step)} · ${esc(hex)}${isLanding ? " · base lands here" : ""}">` +
-            `<div class="rfp-rung-chip" data-hex="${esc(hex)}" style="background:${cssValue(hex)}"></div>` +
+            `<div class="rfp-sw" style="background:${cssValue(hex)}"></div>` +
             `<div class="rfp-rung-foot">${esc(step)}</div></div>`
           );
         })
         .join("");
-      ladders.push(
-        `<div class="rfp-ladder"><div><div class="rfp-ladder-name">${esc(family)}</div>` +
-          (base
-            ? `<div class="rfp-ladder-base">base · ${esc(base)}` +
-              (lands ? `<br>lands &asymp; ${esc(lands)}` : "") +
-              `</div>`
-            : "") +
-          idButton(`colors.${family}`, tokenName?.(`colors.${family}`)) +
-          `</div><div class="rfp-rungs">${strip}</div></div>`,
+
+      // Anything that isn't a rung is a declared member — show it with its provenance.
+      const chips = members
+        .filter(([name]) => !isRung(name) && name !== "base")
+        .map(([member, hex]) => chipOf(`${path}.${member}`, member, hex, tagFor(`${path}.${member}`), tokenName))
+        .join("");
+
+      cards.push(
+        `<section class="rfp-card"><div class="rfp-pal-top">` +
+          `<div class="rfp-pal-base" style="background:${cssValue(base ?? rungs[Math.floor(rungs.length / 2)][1])}"></div>` +
+          `<h3 class="rfp-pal-name">${esc(family)}` +
+          `<small>${base ? `base ${esc(base)}` : ""}${lands ? ` · lands &asymp; ${esc(lands)}` : ""} · ${rungs.length} rungs</small>` +
+          idButton(path, tokenName?.(path)) +
+          `</h3></div>` +
+          `<div class="rfp-row-label">Lightness ladder ${tagFor(`${path}.${rungs[0][0]}`) || '<span class="rfp-tag rfp-gen">gen</span>'}</div>` +
+          `<div class="rfp-rungs">${strip}</div>` +
+          (chips ? `<div class="rfp-row-label">Declared members</div><div class="rfp-chips">${chips}</div>` : "") +
+          `</section>`,
       );
       continue;
     }
 
-    // Not a ladder — render each member as a swatch card.
-    //
-    // The contrast readout goes ONLY on the member that genuinely declares the pairing: the family
-    // base against its own `text`. Derived tints (`brand.dark`, `surface.lighter`, …) were never
-    // meant to carry that text, so scoring them produces "fail" badges that read as a defect in the
-    // user's theme when nothing is wrong. On a page whose whole job is to tell the truth about a
-    // theme, inventing a pairing to score is the worst kind of noise.
-    const text = members.find(([name]) => name === "text")?.[1];
+    // No ladder — the family is a semantic colour (or a small set), so it joins the swatch grid.
     for (const [member, hex] of members) {
       if (member === "text") continue;
       const isBase = member === "base";
-      const paired = isBase ? text : undefined;
-      const path = isBase ? `colors.${family}` : `colors.${family}.${member}`;
-      pairs.push(
-        `<div class="rfp-pair"><div class="rfp-pair-swatch" data-bg="${esc(hex)}"${paired ? ` data-fg="${esc(paired)}"` : ""}` +
-          ` style="background:${cssValue(hex)}${paired ? `;color:${cssValue(paired)}` : ""}">` +
-          (paired ? `<span class="rfp-pair-sample">Aa</span><span class="rfp-pair-ratio"></span>` : "") +
-          `</div><div class="rfp-pair-foot">${idButton(path, tokenName?.(path))}` +
-          `<span class="rfp-hex">${esc(hex)}${paired ? ` on ${esc(paired)}` : ""}</span></div></div>`,
+      const memberPath = isBase ? path : `${path}.${member}`;
+      semantic.push(
+        chipOf(memberPath, isBase ? family : member, hex, tagFor(memberPath), tokenName, isBase ? text : undefined),
       );
     }
   }
 
-  let html = "";
-  if (ladders.length) {
-    html += plate("Families", `${ladders.length} · ${leaves.length} tokens`, ladders.join(""));
+  let html = cards.join("");
+  if (semantic.length) {
+    html +=
+      `<section class="rfp-card"><div class="rfp-card-head"><span class="rfp-card-name">Semantic</span>` +
+      `<span class="rfp-card-sub">contrast scored only where a <code>text</code> pairing is declared</span></div>` +
+      `<div class="rfp-chips">${semantic.join("")}</div></section>`;
   }
-  if (pairs.length) {
-    html += plate(
-      "Swatches",
-      "contrast scored only where a <code>text</code> pairing is declared — derived tints carry none",
-      `<div class="rfp-pairs">${pairs.join("")}</div>`,
-    );
-  }
-  return html;
+  return { html, pairings: { total, passing } };
+}
+
+/** One colour chip: swatch (+ live contrast when a pairing is declared), label, tag, value. */
+function chipOf(
+  path: string,
+  label: string,
+  hex: string,
+  tag: string,
+  tokenName?: (p: string) => string | undefined,
+  pairedText?: string,
+): string {
+  return (
+    `<div class="rfp-chip"><div class="rfp-sw rfp-chip-sw"` +
+    (pairedText ? ` data-bg="${esc(hex)}" data-fg="${esc(pairedText)}"` : "") +
+    ` style="background:${cssValue(hex)}${pairedText ? `;color:${cssValue(pairedText)}` : ""}">` +
+    (pairedText ? `<span class="rfp-ratio"></span>` : "") +
+    `</div><div class="rfp-cap"><div class="rfp-lbl">${esc(label)}${tag}</div>` +
+    `<div class="rfp-val-sm">${esc(hex)}${pairedText ? ` on ${esc(pairedText)}` : ""}</div>` +
+    idButton(path, tokenName?.(path)) +
+    `</div></div>`
+  );
 }
 
 // ── Typography ─────────────────────────────────────────────────────────────
@@ -821,6 +933,42 @@ function renderComposition(recipes: readonly UsageRecipe[], descriptor: PreviewD
   return "";
 }
 
+/**
+ * The contents cover. Built from the sections that actually rendered, so it shrinks with the theme
+ * rather than advertising plates that aren't there. Accent bars borrow the theme's own colour.
+ */
+function renderIndex(
+  bodies: ReadonlyMap<string, string>,
+  counts: ReadonlyMap<string, number>,
+  accent: string | undefined,
+): string {
+  const present = SECTIONS.filter(s => bodies.has(s.id));
+  if (present.length < 2) return "";
+
+  const cards = present
+    .map((section, i) => {
+      const n = String(i + 1).padStart(2, "0");
+      const count = counts.get(section.id) ?? 0;
+      return (
+        `<a class="rfp-idx" href="#rfp-${section.id}" style="text-decoration:none;color:inherit">` +
+        `<span class="rfp-accent" style="background:${accent ? cssValue(accent) : "var(--rfp-spec)"}"></span>` +
+        `<div class="rfp-no">${n} · ${esc(section.eyebrow.toUpperCase())}</div>` +
+        `<h3>${section.title} <span>${count} token(s)</span></h3>` +
+        (section.note ? `<p>${section.note}</p>` : "") +
+        `</a>`
+      );
+    })
+    .join("");
+
+  return (
+    `<section class="rfp-section" id="rfp-index"><div class="rfp-section-head"><h2>Index</h2>` +
+    `<span class="rfp-count">${present.length} sections</span></div>` +
+    `<p class="rfp-note">A section appears only when the theme has tokens of that kind, so this list ` +
+    `is the shape of the theme rather than a fixed table of contents.</p>` +
+    `<div class="rfp-index">${cards}</div></section>`
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page chrome
 // ---------------------------------------------------------------------------
@@ -836,164 +984,183 @@ function renderComposition(recipes: readonly UsageRecipe[], descriptor: PreviewD
  *    dedicated mid-tone reads at the same weight on both grounds.
  */
 const CHROME_CSS = `
-.rfp{--rfp-ground:#fff;--rfp-panel:#f7f8fa;--rfp-panel-2:#eef0f4;--rfp-ink:#14171c;--rfp-ink-2:#4d5563;
- --rfp-ink-3:#79818f;--rfp-rule:#e4e7ec;--rfp-rule-2:#d3d8e0;--rfp-focus:#3b4ea8;--rfp-live:#2f9e6d;
- --rfp-spec:#97a1b0;--rfp-spec-2:#c2c9d4;--rfp-hatch:#d7dce4;--rfp-stage:#f2f4f7;--rfp-raised:#fff;
- --rfp-accent:#6b7a99;
+.rfp{--rfp-paper:#f5f6f8;--rfp-card:#fff;--rfp-sunk:#f0f2f5;--rfp-ink:#14171c;--rfp-ink-2:#4d5563;
+ --rfp-ink-3:#79818f;--rfp-line:#e3e6ea;--rfp-line-2:#d0d5dd;--rfp-focus:#3b4ea8;
+ --rfp-spec:#97a1b0;--rfp-spec-2:#c2c9d4;--rfp-hatch:#dfe3e9;
  --rfp-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
  --rfp-ui:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
  font-family:var(--rfp-ui);font-size:14px;line-height:1.55;color:var(--rfp-ink);
- background:var(--rfp-ground);-webkit-font-smoothing:antialiased;
- display:grid;grid-template-columns:216px minmax(0,1fr);gap:56px;width:100%;min-height:100vh;
- padding:0 40px 96px;align-items:start;box-sizing:border-box}
-/* Full-bleed geometry. :where() gives these ZERO specificity, so a theme's own globals rules
-   still win - the chrome resets the UA gutter and declares a scheme without ever outranking the
-   theme it is displaying. The ground is painted by .rfp itself, which now fills the viewport. */
-:where(html){color-scheme:light dark}
+ background:var(--rfp-paper);-webkit-font-smoothing:antialiased;
+ width:100%;min-height:100vh;box-sizing:border-box}
+/* Full-bleed geometry. :where() gives these ZERO specificity, so a theme's own globals rules still
+   win - the chrome resets the UA gutter without ever outranking the theme it is displaying.
+   color-scheme is pinned to light: this sheet does NOT follow the OS (see below). */
+:where(html){color-scheme:light}
 :where(body){margin:0}
-@media (prefers-color-scheme:dark){.rfp{--rfp-ground:#0f1114;--rfp-panel:#1a1e24;--rfp-panel-2:#232830;
- --rfp-ink:#e9ebef;--rfp-ink-2:#a8b0bd;--rfp-ink-3:#7b8492;--rfp-rule:#2b313a;--rfp-rule-2:#3b434f;
- --rfp-focus:#8ea2ff;--rfp-live:#4ec48d;--rfp-spec:#8791a0;--rfp-spec-2:#4a5361;--rfp-hatch:#333b46;
- --rfp-stage:#14181d;--rfp-raised:#232830;--rfp-accent:#8e9dbb}}
 .rfp *{box-sizing:border-box}
 .rfp *:focus-visible{outline:2px solid var(--rfp-focus);outline-offset:2px;border-radius:3px}
-.rfp-rail{position:sticky;top:0;padding:32px 0;max-height:100vh;overflow-y:auto}
-.rfp-brand{font-family:var(--rfp-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
- color:var(--rfp-ink-3);padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--rfp-rule)}
+/* ── Masthead: the theme wearing its own first palette ── */
+.rfp-masthead{padding:52px 40px 36px}
+.rfp-kicker{font-family:var(--rfp-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.75;margin:0 0 12px}
+.rfp-masthead h1{margin:0;font-size:38px;font-weight:680;letter-spacing:-.028em;text-wrap:balance}
+.rfp-lede{margin:12px 0 0;max-width:66ch;opacity:.88;font-size:15px}
+.rfp-metrics{margin-top:28px;display:flex;gap:34px;flex-wrap:wrap}
+.rfp-metric b{display:block;font-size:26px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.rfp-metric span{font-size:12px;opacity:.72;font-family:var(--rfp-mono)}
+/* ── Shell ── */
+.rfp-shell{display:grid;grid-template-columns:204px minmax(0,1fr);gap:44px;padding:0 40px 96px;align-items:start}
+.rfp-rail{position:sticky;top:0;padding:28px 0;max-height:100vh;overflow-y:auto}
+.rfp-brand{font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+ color:var(--rfp-ink-3);padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--rfp-line)}
 .rfp-nav{display:flex;flex-direction:column;gap:1px}
 .rfp-nav a{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 8px;
- border-radius:4px;color:var(--rfp-ink-2);text-decoration:none;font-size:13px}
-.rfp-nav a:hover{background:var(--rfp-panel);color:var(--rfp-ink)}
-.rfp-nav a[aria-current="true"]{background:var(--rfp-ink);color:var(--rfp-ground)}
+ border-radius:5px;color:var(--rfp-ink-2);text-decoration:none;font-size:13px}
+.rfp-nav a:hover{background:var(--rfp-card);color:var(--rfp-ink)}
+.rfp-nav a[aria-current="true"]{background:var(--rfp-ink);color:var(--rfp-paper)}
 .rfp-nav .rfp-n{font-family:var(--rfp-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--rfp-ink-3)}
-.rfp-nav a[aria-current="true"] .rfp-n{color:var(--rfp-ground);opacity:.65}
-.rfp-main{padding-top:32px;min-width:0}
-.rfp-masthead{padding-bottom:28px;border-bottom:1px solid var(--rfp-rule)}
-.rfp-eyebrow{font-family:var(--rfp-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rfp-ink-3)}
-.rfp-masthead h1{font-size:34px;line-height:1.1;letter-spacing:-.025em;font-weight:640;margin:10px 0 0;text-wrap:balance}
-.rfp-meta{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:16px;font-family:var(--rfp-mono);font-size:11.5px;color:var(--rfp-ink-2)}
-.rfp-meta span{display:inline-flex;align-items:center;gap:6px}
-.rfp-meta span+span::before{content:"";width:1px;height:11px;background:var(--rfp-rule-2)}
-.rfp-meta b{font-weight:600;color:var(--rfp-ink)}
-.rfp-dot{width:6px;height:6px;border-radius:50%;background:var(--rfp-live)}
-.rfp-controls{display:flex;flex-wrap:wrap;gap:24px;padding:18px 0;border-bottom:1px solid var(--rfp-rule);
- position:sticky;top:0;background:var(--rfp-ground);z-index:5}
+.rfp-nav a[aria-current="true"] .rfp-n{color:var(--rfp-paper);opacity:.6}
+.rfp-main{padding-top:28px;min-width:0}
+.rfp-controls{display:flex;flex-wrap:wrap;gap:22px;padding:14px 0 18px;position:sticky;top:0;background:var(--rfp-paper);z-index:5}
 .rfp-ctl{display:flex;align-items:center;gap:8px}
 .rfp-ctl-label{font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--rfp-ink-3)}
-.rfp-seg{display:flex;border:1px solid var(--rfp-rule-2);border-radius:6px;overflow:hidden}
-.rfp-seg button{font:inherit;font-family:var(--rfp-mono);font-size:11.5px;padding:4px 10px;border:0;
- border-left:1px solid var(--rfp-rule-2);background:var(--rfp-ground);color:var(--rfp-ink-2);cursor:pointer}
+.rfp-seg{display:flex;border:1px solid var(--rfp-line-2);border-radius:7px;overflow:hidden;background:var(--rfp-card)}
+.rfp-seg button{font:inherit;font-family:var(--rfp-mono);font-size:11.5px;padding:4px 11px;border:0;
+ border-left:1px solid var(--rfp-line-2);background:transparent;color:var(--rfp-ink-2);cursor:pointer}
 .rfp-seg button:first-child{border-left:0}
-.rfp-seg button:hover{background:var(--rfp-panel);color:var(--rfp-ink)}
-.rfp-seg button[aria-pressed="true"]{background:var(--rfp-ink);color:var(--rfp-ground)}
-.rfp-section{padding-top:52px;scroll-margin-top:72px}
-.rfp-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.rfp-section-head h2{font-size:21px;letter-spacing:-.018em;font-weight:620;margin:6px 0 0}
-.rfp-note{color:var(--rfp-ink-2);max-width:64ch;margin:8px 0 0;font-size:13.5px}
+.rfp-seg button:hover{background:var(--rfp-sunk);color:var(--rfp-ink)}
+.rfp-seg button[aria-pressed="true"]{background:var(--rfp-ink);color:var(--rfp-card)}
+/* ── Sections + cards ── */
+.rfp-section{padding-top:44px;scroll-margin-top:64px}
+.rfp-section-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.rfp-section-head h2{margin:0;font-size:21px;letter-spacing:-.018em;font-weight:640}
+.rfp-count{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-2);background:var(--rfp-card);
+ border:1px solid var(--rfp-line);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.rfp-note{margin:8px 0 20px;color:var(--rfp-ink-2);font-size:13.5px;max-width:72ch}
 .rfp-note-sm{color:var(--rfp-ink-3);font-size:12.5px;margin:10px 0 0;max-width:64ch}
-.rfp-tag{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);border:1px solid var(--rfp-rule-2);border-radius:3px;padding:1px 6px}
-.rfp-plate{margin-top:22px;border-top:1px solid var(--rfp-rule);padding-top:18px}
-.rfp-plate-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.rfp-plate-name{font-family:var(--rfp-mono);font-size:12.5px;font-weight:600;color:var(--rfp-ink)}
-.rfp-plate-sub{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3)}
+.rfp-card{background:var(--rfp-card);border:1px solid var(--rfp-line);border-radius:14px;padding:18px 20px;margin-top:14px}
+.rfp-card-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.rfp-card-name{font-family:var(--rfp-mono);font-size:12.5px;font-weight:600}
+.rfp-card-sub{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3)}
+.rfp-row-label{font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+ color:var(--rfp-ink-3);margin:16px 0 9px;display:flex;align-items:center;gap:8px}
+.rfp-divider{display:flex;align-items:center;gap:14px;margin:52px 0 4px}
+.rfp-divider span{font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+ color:var(--rfp-ink-3);white-space:nowrap}
+.rfp-divider::before,.rfp-divider::after{content:"";height:1px;background:var(--rfp-line);flex:1}
+/* ── Index cover ── */
+.rfp-index{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}
+.rfp-idx{position:relative;background:var(--rfp-card);border:1px solid var(--rfp-line);border-radius:14px;
+ padding:18px 18px 15px 22px;overflow:hidden}
+.rfp-idx .rfp-accent{position:absolute;inset:0 auto 0 0;width:5px}
+.rfp-idx .rfp-no{font-family:var(--rfp-mono);font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--rfp-ink-3)}
+.rfp-idx h3{margin:6px 0 2px;font-size:18px;letter-spacing:-.015em;font-weight:620}
+.rfp-idx h3 span{font-family:var(--rfp-mono);font-size:11px;font-weight:500;color:var(--rfp-ink-3)}
+.rfp-idx p{margin:7px 0 0;font-size:12.5px;color:var(--rfp-ink-2)}
+/* ── Identifiers ── */
 .rfp-id{font-family:var(--rfp-mono);font-size:11.5px;color:var(--rfp-ink-2);background:none;border:0;
  padding:1px 4px;margin-left:-4px;border-radius:3px;cursor:copy;text-align:left;display:inline-block}
-.rfp-id:hover{background:var(--rfp-panel-2);color:var(--rfp-ink)}
-.rfp-id.rfp-copied{background:var(--rfp-ink);color:var(--rfp-ground)}
+.rfp-id:hover{background:var(--rfp-sunk);color:var(--rfp-ink)}
+.rfp-id.rfp-copied{background:var(--rfp-ink);color:var(--rfp-card)}
 .rfp-var{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);display:block;margin-top:1px}
 .rfp-hex{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);font-variant-numeric:tabular-nums;display:block;margin-top:1px}
-.rfp-ladder{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;align-items:start}
-.rfp-ladder+.rfp-ladder{margin-top:18px}
-.rfp-ladder-name{font-family:var(--rfp-mono);font-size:12.5px;font-weight:600}
-.rfp-ladder-base{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);margin-top:2px}
-.rfp-rungs{display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--rfp-rule)}
+/* ── Provenance tags ── */
+.rfp-tag{font-family:var(--rfp-mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+ padding:1px 5px;border-radius:4px}
+.rfp-src{background:color-mix(in srgb,var(--rfp-focus) 12%,transparent);color:var(--rfp-focus)}
+.rfp-gen{background:var(--rfp-sunk);color:var(--rfp-ink-3);border:1px solid var(--rfp-line)}
+/* ── Palette ── */
+.rfp-pal-top{display:flex;align-items:center;gap:16px}
+.rfp-pal-base{width:84px;height:84px;border-radius:12px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+.rfp-pal-name{margin:0;font-size:18px;font-weight:680;letter-spacing:-.015em}
+.rfp-pal-name small{display:block;font-family:var(--rfp-mono);font-weight:400;color:var(--rfp-ink-3);font-size:11.5px;margin-top:4px}
+.rfp-rungs{display:flex;border-radius:9px;overflow:hidden;border:1px solid var(--rfp-line)}
 .rfp-rung{flex:1 1 0;min-width:0}
-.rfp-rung-chip{height:52px}
-.rfp-rung[data-lands="true"] .rfp-rung-foot{color:var(--rfp-ink);font-weight:600}
-.rfp-rung[data-lands="true"] .rfp-rung-foot::before{content:"◆ "}
-.rfp-rung-foot{padding:5px 2px 6px;text-align:center;background:var(--rfp-panel);border-top:1px solid var(--rfp-rule);
+.rfp-rung .rfp-sw{height:54px}
+.rfp-rung-foot{padding:6px 2px 7px;text-align:center;background:var(--rfp-sunk);border-top:1px solid var(--rfp-line);
  font-family:var(--rfp-mono);font-size:10px;font-variant-numeric:tabular-nums;color:var(--rfp-ink-2)}
-.rfp-pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:12px}
-.rfp-pair{border:1px solid var(--rfp-rule);border-radius:6px;overflow:hidden}
-.rfp-pair-swatch{padding:16px 14px 14px;display:flex;flex-direction:column;gap:10px;min-height:92px}
-.rfp-pair-sample{font-size:14px;font-weight:600}
-.rfp-pair-ratio{align-self:flex-start;font-family:var(--rfp-mono);font-size:10.5px;font-variant-numeric:tabular-nums;
- padding:1px 6px;border-radius:3px;border:1px solid currentColor}
-.rfp-pair-foot{padding:8px 12px;background:var(--rfp-panel);border-top:1px solid var(--rfp-rule)}
+.rfp-rung[data-lands] .rfp-rung-foot{color:var(--rfp-ink);font-weight:700}
+.rfp-rung[data-lands] .rfp-rung-foot::before{content:"◆ "}
+.rfp-chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
+.rfp-chip{border:1px solid var(--rfp-line);border-radius:10px;overflow:hidden;background:var(--rfp-card)}
+.rfp-chip-sw{height:50px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05);display:flex;align-items:flex-end;padding:6px}
+.rfp-cap{padding:8px 9px 9px}
+.rfp-lbl{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;justify-content:space-between}
+.rfp-val-sm{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);margin-top:3px;font-variant-numeric:tabular-nums}
+.rfp-ratio{font-family:var(--rfp-mono);font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid currentColor}
+/* ── Rows ── */
 .rfp-rows{display:flex;flex-direction:column}
-.rfp-row{display:grid;grid-template-columns:190px minmax(0,1fr) 108px;gap:20px;align-items:baseline;
- padding:11px 0;border-top:1px solid var(--rfp-rule)}
+.rfp-row{display:grid;grid-template-columns:200px minmax(0,1fr) 104px;gap:20px;align-items:baseline;
+ padding:11px 0;border-top:1px solid var(--rfp-line)}
 .rfp-row:first-child{border-top:0}
 .rfp-row.rfp-centred{align-items:center}
 .rfp-rowval{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
 .rfp-specimen{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.015em}
 .rfp-leading{font-size:13px;color:var(--rfp-ink-2);max-width:52ch}
-.rfp-bar{height:12px;background:var(--rfp-spec);border-radius:2px;max-width:100%}
+.rfp-bar{height:13px;background:var(--rfp-spec);border-radius:3px;max-width:100%}
 .rfp-bar.rfp-ghost{background:var(--rfp-spec-2)}
-.rfp-gap{display:flex;align-items:stretch;border:1px dashed var(--rfp-rule-2);border-radius:6px;padding:10px}
+.rfp-gap{display:flex;border:1px dashed var(--rfp-line-2);border-radius:8px;padding:10px;background:var(--rfp-sunk)}
 .rfp-gap>i{flex:1 1 0;height:30px;background:var(--rfp-spec-2);border-radius:3px}
-.rfp-inset{border:1px solid var(--rfp-rule);border-radius:6px;
+.rfp-inset{border:1px solid var(--rfp-line-2);border-radius:10px;
  background:repeating-linear-gradient(-45deg,var(--rfp-hatch) 0 4px,transparent 4px 8px)}
-.rfp-inset-core{background:var(--rfp-spec);color:var(--rfp-ground);border-radius:3px;font-family:var(--rfp-mono);
- font-size:10.5px;font-weight:600;text-align:center;padding:8px 4px}
-.rfp-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
-.rfp-tile{display:flex;flex-direction:column;gap:10px}
-.rfp-stage{height:82px;display:grid;place-items:center;background:var(--rfp-stage);border-radius:6px;
- border:1px solid var(--rfp-rule);color:var(--rfp-spec)}
-.rfp-obj{width:62px;height:62px;background:var(--rfp-spec)}
+.rfp-inset-core{background:var(--rfp-spec);color:var(--rfp-card);border-radius:4px;font-family:var(--rfp-mono);
+ font-size:10.5px;font-weight:700;text-align:center;padding:9px 4px}
+/* ── Tiles ── */
+.rfp-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:12px}
+.rfp-tile{border:1px solid var(--rfp-line);border-radius:12px;padding:14px;background:var(--rfp-card)}
+.rfp-stage{height:76px;display:grid;place-items:center;background:var(--rfp-sunk);border-radius:8px;
+ margin-bottom:11px;color:var(--rfp-spec)}
+.rfp-obj{width:60px;height:60px;background:var(--rfp-spec)}
 .rfp-obj.rfp-outlined{background:transparent}
-.rfp-obj.rfp-raised{background:var(--rfp-raised)}
-.rfp-obj.rfp-accent{background:var(--rfp-accent)}
-.rfp-numeral{font-family:var(--rfp-mono);font-size:20px;font-variant-numeric:tabular-nums;color:var(--rfp-ink-2)}
-.rfp-track{height:34px;border-radius:6px;background:var(--rfp-stage);border:1px solid var(--rfp-rule);position:relative;overflow:hidden}
+.rfp-obj.rfp-raised{background:var(--rfp-card)}
+.rfp-obj.rfp-accent{background:var(--rfp-spec)}
+.rfp-numeral{font-family:var(--rfp-mono);font-size:19px;font-variant-numeric:tabular-nums;color:var(--rfp-ink-2)}
+.rfp-track{height:34px;border-radius:8px;background:var(--rfp-sunk);border:1px solid var(--rfp-line);position:relative;overflow:hidden}
 .rfp-dot{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:5px;background:var(--rfp-spec)}
-.rfp-play{font:inherit;font-family:var(--rfp-mono);font-size:11.5px;padding:3px 10px;border-radius:4px;
- border:1px solid var(--rfp-rule-2);background:var(--rfp-panel);color:var(--rfp-ink);cursor:pointer;margin-left:auto}
+.rfp-play{font:inherit;font-family:var(--rfp-mono);font-size:11.5px;padding:3px 10px;border-radius:5px;
+ border:1px solid var(--rfp-line-2);background:var(--rfp-sunk);color:var(--rfp-ink);cursor:pointer;margin-left:auto}
+/* ── Tables ── */
 .rfp-scroll{overflow-x:auto}
-.rfp-diff{width:100%;border-collapse:collapse;font-size:13px}
-.rfp-diff th{text-align:left;font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
- color:var(--rfp-ink-3);font-weight:500;padding:0 12px 8px 0;white-space:nowrap}
-.rfp-diff td{padding:7px 12px 7px 0;border-top:1px solid var(--rfp-rule);vertical-align:middle}
-.rfp-swatch-cell{display:flex;align-items:center;gap:8px}
-.rfp-chip{width:18px;height:18px;border-radius:4px;border:1px solid var(--rfp-rule-2);flex:none}
-.rfp-arrow{color:var(--rfp-ink-3);font-family:var(--rfp-mono)}
-.rfp-prose{border:1px solid var(--rfp-rule);border-radius:6px;padding:26px 28px;overflow:hidden}
-.rfp-matrix{border-collapse:collapse;min-width:560px;width:100%}
-.rfp-matrix th{font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
- color:var(--rfp-ink-3);font-weight:500;text-align:center;padding:0 8px 10px}
+.rfp-diff,.rfp-matrix{border-collapse:collapse;width:100%}
+.rfp-diff th,.rfp-matrix th{text-align:left;font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--rfp-ink-3);font-weight:500;padding:0 12px 9px 0;white-space:nowrap}
+.rfp-diff td{padding:9px 12px 9px 0;border-top:1px solid var(--rfp-line);vertical-align:middle}
+.rfp-matrix{min-width:560px}
+.rfp-matrix th{text-align:center;padding:0 8px 10px}
 .rfp-matrix th:first-child{text-align:left}
-.rfp-matrix td{padding:12px 8px;border-top:1px solid var(--rfp-rule);text-align:center}
-.rfp-matrix td:first-child{text-align:left;width:210px}
-.rfp-none{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);opacity:.6}
-.rfp-recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
-.rfp-recipe{border:1px solid var(--rfp-rule);border-radius:6px;overflow:hidden}
-.rfp-recipe-stage{min-height:96px;display:grid;place-items:center;padding:20px 16px;
- background:linear-gradient(45deg,var(--rfp-panel) 25%,transparent 25%,transparent 75%,var(--rfp-panel) 75%),
- linear-gradient(45deg,var(--rfp-panel) 25%,transparent 25%,transparent 75%,var(--rfp-panel) 75%);
- background-size:14px 14px;background-position:0 0,7px 7px}
-.rfp-recipe-foot{padding:9px 12px;border-top:1px solid var(--rfp-rule);background:var(--rfp-panel)}
+.rfp-matrix td{padding:13px 8px;border-top:1px solid var(--rfp-line);text-align:center}
+.rfp-matrix td:first-child{text-align:left;width:208px}
+.rfp-none{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);opacity:.55}
+.rfp-swatch-cell{display:flex;align-items:center;gap:8px}
+.rfp-chip-sm{width:18px;height:18px;border-radius:5px;border:1px solid var(--rfp-line-2);flex:none}
+.rfp-arrow{color:var(--rfp-ink-3);font-family:var(--rfp-mono)}
+/* ── Recipes + prose ── */
+.rfp-recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.rfp-recipe{border:1px solid var(--rfp-line);border-radius:12px;overflow:hidden;background:var(--rfp-card)}
+.rfp-recipe-stage{min-height:92px;display:grid;place-items:center;padding:18px;background:var(--rfp-sunk)}
+.rfp-recipe-foot{padding:9px 12px;border-top:1px solid var(--rfp-line)}
 .rfp-addr{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);display:block}
 .rfp-compose{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.rfp-cls{font-family:var(--rfp-mono);font-size:11.5px;padding:3px 8px;border-radius:4px;
- border:1px solid var(--rfp-rule-2);background:var(--rfp-panel)}
+.rfp-cls{font-family:var(--rfp-mono);font-size:11.5px;padding:3px 9px;border-radius:6px;
+ border:1px solid var(--rfp-line);background:var(--rfp-sunk)}
 .rfp-cls b{font-weight:600;color:var(--rfp-ink)}
 .rfp-cls span{color:var(--rfp-ink-3)}
 .rfp-plus{color:var(--rfp-ink-3);font-family:var(--rfp-mono)}
-.rfp-notice{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;padding:14px 16px;
- border:1px solid var(--rfp-rule-2);border-radius:6px;background:var(--rfp-panel);margin-top:18px}
+.rfp-prose{border:1px solid var(--rfp-line);border-radius:14px;padding:26px 28px;background:var(--rfp-card);overflow:hidden}
+.rfp-notice{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:14px 16px;
+ border:1px solid var(--rfp-line-2);border-radius:12px;background:var(--rfp-card);margin-top:16px}
 .rfp-notice-mark{font-family:var(--rfp-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
- padding:2px 6px;border-radius:3px;background:var(--rfp-ink);color:var(--rfp-ground);white-space:nowrap}
+ padding:2px 7px;border-radius:5px;background:var(--rfp-ink);color:var(--rfp-card);white-space:nowrap;height:fit-content}
 .rfp-notice p{margin:0;color:var(--rfp-ink-2);font-size:13px;max-width:68ch}
 .rfp-notice p+p{margin-top:6px}
-.rfp-notice strong{color:var(--rfp-ink);font-weight:600}
+.rfp-notice strong{color:var(--rfp-ink)}
 .rfp-frame{margin:0 auto}
 @media (prefers-reduced-motion:reduce){.rfp *{transition:none!important;animation:none!important}}
 @media (max-width:900px){
- .rfp{grid-template-columns:minmax(0,1fr);gap:0;padding:0 20px 72px}
- .rfp-rail{position:static;max-height:none;padding:24px 0 0}
+ .rfp-shell{grid-template-columns:minmax(0,1fr);gap:0;padding:0 20px 72px}
+ .rfp-masthead{padding:36px 20px 28px}
+ .rfp-rail{position:static;max-height:none;padding:20px 0 0}
  .rfp-nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px}
  .rfp-nav a{white-space:nowrap}
- .rfp-ladder{grid-template-columns:minmax(0,1fr);gap:10px}
  .rfp-row{grid-template-columns:130px minmax(0,1fr)}
  .rfp-rowval{grid-column:1/-1;text-align:left}
 }
@@ -1083,6 +1250,7 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
   // entirely, so a theme without shadows shows no elevation plate rather than an empty box.
   const bodies = new Map<string, string>();
   const counts = new Map<string, number>();
+  let pairings = { total: 0, passing: 0 };
   for (const [group, items] of groups) {
     const section = SECTION_OF[group] ?? "other";
     counts.set(section, (counts.get(section) ?? 0) + items.length);
@@ -1092,7 +1260,11 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     const own = [...groups.entries()].filter(([g]) => (SECTION_OF[g] ?? "other") === section.id);
     if (!own.length) continue;
     let body = "";
-    if (section.id === "palette") body = renderPalette(own.flatMap(([, l]) => l), tokenName);
+    if (section.id === "palette") {
+      const palette = renderPalette(own.flatMap(([, l]) => l), model, tokenName);
+      body = palette.html;
+      pairings = palette.pairings;
+    }
     else if (section.id === "type") body = renderTypography(own.flatMap(([, l]) => l), tokenName);
     else if (section.id === "space") body = renderSpace(new Map(own), tokenName);
     else if (section.id === "shape") body = renderShape(new Map(own), tokenName);
@@ -1119,7 +1291,7 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
   for (const section of SECTIONS) {
     if (!bodies.has(section.id)) continue;
     navItems.push(
-      `<a href="#rfp-${section.id}">${section.eyebrow}<span class="rfp-n">${counts.get(section.id) ?? 0}</span></a>`,
+      `<a href="#rfp-${section.id}">${esc(section.eyebrow)}<span class="rfp-n">${counts.get(section.id) ?? 0}</span></a>`,
     );
   }
   if (modesHtml) navItems.push(`<a href="#rfp-modes">Appearance</a>`);
@@ -1129,13 +1301,15 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
   // ── Masthead ────────────────────────────────────────────────────────────
   const title = options.title ?? `${usage.format} theme`;
   const totalBytes = options.files.reduce((sum, f) => sum + (options.contents?.[f]?.length ?? 0), 0);
-  const metaBits = [
-    `<span><i class="rfp-dot"></i> ${esc(usage.format)} · ${live ? "live" : "tokens only"}</span>`,
-    `<span>emit <b>${esc(options.plan.type)}</b></span>`,
-    `<span>${leaves.length} tokens</span>`,
-    `<span>${usage.recipes.length} recipes</span>`,
-    totalBytes ? `<span>${options.files.length} file(s) · ${bytes(totalBytes)}</span>` : "",
-  ].filter(Boolean);
+  const subsystems = Object.keys(model.subsystems).length;
+  const elements = Object.keys(model.subsystems.globals?.ruleSets?.elements ?? {}).length;
+  const metrics = [
+    { value: String(leaves.length), label: "tokens" },
+    { value: String(subsystems), label: "subsystems" },
+    { value: `${usage.recipes.length}${elements ? ` + ${elements}` : ""}`, label: elements ? "recipes + elements" : "recipes" },
+    pairings.total ? { value: `${pairings.passing}/${pairings.total}`, label: "WCAG AA+ pairings" } : undefined,
+    totalBytes ? { value: bytes(totalBytes), label: options.files[0] ?? "output" } : undefined,
+  ].filter((m): m is { value: string; label: string } => m !== undefined);
 
   const modeAttribute = preview?.modeAttribute;
   const modes = collectModes(model);
@@ -1160,8 +1334,8 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
   const sectionHtml = SECTIONS.filter(s => bodies.has(s.id))
     .map(
       s =>
-        `<section class="rfp-section" id="rfp-${s.id}"><div class="rfp-section-head"><div>` +
-        `<div class="rfp-eyebrow">${s.eyebrow}</div><h2>${s.title}</h2></div></div>` +
+        `<section class="rfp-section" id="rfp-${s.id}"><div class="rfp-section-head">` +
+        `<h2>${s.title}</h2><span class="rfp-count">${counts.get(s.id) ?? 0} token(s)</span></div>` +
         (s.note ? `<p class="rfp-note">${s.note}</p>` : "") +
         bodies.get(s.id) +
         `</section>`,
@@ -1181,16 +1355,31 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     .filter(Boolean)
     .join("\n");
 
+  // The masthead is the ONE place the chrome takes a hue, and it takes the theme's own first
+  // palette — the theme colouring itself rather than the tool asserting a brand.
+  const brand = mastheadColor(leaves);
+  const mastheadStyle = brand
+    ? ` style="background:${cssValue(brand.bg)};color:${cssValue(brand.fg)}"`
+    : ` style="background:var(--rfp-ink);color:var(--rfp-card)"`;
+
+  const indexHtml = renderIndex(bodies, counts, brand?.bg);
+
   const body =
     `<div class="rfp">` +
+    `<header class="rfp-masthead"${mastheadStyle}>` +
+    `<p class="rfp-kicker">Theme specimen · ${esc(usage.format)} · ${esc(options.plan.type)}${live ? "" : " · tokens only"}</p>` +
+    `<h1>${esc(title)}</h1>` +
+    `<div class="rfp-metrics">` +
+    metrics.map(m => `<div class="rfp-metric"><b>${esc(m.value)}</b><span>${esc(m.label)}</span></div>`).join("") +
+    `</div></header>` +
+    `<div class="rfp-shell">` +
     `<aside class="rfp-rail"><div class="rfp-brand">refract preview</div>` +
     `<nav class="rfp-nav">${navItems.join("")}</nav></aside>` +
     `<main class="rfp-main">` +
-    `<header class="rfp-masthead"><div class="rfp-eyebrow">Theme specimen</div>` +
-    `<h1>${esc(title)}</h1><div class="rfp-meta">${metaBits.join("")}</div></header>` +
     (controls.length ? `<div class="rfp-controls">${controls.join("")}</div>` : "") +
     notes.map(n => `<p class="rfp-note">${esc(n)}</p>`).join("") +
     `<div class="rfp-frame" id="rfp-frame">` +
+    indexHtml +
     sectionHtml +
     modesHtml +
     globalsHtml +
@@ -1199,7 +1388,7 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     `<span class="rfp-tag">${live ? "rendered live" : "names only"}</span></div>` +
     renderRecipes(usage, preview, live) +
     `</section>` +
-    `</div></main></div>` +
+    `</div></main></div></div>` +
     `<script>\n${CHROME_JS}\n</script>`;
 
   const html =

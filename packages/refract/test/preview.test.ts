@@ -181,6 +181,20 @@ describe("preview.html", () => {
     // The UA gutter and colour scheme are reset at ZERO specificity, so a theme's own globals
     // rules still win — the chrome must never outrank the theme it is displaying.
     expect(html).toContain(":where(body){margin:0}");
-    expect(html).toContain(":where(html){color-scheme:light dark}");
+  });
+
+  it("pins the sheet to light and never follows the OS", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // Deliberate: colour cannot be judged against a moving backdrop, and a flipping sheet would
+    // make it impossible to tell whether a swatch changed because the THEME's mode changed or
+    // because the page did. The theme's own `prefers-color-scheme` rules still apply to the
+    // specimen — only the sheet around it is fixed.
+    expect(html).toContain(":where(html){color-scheme:light}");
+    expect(html).not.toContain("color-scheme:light dark");
+    // No chrome token may be redefined under a dark media query.
+    expect(html).not.toMatch(/@media \(prefers-color-scheme:dark\)\{\.rfp\{/);
   });
 });
