@@ -197,4 +197,23 @@ describe("preview.html", () => {
     // No chrome token may be redefined under a dark media query.
     expect(html).not.toMatch(/@media \(prefers-color-scheme:dark\)\{\.rfp\{/);
   });
+
+  it("defines every chrome class it emits — no orphans", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // Renaming a class in the stylesheet while leaving an emitter on the old name produces valid
+    // HTML that is silently unstyled — it shipped once exactly that way, with every plate below
+    // the palette losing its card. Nothing else catches it, so assert the two sides agree.
+    const emitted = new Set<string>();
+    for (const [, value] of html.matchAll(/class="([^"]*)"/g)) {
+      for (const name of value.split(/\s+/)) if (name.startsWith("rfp-")) emitted.add(name);
+    }
+    const defined = new Set([...html.matchAll(/\.(rfp-[a-z0-9-]+)/g)].map(m => m[1]));
+
+    const orphans = [...emitted].filter(name => !defined.has(name)).sort();
+    expect(orphans).toEqual([]);
+    expect(emitted.size).toBeGreaterThan(20); // guard against the check trivially passing
+  });
 });

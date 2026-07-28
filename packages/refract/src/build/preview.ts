@@ -630,8 +630,8 @@ function renderGeneric(group: string, leaves: readonly TokenLeaf[], tokenName?: 
 // ── Shared bits ────────────────────────────────────────────────────────────
 
 const plate = (name: string, sub: string, body: string, action = ""): string =>
-  `<section class="rfp-plate"><div class="rfp-plate-head">` +
-  `<span class="rfp-plate-name">${esc(name)}</span><span class="rfp-plate-sub">${sub}</span>${action}` +
+  `<section class="rfp-card"><div class="rfp-card-head">` +
+  `<span class="rfp-card-name">${esc(name)}</span><span class="rfp-card-sub">${sub}</span>${action}` +
   `</div>${body}</section>`;
 
 const tile = (stage: string, id: string, value: string): string =>
@@ -723,9 +723,9 @@ function renderModes(model: ThemeModel, totalTokens: number, tokenName?: (p: str
     : "";
 
   return (
-    `<section class="rfp-section" id="rfp-modes"><div class="rfp-section-head"><div>` +
-    `<div class="rfp-eyebrow">Appearance</div><h2>What changes in ${esc(modes.join(" / "))}</h2></div>` +
-    `<span class="rfp-tag">${modes.length} mode(s) declared</span></div>` +
+    `<section class="rfp-section" id="rfp-modes"><div class="rfp-section-head">` +
+    `<h2>What changes in ${esc(modes.join(" / "))}</h2>` +
+    `<span class="rfp-count">${modes.length} mode(s) declared</span></div>` +
     `<p class="rfp-note">Flipping the toggle shows you the result; this shows the cause. Only these tokens carry an override — everything else is inherited.</p>` +
     plate(
       `mode: ${modes.join(", ")}`,
@@ -785,9 +785,9 @@ function renderGlobals(model: ThemeModel, live: boolean): string {
   if (has("h3")) parts.push(`<h3>Variants are structural deltas</h3>`);
 
   return (
-    `<section class="rfp-section" id="rfp-globals"><div class="rfp-section-head"><div>` +
-    `<div class="rfp-eyebrow">Base elements</div><h2>Unclassed markup</h2></div>` +
-    `<span class="rfp-tag">globals.elements</span></div>` +
+    `<section class="rfp-section" id="rfp-globals"><div class="rfp-section-head">` +
+    `<h2>Unclassed markup</h2>` +
+    `<span class="rfp-count">globals.elements · ${selectors.length}</span></div>` +
     `<p class="rfp-note">These style bare elements with no class involved, so plain HTML from a CMS or a markdown ` +
       `pipeline already looks right. Nothing else in this document renders without a class.</p>` +
     plate(
@@ -803,6 +803,52 @@ function renderGlobals(model: ThemeModel, live: boolean): string {
 // Recipes
 // ---------------------------------------------------------------------------
 
+/**
+ * CSS properties that give a rule-set a size of its own. Anything here means the specimen already
+ * knows how big it wants to be; anything else (a pure colour rule) collapses to its text.
+ */
+const SIZING = [
+  "width", "height", "minwidth", "minheight", "maxwidth", "maxheight",
+  "padding", "inlinesize", "blocksize", "aspectratio", "flexbasis", "flex", "size",
+];
+
+const declaresSize = (declarations: Readonly<Record<string, unknown>> | undefined): boolean =>
+  Object.keys(declarations ?? {}).some(key => {
+    const k = key.toLowerCase().replace(/-/g, "");
+    return SIZING.some(prop => k === prop || k.startsWith(`${prop}`));
+  });
+
+/**
+ * Does this recipe size itself?
+ *
+ * A colour recipe (`background` + `color`, nothing else) has no dimensions, so it renders as a
+ * text-sized blob adrift on the stage — which tells you almost nothing about the colour. Those
+ * specimens should fill their stage and read as a swatch instead. A button that declares its own
+ * padding must NOT be stretched: its real size IS the thing being shown.
+ *
+ * Composition counts — `components.buttons.bare` may declare nothing itself while referencing a
+ * recipe that declares padding, so the referenced chain is walked too.
+ */
+function hasIntrinsicSize(model: ThemeModel, recipe: UsageRecipe, seen = new Set<string>()): boolean {
+  const key = `${recipe.subsystem}.${recipe.group}.${recipe.variant}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+
+  const ruleSet = model.subsystems[recipe.subsystem]?.ruleSets?.[recipe.group]?.[recipe.variant];
+  if (!ruleSet) return false;
+  if (declaresSize(ruleSet.declarations)) return true;
+
+  for (const reference of ruleSet.references ?? []) {
+    // `"colors:solid.primary"` → the referenced rule-set's own address.
+    const [subsystem, rest] = reference.split(":");
+    const dot = rest?.indexOf(".") ?? -1;
+    if (!subsystem || !rest || dot < 0) continue;
+    const referenced = { subsystem, group: rest.slice(0, dot), variant: rest.slice(dot + 1), name: "" };
+    if (hasIntrinsicSize(model, referenced, seen)) return true;
+  }
+  return false;
+}
+
 function inferTag(recipe: UsageRecipe): string {
   const group = recipe.group.toLowerCase();
   if (group.includes("button") || group.includes("btn")) return "button";
@@ -813,12 +859,18 @@ function inferTag(recipe: UsageRecipe): string {
 }
 
 /** One rendered specimen. `pin` adds the adapter's state-pinning class so a state can be shown at rest. */
-function specimen(recipe: UsageRecipe, descriptor: PreviewDescriptor | undefined, pin?: string): string | undefined {
+function specimen(
+  recipe: UsageRecipe,
+  descriptor: PreviewDescriptor | undefined,
+  pin?: string,
+  fill?: boolean,
+): string | undefined {
   const markup = descriptor?.markup?.(recipe);
   if (!markup) return undefined;
   const tag = markup.tag ?? inferTag(recipe);
   const attrs = { ...markup.attrs };
   if (pin) attrs.class = `${attrs.class ?? ""} ${pin}`.trim();
+  if (fill) attrs.class = `${attrs.class ?? ""} rfp-fill`.trim();
   const rendered = Object.entries(attrs)
     .map(([k, v]) => ` ${esc(k)}="${esc(v)}"`)
     .join("");
@@ -830,6 +882,7 @@ function renderRecipes(
   usage: UsageDescriptor,
   descriptor: PreviewDescriptor | undefined,
   live: boolean,
+  model: ThemeModel,
 ): string {
   if (usage.recipes.length === 0) {
     // The scaffolder writes tokens and no recipes, so this is the FIRST thing a new user sees here.
@@ -890,10 +943,13 @@ function renderRecipes(
 
     const cards = recipes
       .map(recipe => {
-        const rendered = live ? specimen(recipe, descriptor) : undefined;
+        // A recipe with no dimensions of its own reads as a swatch, so let it fill the stage
+        // rather than float in the middle of it as a text-sized blob.
+        const fill = live && !hasIntrinsicSize(model, recipe);
+        const rendered = live ? specimen(recipe, descriptor, undefined, fill) : undefined;
         return (
           `<div class="rfp-recipe">` +
-          (rendered ? `<div class="rfp-recipe-stage">${rendered}</div>` : "") +
+          (rendered ? `<div class="rfp-recipe-stage${fill ? " rfp-stage-fill" : ""}">${rendered}</div>` : "") +
           `<div class="rfp-recipe-foot"><span class="rfp-addr">` +
           esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`) +
           `</span><button class="rfp-id" type="button">${esc(recipe.name)}</button></div></div>`
@@ -1137,6 +1193,12 @@ const CHROME_CSS = `
 .rfp-recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .rfp-recipe{border:1px solid var(--rfp-line);border-radius:12px;overflow:hidden;background:var(--rfp-card)}
 .rfp-recipe-stage{min-height:92px;display:grid;place-items:center;padding:18px;background:var(--rfp-sunk)}
+/* A dimensionless recipe (a pure colour rule) has nothing to size it, so it collapses to its text.
+   Stretch it edge to edge instead — for a swatch that IS the specimen. Recipes that declare their
+   own padding or width keep their natural size, because that size is what is being shown. */
+.rfp-recipe-stage.rfp-stage-fill{padding:0}
+.rfp-recipe-stage.rfp-stage-fill>.rfp-fill{width:100%;min-height:92px;display:flex;align-items:center;
+ justify-content:center;box-sizing:border-box}
 .rfp-recipe-foot{padding:9px 12px;border-top:1px solid var(--rfp-line)}
 .rfp-addr{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);display:block}
 .rfp-compose{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
@@ -1383,10 +1445,10 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
     sectionHtml +
     modesHtml +
     globalsHtml +
-    `<section class="rfp-section" id="rfp-recipes"><div class="rfp-section-head"><div>` +
-    `<div class="rfp-eyebrow">Components</div><h2>Recipes${live ? " and their states" : ""}</h2></div>` +
-    `<span class="rfp-tag">${live ? "rendered live" : "names only"}</span></div>` +
-    renderRecipes(usage, preview, live) +
+    `<section class="rfp-section" id="rfp-recipes"><div class="rfp-section-head">` +
+    `<h2>Recipes${live ? " and their states" : ""}</h2>` +
+    `<span class="rfp-count">${usage.recipes.length} · ${live ? "rendered live" : "names only"}</span></div>` +
+    renderRecipes(usage, preview, live, model) +
     `</section>` +
     `</div></main></div></div>` +
     `<script>\n${CHROME_JS}\n</script>`;
