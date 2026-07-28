@@ -1,5 +1,12 @@
 # @theme-registry/refract-json
 
+## 0.1.14
+
+### Patch Changes
+
+- Updated dependencies [dd07f1c]
+  - @theme-registry/refract@0.1.14
+
 ## 0.1.13
 
 ### Patch Changes
