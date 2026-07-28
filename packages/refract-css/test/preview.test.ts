@@ -200,4 +200,37 @@ describe("CSS adapter preview.html", () => {
     expect(html).toContain("rfp-diff");
     expect(html).toContain("What changes in dark");
   });
+
+  it("marks where the base LANDS on a ladder, never claims a rung equals it", async () => {
+    const outDir = makeTmp();
+    // A numeric ladder is an absolute lightness scale and refract does not snap the seed onto it,
+    // so `#4dabf7` equals no rung — testing for equality would mark nothing at all.
+    const raw = {
+      colors: {
+        brand: { base: "#4dabf7", text: "#ffffff", steps: [50, 100, 300, 500, 700, 900] },
+      },
+    };
+    await emitTheme({ raw, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    expect(html).toContain('data-lands="true"');
+    expect(html).toMatch(/lands &asymp; \d+/);
+    expect(html).toContain("base lands here");
+    // The retired equality-based marker must not come back.
+    expect(html).not.toContain('data-base="true"');
+  });
+
+  it("scores contrast only where a text pairing is declared, not on derived tints", async () => {
+    const outDir = makeTmp();
+    // `light`/`dark` are synthesized tints — they never declared a pairing with brand.text, so
+    // scoring them yields fail badges that read as a defect in the user's theme when none exists.
+    const raw = { colors: { brand: { base: "#14b8a6", text: "#ffffff" } } };
+    await emitTheme({ raw, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    const scored = [...html.matchAll(/data-fg="/g)].length;
+    expect(scored).toBe(1); // the base, and only the base
+    expect(html).toContain("colors.brand");
+    expect(html).toContain("colors.brand.light"); // the tint still renders, just unscored
+  });
 });

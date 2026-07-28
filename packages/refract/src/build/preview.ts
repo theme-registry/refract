@@ -42,6 +42,7 @@ import type {
   UsageDescriptor,
   UsageRecipe,
 } from "../core/ThemeAdapter";
+import { convertHexToRGB, rgbToOklch } from "../subsystems/colors/utils";
 
 /** Opt-in preview config (`EmitTarget.preview`). `true` uses every default. */
 export type PreviewConfig = {
@@ -152,7 +153,7 @@ interface SectionDef {
 
 const SECTIONS: readonly SectionDef[] = [
   { id: "palette", title: "Colour", eyebrow: "Palette",
-    note: "Every rung is a token you can reference. The marked rung is the family's <code>base</code>; click any identifier to copy it." },
+    note: "Every rung is a token you can reference. A ladder is an absolute lightness scale and the seed is <em>not</em> snapped onto it &mdash; the marked rung is where the family's <code>base</code> lands, not a rung it equals. Click any identifier to copy it." },
   { id: "type", title: "Type scale", eyebrow: "Typography" },
   { id: "space", title: "Spacing and size", eyebrow: "Space",
     note: "There is no separate <code>padding</code> token — spacing <em>is</em> the padding scale, so it is shown both as a measure and as an applied inset." },
@@ -197,6 +198,35 @@ const rowOf = (id: string, specimen: string, value: string, centred = false): st
 /** Is this colour-family child a numeric ladder rung (`50`…`900`)? */
 const isRung = (name: string): boolean => /^\d+$/.test(name);
 
+/** OKLCH lightness (0–100) of a hex colour, or `undefined` for anything else. */
+function lightnessOf(value: string): number | undefined {
+  if (!/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(value.trim())) return undefined;
+  try {
+    return rgbToOklch(convertHexToRGB(value.trim())).L;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Which rung the family's `base` LANDS on — never which rung it *is*.
+ *
+ * A numeric ladder is an absolute lightness scale (`L = (1000 − label) / 10`) and refract
+ * deliberately **does not snap** the seed onto it: `refract create` reports where a seed falls
+ * (`#4c6ef5` → L 59.1% ≈ 400) rather than moving it. So the base almost never equals a rung, and
+ * testing for equality marks nothing. Report the nearest rung by lightness instead — true, and the
+ * question a reader actually has.
+ */
+function baseLandsOn(base: string | undefined, rungs: ReadonlyArray<[string, string]>): string | undefined {
+  const baseL = base === undefined ? undefined : lightnessOf(base);
+  if (baseL === undefined || rungs.length === 0) return undefined;
+  const nominalL = (step: string): number => (1000 - Number(step)) / 10;
+  return rungs.reduce(
+    (best, [step]) => (Math.abs(nominalL(step) - baseL) < Math.abs(nominalL(best) - baseL) ? step : best),
+    rungs[0][0],
+  );
+}
+
 /** Nearest px magnitude of a dimension value, for bar widths. `undefined` when it has no magnitude. */
 function pxOf(value: unknown): number | undefined {
   const match = /^(-?[\d.]+)\s*(px|rem|em)?$/.exec(String(value).trim());
@@ -229,11 +259,13 @@ function renderPalette(leaves: readonly TokenLeaf[], tokenName?: (p: string) => 
     if (rungs.length >= 3) {
       // A ladder: contiguous rungs read as a ramp in a way a row-per-token list never does.
       rungs.sort((a, b) => Number(a[0]) - Number(b[0]));
+      const lands = baseLandsOn(base, rungs);
       const strip = rungs
         .map(([step, hex]) => {
-          const isBase = base !== undefined && hex.toLowerCase() === base.toLowerCase();
+          const isLanding = lands !== undefined && step === lands;
           return (
-            `<div class="rfp-rung"${isBase ? ' data-base="true"' : ""} title="colors.${esc(family)}.${esc(step)} · ${esc(hex)}">` +
+            `<div class="rfp-rung"${isLanding ? ' data-lands="true"' : ""}` +
+            ` title="colors.${esc(family)}.${esc(step)} · ${esc(hex)}${isLanding ? " · base lands here" : ""}">` +
             `<div class="rfp-rung-chip" data-hex="${esc(hex)}" style="background:${cssValue(hex)}"></div>` +
             `<div class="rfp-rung-foot">${esc(step)}</div></div>`
           );
@@ -241,27 +273,36 @@ function renderPalette(leaves: readonly TokenLeaf[], tokenName?: (p: string) => 
         .join("");
       ladders.push(
         `<div class="rfp-ladder"><div><div class="rfp-ladder-name">${esc(family)}</div>` +
-          (base ? `<div class="rfp-ladder-base">base · ${esc(base)}</div>` : "") +
+          (base
+            ? `<div class="rfp-ladder-base">base · ${esc(base)}` +
+              (lands ? `<br>lands &asymp; ${esc(lands)}` : "") +
+              `</div>`
+            : "") +
           idButton(`colors.${family}`, tokenName?.(`colors.${family}`)) +
           `</div><div class="rfp-rungs">${strip}</div></div>`,
       );
       continue;
     }
 
-    // Not a ladder — render each member as a swatch card. When the family declares a `text`
-    // pairing, the card renders that text ON the colour with a live contrast readout, which is the
-    // same pairing `refract audit` scores.
+    // Not a ladder — render each member as a swatch card.
+    //
+    // The contrast readout goes ONLY on the member that genuinely declares the pairing: the family
+    // base against its own `text`. Derived tints (`brand.dark`, `surface.lighter`, …) were never
+    // meant to carry that text, so scoring them produces "fail" badges that read as a defect in the
+    // user's theme when nothing is wrong. On a page whose whole job is to tell the truth about a
+    // theme, inventing a pairing to score is the worst kind of noise.
     const text = members.find(([name]) => name === "text")?.[1];
     for (const [member, hex] of members) {
       if (member === "text") continue;
-      const path = member === "base" ? `colors.${family}` : `colors.${family}.${member}`;
+      const isBase = member === "base";
+      const paired = isBase ? text : undefined;
+      const path = isBase ? `colors.${family}` : `colors.${family}.${member}`;
       pairs.push(
-        `<div class="rfp-pair"><div class="rfp-pair-swatch" data-bg="${esc(hex)}"${text ? ` data-fg="${esc(text)}"` : ""}` +
-          ` style="background:${cssValue(hex)}${text ? `;color:${cssValue(text)}` : ""}">` +
-          `<span class="rfp-pair-sample">Aa</span>` +
-          (text ? `<span class="rfp-pair-ratio"></span>` : "") +
+        `<div class="rfp-pair"><div class="rfp-pair-swatch" data-bg="${esc(hex)}"${paired ? ` data-fg="${esc(paired)}"` : ""}` +
+          ` style="background:${cssValue(hex)}${paired ? `;color:${cssValue(paired)}` : ""}">` +
+          (paired ? `<span class="rfp-pair-sample">Aa</span><span class="rfp-pair-ratio"></span>` : "") +
           `</div><div class="rfp-pair-foot">${idButton(path, tokenName?.(path))}` +
-          `<span class="rfp-hex">${esc(hex)}${text ? ` on ${esc(text)}` : ""}</span></div></div>`,
+          `<span class="rfp-hex">${esc(hex)}${paired ? ` on ${esc(paired)}` : ""}</span></div></div>`,
       );
     }
   }
@@ -273,7 +314,7 @@ function renderPalette(leaves: readonly TokenLeaf[], tokenName?: (p: string) => 
   if (pairs.length) {
     html += plate(
       "Swatches",
-      "contrast computed against each token's paired <code>text</code>",
+      "contrast scored only where a <code>text</code> pairing is declared — derived tints carry none",
       `<div class="rfp-pairs">${pairs.join("")}</div>`,
     );
   }
@@ -863,8 +904,8 @@ const CHROME_CSS = `
 .rfp-rungs{display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--rfp-rule)}
 .rfp-rung{flex:1 1 0;min-width:0}
 .rfp-rung-chip{height:52px}
-.rfp-rung[data-base="true"] .rfp-rung-foot{color:var(--rfp-ink);font-weight:600}
-.rfp-rung[data-base="true"] .rfp-rung-foot::before{content:"● "}
+.rfp-rung[data-lands="true"] .rfp-rung-foot{color:var(--rfp-ink);font-weight:600}
+.rfp-rung[data-lands="true"] .rfp-rung-foot::before{content:"◆ "}
 .rfp-rung-foot{padding:5px 2px 6px;text-align:center;background:var(--rfp-panel);border-top:1px solid var(--rfp-rule);
  font-family:var(--rfp-mono);font-size:10px;font-variant-numeric:tabular-nums;color:var(--rfp-ink-2)}
 .rfp-pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:12px}

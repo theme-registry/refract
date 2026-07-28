@@ -4662,14 +4662,14 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="note"><b>What the lineage proves — and doesn't.</b> The <b>design</b> (author → override → runtime-or-prebuilt, foundations included) is battle-tested across real multi-brand estates: a flagship + ~130 regional sites on one shared infrastructure; a multi-brand media group with per-brand child overrides side by side; a pan-European NGO federation, override-per-member at federation scale; and a multi-identity civic institution, distinct identities on one platform without forking. <b>The idea has the better part of a decade of production behind it; the published package is new</b> — a clean, standardized rewrite that earns its own miles. Client names are withheld — the credibility is in the shapes, not the logos.</div>
 
           <h3>Tested &amp; gated</h3>
-          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">744</b> tests across <b data-q="testfiles">66</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">746</b> tests across <b data-q="testfiles">66</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
               <tbody>
                 <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
                 <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
-                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">744</b>-case suite</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">746</b>-case suite</td></tr>
                 <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
                 <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
               </tbody>
