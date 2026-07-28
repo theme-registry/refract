@@ -236,4 +236,60 @@ describe("CSS adapter preview.html", () => {
     expect(html).toContain("colors.brand");
     expect(html).toContain("colors.brand.light"); // the tint still renders, just unscored
   });
+
+  it("supplies the companions a colour-only property needs, and says that it did", async () => {
+    const outDir = makeTmp();
+    // `border-color` paints NOTHING without a width and style — a colors.border recipe emits
+    // exactly that one declaration, so without help the specimen is a completely blank box.
+    const raw = {
+      colors: {
+        primary: { base: "#374571" },
+        recipes: {
+          surface: { high: { background: "primary", color: "primary" } },
+          border: { primary: { borderColor: "primary" } },
+        },
+      },
+    };
+    await emitTheme({ raw, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    expect(html).toMatch(/class="dt-colors-border-primary rfp-fill" style="[^"]*border-style:solid/);
+    expect(html).toMatch(/style="[^"]*border-width:3px/);
+
+    // …and discloses it, so nobody concludes their theme sets a 3px border.
+    expect(html).toContain("preview adds border-width + border-style");
+
+    // A recipe that needs no help gets none.
+    const surface = html.slice(html.indexOf("colors.surface.high"), html.indexOf("colors.border.primary"));
+    expect(surface).not.toContain("rfp-aid");
+
+    // The emitted stylesheet is untouched — the companion is a preview affordance only.
+    expect(readFileSync(join(outDir, "theme.css"), "utf8")).not.toContain("border-style");
+  });
+
+  it("gives a stateful colour recipe the same swatch treatment as a stateless one", async () => {
+    const outDir = makeTmp();
+    // colors.surface (no states) rendered as full swatches while colors.container (states) rendered
+    // as text-sized blobs in a matrix — same kind of thing, two presentations, for no visible reason.
+    const raw = {
+      colors: {
+        primary: { base: "#374571" },
+        recipes: {
+          container: {
+            primary: {
+              background: "primary",
+              color: "primary.light",
+              states: [{ state: "hover", background: "primary.dark" }],
+            },
+          },
+        },
+      },
+    };
+    await emitTheme({ raw, adapter: createCssAdapter(), outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // Every matrix cell for a dimensionless recipe carries the fill class.
+    const cells = [...html.matchAll(/<td><div class="[^"]*rfp-fill/g)].length;
+    expect(cells).toBeGreaterThanOrEqual(2); // base + hover
+  });
 });
