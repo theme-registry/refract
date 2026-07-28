@@ -1,5 +1,6 @@
 /**
- * Human-facing preview (Node-only) — render a single `preview.html` specimen of a built theme.
+ * Human-facing preview (Node-only) — render a single `preview.html` **style-guide specimen** of a
+ * built theme.
  *
  * The audience-flipped sibling of `guide.ts`: that one writes `llms.txt` + `manifest.json` for a
  * downstream *agent*; this one writes a page a person opens, forwards, or hands a designer to answer
@@ -11,20 +12,30 @@
  *  - **Token plates (universal).** Rendered from the format-neutral DTCG export — the same document
  *    `guide` embeds — so they depend on nothing the adapter emitted. Every adapter, including a
  *    third-party one that has never heard of previews, gets these on day one. The walk is generic
- *    over `$type`, so a new subsystem's tokens show up without touching this file.
+ *    over `$type` with per-group specimen overrides, so a new subsystem's tokens still appear (in a
+ *    catch-all section) without touching this file.
  *
  *  - **Recipe plates (live).** Require the emitted artifacts to be browser-loadable as-is, which the
  *    adapter alone can answer — see {@link PreviewDescriptor}. Today that means CSS; SCSS needs
  *    compiling, styled-components emits JS modules, JSON has no rendered form. Those adapters say so
  *    in their own words and the page degrades to tokens-only rather than rendering unstyled boxes.
  *
+ * Two rules the layout is built on, both learned the hard way:
+ *
+ *  1. **The chrome is chromatically silent.** The theme owns every saturated pixel; the tool around
+ *     it is neutral, and specimen geometry uses a dedicated mid-tone (`--rfp-spec`) rather than the
+ *     nearest neutral to hand. Filling a swatch with the page ground makes it vanish the moment the
+ *     ground and the stage converge — which is exactly what happens in dark mode.
+ *  2. **Never assume the theme is light.** The emitted stylesheet is inlined, so a theme with a
+ *     `dark` mode restyles itself under the toggle; the chrome has to survive both, and the page
+ *     must not hard-code a light ground under it.
+ *
  * Distribution convention deliberately INVERTS `guide`'s: the page **inlines** its stylesheets by
  * default (`inline: false` opts out). `guide` is machine-facing and lives next to the code it
  * documents, so relative references are right there; a preview gets moved, attached, and forwarded,
- * and has to keep working. `inline: false` serves the dev loop, where the page should reflect a
- * rebuilt stylesheet on refresh.
+ * and has to keep working.
  */
-import type { ThemeModel } from "../core/model/model";
+import type { ThemeModel, PropertyModel, Ref } from "../core/model/model";
 import type {
   NormalizedEmit,
   PreviewDescriptor,
@@ -42,16 +53,16 @@ export type PreviewConfig = {
    * reflects a rebuilt stylesheet on refresh.
    */
   readonly inline?: boolean;
-  /** Page heading + `<title>` (default `"<format> theme preview"`). */
+  /** Page heading + `<title>` (default the theme name, else `"<format> theme"`). */
   readonly title?: string;
 };
 
 export interface PreviewOptions extends PreviewConfig {
   /** The file names actually written for this target — the guard against referencing a missing artifact. */
   readonly files: readonly string[];
-  /** Emitted file contents by name, for inlining. A name missing here falls back to a `<link>`. */
+  /** Emitted file contents by name, for inlining + the byte counts in the masthead. */
   readonly contents?: Readonly<Record<string, string>>;
-  /** The normalized emit plan — reported in the header and used for layout semantics only. */
+  /** The normalized emit plan — reported in the masthead and used for layout semantics only. */
   readonly plan: NormalizedEmit;
 }
 
@@ -67,7 +78,7 @@ export interface PreviewSource {
   readonly preview?: PreviewDescriptor;
   /** A DTCG document (from `toDTCG`) — the token-plate source. */
   readonly tokens: unknown;
-  /** The built model — supplies appearance modes and breakpoints for the page controls. */
+  /** The built model — supplies appearance modes, breakpoints, and the globals element selectors. */
   readonly model: ThemeModel;
 }
 
@@ -77,20 +88,22 @@ const DEFAULT_FILE = "preview.html";
 // Escaping — every value below originates in user-authored theme content
 // ---------------------------------------------------------------------------
 
-const escapeHtml = (s: string): string =>
+const esc = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /**
  * A token value going into a `style="…"` attribute. Declaration/rule terminators are dropped so a
  * value can never break out of its declaration, then the result is HTML-attribute escaped.
  */
-const cssValue = (v: unknown): string => escapeHtml(String(v).replace(/[;{}<>]/g, "").trim());
+const cssValue = (v: unknown): string => esc(String(v).replace(/[;{}<>]/g, "").trim());
 
 /** Inline `<style>`/`<script>` bodies can't contain a literal `</` without ending the element early. */
 const escapeTextElement = (s: string): string => s.replace(/<\/(?=[a-zA-Z])/g, "<\\/");
 
+const bytes = (n: number): string => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`);
+
 // ---------------------------------------------------------------------------
-// Token plates — a generic DTCG walk, so new subsystems appear without a code change
+// Token collection — a generic DTCG walk
 // ---------------------------------------------------------------------------
 
 interface TokenLeaf {
@@ -100,7 +113,6 @@ interface TokenLeaf {
   readonly value: unknown;
 }
 
-/** Collect every `$value` leaf, threading the nearest declared `$type` down the tree. */
 function collectLeaves(node: unknown, path: readonly string[], inherited: string | undefined, out: TokenLeaf[]): void {
   if (!node || typeof node !== "object" || Array.isArray(node)) return;
   const record = node as Record<string, unknown>;
@@ -115,48 +127,8 @@ function collectLeaves(node: unknown, path: readonly string[], inherited: string
   }
 }
 
-/** Sample text for the plates that demonstrate a value by rendering type in it. */
-const TYPE_SPECIMEN = "The quick brown fox";
-
-/**
- * The visual for one token. A `dimension` under `typography` is a font size (render the ramp);
- * elsewhere it's a length (render a bar). Anything unrecognized falls back to its literal value,
- * which is still the honest answer for a duration or a cubic-bezier.
- */
-function renderSwatch(leaf: TokenLeaf): string {
-  const value = leaf.value;
-  const label = `<code class="rfp-val">${escapeHtml(String(value))}</code>`;
-
-  switch (leaf.type) {
-    case "color":
-      return `<span class="rfp-chip" style="background:${cssValue(value)}"></span>${label}`;
-    case "shadow":
-      return `<span class="rfp-box" style="box-shadow:${cssValue(value)}"></span>${label}`;
-    case "border":
-      return `<span class="rfp-box" style="border:${cssValue(value)}"></span>${label}`;
-    case "fontFamily":
-      return `<span class="rfp-specimen" style="font-family:${cssValue(value)}">${TYPE_SPECIMEN}</span>${label}`;
-    case "fontWeight":
-      return `<span class="rfp-specimen" style="font-weight:${cssValue(value)}">${TYPE_SPECIMEN}</span>${label}`;
-    case "dimension":
-      // `typography.fontSize.*` is the type ramp — show it as type. Every other dimension (spacing,
-      // radius, breakpoints, and typography's own `letterSpacing`) reads better as a length bar.
-      return leaf.path[0] === "typography" && leaf.path[1] === "fontSize"
-        ? `<span class="rfp-specimen" style="font-size:${cssValue(value)}">${TYPE_SPECIMEN}</span>${label}`
-        : `<span class="rfp-bar" style="width:${cssValue(value)}"></span>${label}`;
-    default:
-      return label;
-  }
-}
-
-/** One plate per top-level DTCG group (`color`, `spacing`, `shadow`, …), rows sorted by source order. */
-function renderTokenPlates(tokens: unknown): string {
-  const leaves: TokenLeaf[] = [];
-  collectLeaves(tokens, [], undefined, leaves);
-  if (leaves.length === 0) {
-    return `<p class="rfp-note">This theme declares no tokens.</p>`;
-  }
-
+/** `<group>` → its leaves, in source order. The group is the token's first path segment. */
+function groupLeaves(leaves: readonly TokenLeaf[]): Map<string, TokenLeaf[]> {
   const groups = new Map<string, TokenLeaf[]>();
   for (const leaf of leaves) {
     const key = leaf.path[0] ?? "tokens";
@@ -164,101 +136,357 @@ function renderTokenPlates(tokens: unknown): string {
     if (bucket) bucket.push(leaf);
     else groups.set(key, [leaf]);
   }
-
-  const sections: string[] = [];
-  for (const [group, rows] of groups) {
-    const items = rows
-      .map(
-        leaf =>
-          `<li class="rfp-row"><span class="rfp-name">${escapeHtml(leaf.path.slice(1).join(".") || group)}</span>` +
-          `<span class="rfp-swatch">${renderSwatch(leaf)}</span></li>`,
-      )
-      .join("\n");
-    sections.push(
-      `<section class="rfp-plate">\n<h3 class="rfp-plate-title">${escapeHtml(group)} ` +
-        `<span class="rfp-count">${rows.length}</span></h3>\n<ul class="rfp-rows">\n${items}\n</ul>\n</section>`,
-    );
-  }
-  return sections.join("\n");
+  return groups;
 }
 
 // ---------------------------------------------------------------------------
-// Recipe plates
+// Sections — which DTCG group lands where
 // ---------------------------------------------------------------------------
 
-/**
- * Which element to render a recipe as, when the adapter didn't say. Presentation guesswork belongs
- * here rather than in an adapter: it's about the specimen page, not about the output format.
- */
-function inferTag(recipe: UsageRecipe): string {
-  const group = recipe.group.toLowerCase();
-  if (group.includes("button") || group.includes("btn")) return "button";
-  if (group.includes("link") || group.includes("anchor")) return "a";
-  if (group.includes("badge") || group.includes("chip") || group.includes("tag") || group.includes("label")) {
-    return "span";
+interface SectionDef {
+  readonly id: string;
+  readonly title: string;
+  readonly eyebrow: string;
+  readonly note?: string;
+}
+
+const SECTIONS: readonly SectionDef[] = [
+  { id: "palette", title: "Colour", eyebrow: "Palette",
+    note: "Every rung is a token you can reference. The marked rung is the family's <code>base</code>; click any identifier to copy it." },
+  { id: "type", title: "Type scale", eyebrow: "Typography" },
+  { id: "space", title: "Spacing and size", eyebrow: "Space",
+    note: "There is no separate <code>padding</code> token — spacing <em>is</em> the padding scale, so it is shown both as a measure and as an applied inset." },
+  { id: "shape", title: "Borders, radius and elevation", eyebrow: "Shape &amp; depth" },
+  { id: "motion", title: "Transitions", eyebrow: "Motion" },
+  { id: "layout", title: "Breakpoints", eyebrow: "Layout",
+    note: "These drive the Width control at the top — pick one to reflow the whole specimen at that viewport." },
+  { id: "other", title: "Other tokens", eyebrow: "Additional" },
+];
+
+/** Group → section. Anything unmapped falls into `other`, so a new subsystem is never dropped. */
+const SECTION_OF: Readonly<Record<string, string>> = {
+  color: "palette",
+  typography: "type",
+  spacing: "space", gutters: "space", sizes: "space", aspectRatio: "space",
+  radius: "shape", borderWidth: "shape", borderStyle: "shape", outlineOffset: "shape",
+  shadow: "shape", blur: "shape", opacity: "shape", zIndex: "shape",
+  transition: "motion",
+  breakpoint: "layout",
+};
+
+// ---------------------------------------------------------------------------
+// Specimen builders
+// ---------------------------------------------------------------------------
+
+const SPECIMEN_TEXT = "Precision is a design decision";
+const LEADING_TEXT =
+  "Leading is the quiet half of a type scale. Two lines are the minimum needed to judge it, so this specimen wraps.";
+
+const idButton = (path: string, varName?: string): string =>
+  `<button class="rfp-id" type="button">${esc(path)}</button>` +
+  (varName ? `<span class="rfp-var">${esc(varName)}</span>` : "");
+
+const leafPath = (leaf: TokenLeaf): string => leaf.path.join(".");
+const leafLabel = (leaf: TokenLeaf): string => leaf.path.slice(1).join(".") || leaf.path[0];
+
+/** A three-column row: identifier · specimen · value. */
+const rowOf = (id: string, specimen: string, value: string, centred = false): string =>
+  `<div class="rfp-row${centred ? " rfp-centred" : ""}"><div>${id}</div>${specimen}` +
+  `<div class="rfp-rowval">${esc(value)}</div></div>`;
+
+/** Is this colour-family child a numeric ladder rung (`50`…`900`)? */
+const isRung = (name: string): boolean => /^\d+$/.test(name);
+
+/** Nearest px magnitude of a dimension value, for bar widths. `undefined` when it has no magnitude. */
+function pxOf(value: unknown): number | undefined {
+  const match = /^(-?[\d.]+)\s*(px|rem|em)?$/.exec(String(value).trim());
+  if (!match) return undefined;
+  const n = Number(match[1]);
+  if (!Number.isFinite(n)) return undefined;
+  return match[2] === "rem" || match[2] === "em" ? n * 16 : n;
+}
+
+// ── Colour ─────────────────────────────────────────────────────────────────
+
+function renderPalette(leaves: readonly TokenLeaf[], tokenName?: (p: string) => string | undefined): string {
+  // family → member → hex. `color.<family>.<member>`; a family may also be a bare leaf.
+  const families = new Map<string, Array<[string, string]>>();
+  for (const leaf of leaves) {
+    const family = leaf.path[1] ?? "color";
+    const member = leaf.path.slice(2).join(".") || "base";
+    const bucket = families.get(family);
+    if (bucket) bucket.push([member, String(leaf.value)]);
+    else families.set(family, [[member, String(leaf.value)]]);
   }
-  return "div";
-}
 
-/** `<tag attr="…">Label</tag>` for one recipe, or `undefined` when the adapter offers no markup. */
-function renderRecipeSpecimen(recipe: UsageRecipe, descriptor: PreviewDescriptor | undefined): string | undefined {
-  const markup = descriptor?.markup?.(recipe);
-  if (!markup) return undefined;
-  const tag = markup.tag ?? inferTag(recipe);
-  const attrs = Object.entries(markup.attrs)
-    .map(([key, value]) => ` ${escapeHtml(key)}="${escapeHtml(value)}"`)
-    .join("");
-  return `<${tag}${attrs}>${escapeHtml(recipe.variant)}</${tag}>`;
-}
+  const ladders: string[] = [];
+  const pairs: string[] = [];
 
-function renderRecipePlates(
-  usage: UsageDescriptor,
-  descriptor: PreviewDescriptor | undefined,
-  live: boolean,
-): string {
-  if (usage.recipes.length === 0) {
-    // The scaffolder writes tokens and no recipes, so this is the FIRST thing a new user sees here.
-    // Say what's missing and where to go, rather than showing an empty box.
-    return (
-      `<p class="rfp-note"><strong>No recipes yet — this theme is tokens only.</strong> ` +
-      `Tokens are values; recipes are the rule-sets that turn them into styled components ` +
-      `(a button, a card). Add a <code>recipes</code> block to a subsystem in your raw theme and ` +
-      `rebuild — they'll render here.</p>`
+  for (const [family, members] of families) {
+    const rungs = members.filter(([name]) => isRung(name));
+    const base = members.find(([name]) => name === "base")?.[1];
+
+    if (rungs.length >= 3) {
+      // A ladder: contiguous rungs read as a ramp in a way a row-per-token list never does.
+      rungs.sort((a, b) => Number(a[0]) - Number(b[0]));
+      const strip = rungs
+        .map(([step, hex]) => {
+          const isBase = base !== undefined && hex.toLowerCase() === base.toLowerCase();
+          return (
+            `<div class="rfp-rung"${isBase ? ' data-base="true"' : ""} title="colors.${esc(family)}.${esc(step)} · ${esc(hex)}">` +
+            `<div class="rfp-rung-chip" data-hex="${esc(hex)}" style="background:${cssValue(hex)}"></div>` +
+            `<div class="rfp-rung-foot">${esc(step)}</div></div>`
+          );
+        })
+        .join("");
+      ladders.push(
+        `<div class="rfp-ladder"><div><div class="rfp-ladder-name">${esc(family)}</div>` +
+          (base ? `<div class="rfp-ladder-base">base · ${esc(base)}</div>` : "") +
+          idButton(`colors.${family}`, tokenName?.(`colors.${family}`)) +
+          `</div><div class="rfp-rungs">${strip}</div></div>`,
+      );
+      continue;
+    }
+
+    // Not a ladder — render each member as a swatch card. When the family declares a `text`
+    // pairing, the card renders that text ON the colour with a live contrast readout, which is the
+    // same pairing `refract audit` scores.
+    const text = members.find(([name]) => name === "text")?.[1];
+    for (const [member, hex] of members) {
+      if (member === "text") continue;
+      const path = member === "base" ? `colors.${family}` : `colors.${family}.${member}`;
+      pairs.push(
+        `<div class="rfp-pair"><div class="rfp-pair-swatch" data-bg="${esc(hex)}"${text ? ` data-fg="${esc(text)}"` : ""}` +
+          ` style="background:${cssValue(hex)}${text ? `;color:${cssValue(text)}` : ""}">` +
+          `<span class="rfp-pair-sample">Aa</span>` +
+          (text ? `<span class="rfp-pair-ratio"></span>` : "") +
+          `</div><div class="rfp-pair-foot">${idButton(path, tokenName?.(path))}` +
+          `<span class="rfp-hex">${esc(hex)}${text ? ` on ${esc(text)}` : ""}</span></div></div>`,
+      );
+    }
+  }
+
+  let html = "";
+  if (ladders.length) {
+    html += plate("Families", `${ladders.length} · ${leaves.length} tokens`, ladders.join(""));
+  }
+  if (pairs.length) {
+    html += plate(
+      "Swatches",
+      "contrast computed against each token's paired <code>text</code>",
+      `<div class="rfp-pairs">${pairs.join("")}</div>`,
     );
   }
+  return html;
+}
 
-  const groups = new Map<string, UsageRecipe[]>();
-  for (const recipe of usage.recipes) {
-    const key = descriptor?.groupBy?.(recipe) ?? "";
-    const bucket = groups.get(key);
-    if (bucket) bucket.push(recipe);
-    else groups.set(key, [recipe]);
+// ── Typography ─────────────────────────────────────────────────────────────
+
+function renderTypography(leaves: readonly TokenLeaf[], tokenName?: (p: string) => string | undefined): string {
+  const byProp = new Map<string, TokenLeaf[]>();
+  for (const leaf of leaves) {
+    const prop = leaf.path[1] ?? "typography";
+    const bucket = byProp.get(prop);
+    if (bucket) bucket.push(leaf);
+    else byProp.set(prop, [leaf]);
   }
 
-  const sections: string[] = [];
-  for (const [group, recipes] of groups) {
-    const items = recipes
-      .map(recipe => {
-        const specimen = live ? renderRecipeSpecimen(recipe, descriptor) : undefined;
-        const address = `${recipe.subsystem}.${recipe.group}.${recipe.variant}`;
-        return (
-          `<li class="rfp-recipe">` +
-          (specimen ? `<div class="rfp-stage">${specimen}</div>` : "") +
-          `<div class="rfp-meta"><span class="rfp-name">${escapeHtml(address)}</span>` +
-          `<code class="rfp-val">${escapeHtml(recipe.name)}</code></div></li>`
+  const out: string[] = [];
+  for (const [prop, items] of byProp) {
+    const rows = items
+      .map(leaf => {
+        const path = leafPath(leaf);
+        const id = idButton(path, tokenName?.(path));
+        const value = String(leaf.value);
+        if (prop === "fontSize") {
+          return rowOf(id, `<div class="rfp-specimen" style="font-size:${cssValue(value)}">${SPECIMEN_TEXT}</div>`, value);
+        }
+        if (prop === "fontFamily") {
+          return rowOf(id, `<div class="rfp-specimen" style="font-family:${cssValue(value)}">${SPECIMEN_TEXT}</div>`, value);
+        }
+        if (prop === "fontWeight") {
+          return rowOf(id, `<div class="rfp-specimen" style="font-weight:${cssValue(value)}">${SPECIMEN_TEXT}</div>`, value);
+        }
+        if (prop === "lineHeight") {
+          // One line tells you nothing about leading — the specimen has to wrap.
+          return rowOf(id, `<div class="rfp-leading" style="line-height:${cssValue(value)}">${LEADING_TEXT}</div>`, value);
+        }
+        if (prop === "letterSpacing") {
+          return rowOf(
+            id,
+            `<div class="rfp-specimen" style="font-size:22px;letter-spacing:${cssValue(value)}">${SPECIMEN_TEXT}</div>`,
+            value,
+          );
+        }
+        return rowOf(id, `<div class="rfp-specimen">${esc(value)}</div>`, value);
+      })
+      .join("");
+    out.push(plate(`typography.${prop}`, `${items.length} token(s)`, `<div class="rfp-rows">${rows}</div>`));
+  }
+  return out.join("");
+}
+
+// ── Space ──────────────────────────────────────────────────────────────────
+
+function renderSpace(groups: Map<string, TokenLeaf[]>, tokenName?: (p: string) => string | undefined): string {
+  const out: string[] = [];
+
+  for (const group of ["spacing", "gutters", "sizes", "aspectRatio"]) {
+    const leaves = groups.get(group);
+    if (!leaves?.length) continue;
+
+    if (group === "aspectRatio") {
+      const tiles = leaves
+        .map(leaf => {
+          const path = leafPath(leaf);
+          const ratio = String(leaf.value);
+          return tile(
+            `<div class="rfp-obj" style="width:84px;aspect-ratio:${cssValue(ratio)};height:auto;border-radius:4px"></div>`,
+            idButton(path, tokenName?.(path)),
+            ratio,
+          );
+        })
+        .join("");
+      out.push(plate(`layout.${group}`, `${leaves.length} token(s)`, `<div class="rfp-tiles">${tiles}</div>`));
+      continue;
+    }
+
+    const max = Math.max(...leaves.map(l => pxOf(l.value) ?? 0), 1);
+    const rows = leaves
+      .map(leaf => {
+        const path = leafPath(leaf);
+        const px = pxOf(leaf.value);
+        const width = px === undefined ? "100%" : `${Math.max(1, (px / max) * 100)}%`;
+        return rowOf(
+          idButton(path, tokenName?.(path)),
+          `<div class="rfp-bar${group === "spacing" ? "" : " rfp-ghost"}" style="width:${width}"></div>`,
+          String(leaf.value),
+          true,
         );
       })
-      .join("\n");
-    const title = group
-      ? `<h3 class="rfp-plate-title">${escapeHtml(group)} <span class="rfp-count">${recipes.length}</span></h3>\n`
-      : "";
-    sections.push(`<section class="rfp-plate">\n${title}<ul class="rfp-recipes">\n${items}\n</ul>\n</section>`);
+      .join("");
+    out.push(plate(`layout.${group}`, `${leaves.length} steps · measure`, `<div class="rfp-rows">${rows}</div>`));
+
+    // Spacing gets two applied views on top of the measure: there is no `padding` token, so this is
+    // the only place a reader can see what a step feels like as an inset or a gap.
+    if (group === "spacing") {
+      const applied = leaves.filter(l => (pxOf(l.value) ?? 0) > 0).slice(0, 6);
+      if (applied.length) {
+        const insets = applied
+          .map(leaf => {
+            const path = leafPath(leaf);
+            return (
+              `<div class="rfp-tile"><div class="rfp-inset" style="padding:${cssValue(leaf.value)}">` +
+              `<div class="rfp-inset-core">${esc(String(leaf.value))}</div></div>` +
+              `<div>${idButton(path, tokenName?.(path))}</div></div>`
+            );
+          })
+          .join("");
+        out.push(
+          plate(
+            `layout.${group}`,
+            "applied as padding — hatching is the inset, solid is the content box",
+            `<div class="rfp-tiles">${insets}</div>`,
+          ),
+        );
+
+        const gaps = applied
+          .slice(0, 4)
+          .map(leaf =>
+            rowOf(
+              idButton(leafPath(leaf), tokenName?.(leafPath(leaf))),
+              `<div class="rfp-gap" style="gap:${cssValue(leaf.value)}"><i></i><i></i><i></i><i></i></div>`,
+              String(leaf.value),
+              true,
+            ),
+          )
+          .join("");
+        out.push(plate(`layout.${group}`, "applied as gap", `<div class="rfp-rows">${gaps}</div>`));
+      }
+    }
   }
-  return sections.join("\n");
+  return out.join("");
 }
 
+// ── Shape & depth ──────────────────────────────────────────────────────────
+
+function renderShape(groups: Map<string, TokenLeaf[]>, tokenName?: (p: string) => string | undefined): string {
+  const out: string[] = [];
+
+  const tilesFor = (group: string, build: (leaf: TokenLeaf) => string, sub?: string): void => {
+    const leaves = groups.get(group);
+    if (!leaves?.length) return;
+    const tiles = leaves
+      .map(leaf => tile(build(leaf), idButton(leafPath(leaf), tokenName?.(leafPath(leaf))), String(leaf.value)))
+      .join("");
+    out.push(plate(group, sub ?? `${leaves.length} token(s)`, `<div class="rfp-tiles">${tiles}</div>`));
+  };
+
+  tilesFor("radius", l => `<div class="rfp-obj" style="border-radius:${cssValue(l.value)}"></div>`);
+  // The stroke is the subject here, so the box must NOT be filled.
+  tilesFor("borderWidth", l => `<div class="rfp-obj rfp-outlined" style="border:${cssValue(l.value)} solid currentColor;border-radius:8px"></div>`);
+  tilesFor("borderStyle", l => `<div class="rfp-obj rfp-outlined" style="border:3px ${cssValue(l.value)} currentColor;border-radius:8px"></div>`);
+  tilesFor("outlineOffset", l => `<div class="rfp-obj rfp-outlined" style="border-radius:8px;outline:2px solid currentColor;outline-offset:${cssValue(l.value)}"></div>`);
+  tilesFor("shadow", l => `<div class="rfp-obj rfp-raised" style="border-radius:8px;box-shadow:${cssValue(l.value)}"></div>`);
+  // Blur and opacity need a saturated fill: a mid-grey at .38 is indistinguishable from the stage.
+  tilesFor("blur", l => `<div class="rfp-obj rfp-accent" style="border-radius:8px;filter:blur(${cssValue(l.value)})"></div>`);
+  tilesFor("opacity", l => `<div class="rfp-obj rfp-accent" style="border-radius:8px;opacity:${cssValue(l.value)}"></div>`);
+  tilesFor("zIndex", l => `<span class="rfp-numeral">${esc(String(l.value))}</span>`);
+
+  return out.join("");
+}
+
+// ── Motion ─────────────────────────────────────────────────────────────────
+
+function renderMotion(leaves: readonly TokenLeaf[], tokenName?: (p: string) => string | undefined): string {
+  const rows = leaves
+    .map(leaf => {
+      const path = leafPath(leaf);
+      const value = String(leaf.value);
+      return rowOf(
+        idButton(path, tokenName?.(path)),
+        `<div class="rfp-track"><i class="rfp-dot" style="transition:transform ${cssValue(value)}"></i></div>`,
+        value,
+        true,
+      );
+    })
+    .join("");
+  return plate(
+    "effects.transitions",
+    `${leaves.length} token(s)`,
+    `<div class="rfp-rows">${rows}</div>`,
+    `<button class="rfp-play" type="button" id="rfp-play">Play</button>`,
+  );
+}
+
+// ── Generic fallback (unknown groups keep their tokens visible) ─────────────
+
+function renderGeneric(group: string, leaves: readonly TokenLeaf[], tokenName?: (p: string) => string | undefined): string {
+  const rows = leaves
+    .map(leaf =>
+      rowOf(
+        idButton(leafPath(leaf), tokenName?.(leafPath(leaf))),
+        `<div class="rfp-specimen">${esc(leafLabel(leaf))}</div>`,
+        String(leaf.value),
+      ),
+    )
+    .join("");
+  return plate(group, `${leaves.length} token(s)`, `<div class="rfp-rows">${rows}</div>`);
+}
+
+// ── Shared bits ────────────────────────────────────────────────────────────
+
+const plate = (name: string, sub: string, body: string, action = ""): string =>
+  `<section class="rfp-plate"><div class="rfp-plate-head">` +
+  `<span class="rfp-plate-name">${esc(name)}</span><span class="rfp-plate-sub">${sub}</span>${action}` +
+  `</div>${body}</section>`;
+
+const tile = (stage: string, id: string, value: string): string =>
+  `<div class="rfp-tile"><div class="rfp-stage">${stage}</div>` +
+  `<div>${id}<span class="rfp-hex">${esc(value)}</span></div></div>`;
+
 // ---------------------------------------------------------------------------
-// Model-derived page controls
+// Model-derived plates: modes, base elements
 // ---------------------------------------------------------------------------
 
 /** Distinct appearance modes across every property's `modes` list, in first-appearance order. */
@@ -274,130 +502,502 @@ export function collectModes(model: ThemeModel): string[] {
   return modes;
 }
 
+/** A literal `Ref` reads straight off `value`; a derived/aliased one has to be skipped honestly. */
+const literalOf = (ref: Ref | undefined): string | undefined => {
+  if (!ref || ref.value === undefined || ref.value === null) return undefined;
+  if (typeof ref.value === "object") return undefined;
+  return String(ref.value);
+};
+
+interface ModeChange {
+  readonly path: string;
+  readonly mode: string;
+  readonly from?: string;
+  readonly to: string;
+}
+
+/**
+ * Which tokens actually carry a mode override. The toggle shows the *result*; this shows the
+ * *cause* — and the tokens that DIDN'T override are usually the surprise worth catching.
+ * Derived (non-literal) overrides are counted but not tabled, since there's no honest value to show.
+ */
+function collectModeChanges(model: ThemeModel): { changes: ModeChange[]; skipped: number } {
+  const changes: ModeChange[] = [];
+  let skipped = 0;
+
+  const walk = (subsystem: string, name: string, property: PropertyModel): void => {
+    for (const override of property.modes ?? []) {
+      if (!override.mode) continue;
+      for (const [field, ref] of Object.entries(override.overrides ?? {})) {
+        const to = literalOf(ref);
+        const suffix = [override.target, field === "base" ? undefined : field].filter(Boolean).join(".");
+        const path = `${subsystem}.${name}${suffix ? `.${suffix}` : ""}`;
+        if (to === undefined) {
+          skipped += 1;
+          continue;
+        }
+        const from =
+          field === "base" && !override.target
+            ? literalOf(property.base)
+            : literalOf(property.extras?.[field]) ?? literalOf(property.variants?.[override.target ?? ""]?.base);
+        changes.push({ path, mode: override.mode, from, to });
+      }
+    }
+  };
+
+  for (const [subsystem, sub] of Object.entries(model.subsystems)) {
+    for (const [name, property] of Object.entries(sub.properties ?? {})) walk(subsystem, name, property);
+  }
+  return { changes, skipped };
+}
+
+function renderModes(model: ThemeModel, totalTokens: number, tokenName?: (p: string) => string | undefined): string {
+  const modes = collectModes(model);
+  if (!modes.length) return "";
+  const { changes, skipped } = collectModeChanges(model);
+  if (!changes.length && !skipped) return "";
+
+  const rows = changes
+    .map(
+      c =>
+        `<tr><td>${idButton(c.path, tokenName?.(c.path))}</td>` +
+        `<td>${swatchCell(c.from)}</td><td class="rfp-arrow">&rarr;</td><td>${swatchCell(c.to)}</td></tr>`,
+    )
+    .join("");
+
+  const note = skipped
+    ? `<p class="rfp-note-sm">${skipped} further override(s) resolve through a derivation, so they carry no single literal to show here.</p>`
+    : "";
+
+  return (
+    `<section class="rfp-section" id="rfp-modes"><div class="rfp-section-head"><div>` +
+    `<div class="rfp-eyebrow">Appearance</div><h2>What changes in ${esc(modes.join(" / "))}</h2></div>` +
+    `<span class="rfp-tag">${modes.length} mode(s) declared</span></div>` +
+    `<p class="rfp-note">Flipping the toggle shows you the result; this shows the cause. Only these tokens carry an override — everything else is inherited.</p>` +
+    plate(
+      `mode: ${modes.join(", ")}`,
+      `${changes.length} of ${totalTokens} tokens overridden`,
+      `<div class="rfp-scroll"><table class="rfp-diff"><thead><tr><th>Token</th><th>Base</th><th></th><th>Override</th></tr></thead>` +
+        `<tbody>${rows}</tbody></table></div>${note}`,
+    ) +
+    `</section>`
+  );
+}
+
+const swatchCell = (value?: string): string => {
+  if (value === undefined) return `<span class="rfp-hex">—</span>`;
+  const isColor = /^(#|rgb|hsl|oklch|color\()/i.test(value.trim());
+  return (
+    `<span class="rfp-swatch-cell">` +
+    (isColor ? `<i class="rfp-chip" style="background:${cssValue(value)}"></i>` : "") +
+    `<span class="rfp-hex">${esc(value)}</span></span>`
+  );
+};
+
+/**
+ * The `globals` subsystem themes bare elements — no class involved — so a prose specimen is the only
+ * way to show them. The selectors come from the model; the emitted stylesheet does the styling.
+ */
+function renderGlobals(model: ThemeModel, live: boolean): string {
+  const groups = model.subsystems.globals?.ruleSets;
+  if (!groups || !live) return "";
+  const selectors = Object.keys(groups.elements ?? {});
+  if (!selectors.length) return "";
+
+  const has = (sel: string): boolean => selectors.some(s => s === sel || s.startsWith(`${sel}.`) || s.startsWith(`${sel}:`));
+  const parts: string[] = [];
+  if (has("h1")) parts.push(`<h1>Shipping a theme</h1>`);
+  parts.push(
+    `<p>A theme compiles once and lowers to every format you target — the same source produces CSS custom ` +
+      `properties, Sass partials, a JSON document, or styled-components modules` +
+      (has("a") ? ` <a href="#rfp-recipes">without re-authoring a single value</a>` : "") +
+      `.</p>`,
+  );
+  if (has("h2")) parts.push(`<h2>Why bare elements matter</h2>`);
+  parts.push(
+    `<p>Content you don't control — a CMS body field, rendered markdown, a third-party embed — arrives ` +
+      `without your class names. Theming the elements themselves is what keeps it consistent.</p>`,
+  );
+  if (has("ul")) {
+    parts.push(
+      `<ul><li>Headings inherit the type scale and its derived leading</li>` +
+        `<li>Links pick up the brand colour and its underline treatment</li>` +
+        `<li>Variants emit only the delta from their base rule</li></ul>`,
+    );
+  }
+  if (has("blockquote")) {
+    parts.push(`<blockquote>Structural devices should encode something true about the content, not decorate it.</blockquote>`);
+  }
+  if (has("hr")) parts.push(`<hr>`);
+  if (has("h3")) parts.push(`<h3>Variants are structural deltas</h3>`);
+
+  return (
+    `<section class="rfp-section" id="rfp-globals"><div class="rfp-section-head"><div>` +
+    `<div class="rfp-eyebrow">Base elements</div><h2>Unclassed markup</h2></div>` +
+    `<span class="rfp-tag">globals.elements</span></div>` +
+    `<p class="rfp-note">These style bare elements with no class involved, so plain HTML from a CMS or a markdown ` +
+      `pipeline already looks right. Nothing else in this document renders without a class.</p>` +
+    plate(
+      "globals.elements",
+      `${selectors.length} selector(s) · ${esc(selectors.join(", "))}`,
+      `<div class="rfp-prose">${parts.join("")}</div>`,
+    ) +
+    `</section>`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Recipes
+// ---------------------------------------------------------------------------
+
+function inferTag(recipe: UsageRecipe): string {
+  const group = recipe.group.toLowerCase();
+  if (group.includes("button") || group.includes("btn")) return "button";
+  if (group.includes("input") || group.includes("field")) return "input";
+  if (group.includes("link") || group.includes("anchor")) return "a";
+  if (group.includes("badge") || group.includes("chip") || group.includes("tag") || group.includes("label")) return "span";
+  return "div";
+}
+
+/** One rendered specimen. `pin` adds the adapter's state-pinning class so a state can be shown at rest. */
+function specimen(recipe: UsageRecipe, descriptor: PreviewDescriptor | undefined, pin?: string): string | undefined {
+  const markup = descriptor?.markup?.(recipe);
+  if (!markup) return undefined;
+  const tag = markup.tag ?? inferTag(recipe);
+  const attrs = { ...markup.attrs };
+  if (pin) attrs.class = `${attrs.class ?? ""} ${pin}`.trim();
+  const rendered = Object.entries(attrs)
+    .map(([k, v]) => ` ${esc(k)}="${esc(v)}"`)
+    .join("");
+  if (tag === "input") return `<input${rendered} value="${esc(recipe.variant)}" readonly aria-label="${esc(recipe.variant)}">`;
+  return `<${tag}${rendered}>${esc(recipe.variant)}</${tag}>`;
+}
+
+function renderRecipes(
+  usage: UsageDescriptor,
+  descriptor: PreviewDescriptor | undefined,
+  live: boolean,
+): string {
+  if (usage.recipes.length === 0) {
+    // The scaffolder writes tokens and no recipes, so this is the FIRST thing a new user sees here.
+    return (
+      `<div class="rfp-notice"><span class="rfp-notice-mark">Empty</span><div>` +
+      `<p><strong>No recipes yet — this theme is tokens only.</strong> Tokens are values; recipes are the ` +
+      `rule-sets that turn them into styled components. Add a <code>recipes</code> block to a subsystem in ` +
+      `your raw theme and rebuild — they'll render here.</p></div></div>`
+    );
+  }
+
+  // Group for layout: the adapter decides (subsystem, component file, …); default is by group.
+  const groups = new Map<string, UsageRecipe[]>();
+  for (const recipe of usage.recipes) {
+    const key = descriptor?.groupBy?.(recipe) ?? `${recipe.subsystem}.${recipe.group}`;
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(recipe);
+    else groups.set(key, [recipe]);
+  }
+
+  const out: string[] = [];
+  for (const [group, recipes] of groups) {
+    // A state matrix beats one specimen per card: states are the whole point of a component sheet,
+    // and side by side is the only way to tell whether hover and active are distinguishable.
+    const states = live
+      ? [...new Set(recipes.flatMap(r => descriptor?.states?.(r) ?? []))].filter(s => descriptor?.statePinClass?.(s))
+      : [];
+
+    if (states.length && descriptor?.markup) {
+      const head = ["base", ...states].map(s => `<th>${esc(s)}</th>`).join("");
+      const body = recipes
+        .map(recipe => {
+          const own = descriptor.states?.(recipe) ?? [];
+          const cells = ["base", ...states]
+            .map(state => {
+              if (state !== "base" && !own.includes(state)) return `<td class="rfp-none">—</td>`;
+              const pin = state === "base" ? undefined : descriptor.statePinClass?.(state);
+              return `<td>${specimen(recipe, descriptor, pin) ?? ""}</td>`;
+            })
+            .join("");
+          return (
+            `<tr><td><span class="rfp-addr">${esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`)}</span>` +
+            `<button class="rfp-id" type="button">${esc(recipe.name)}</button></td>${cells}</tr>`
+          );
+        })
+        .join("");
+      out.push(
+        plate(
+          group,
+          `${recipes.length} variant(s) × ${states.length} state(s)`,
+          `<div class="rfp-scroll"><table class="rfp-matrix"><thead><tr><th>Variant</th>${head}</tr></thead>` +
+            `<tbody>${body}</tbody></table></div>`,
+        ),
+      );
+      out.push(renderComposition(recipes, descriptor));
+      continue;
+    }
+
+    const cards = recipes
+      .map(recipe => {
+        const rendered = live ? specimen(recipe, descriptor) : undefined;
+        return (
+          `<div class="rfp-recipe">` +
+          (rendered ? `<div class="rfp-recipe-stage">${rendered}</div>` : "") +
+          `<div class="rfp-recipe-foot"><span class="rfp-addr">` +
+          esc(`${recipe.subsystem}.${recipe.group}.${recipe.variant}`) +
+          `</span><button class="rfp-id" type="button">${esc(recipe.name)}</button></div></div>`
+        );
+      })
+      .join("");
+    out.push(plate(group, `${recipes.length} variant(s)`, `<div class="rfp-recipes">${cards}</div>`));
+    out.push(renderComposition(recipes, descriptor));
+  }
+  return out.join("");
+}
+
+/**
+ * A composed recipe emits a class LIST, not one class — its referenced recipes plus its own delta.
+ * Showing the string without saying why it's two classes is the kind of thing that reads as a bug.
+ */
+function renderComposition(recipes: readonly UsageRecipe[], descriptor: PreviewDescriptor | undefined): string {
+  if (!descriptor?.composition) return "";
+  for (const recipe of recipes) {
+    const parts = descriptor.composition(recipe);
+    if (!parts || parts.length < 2) continue;
+    const chips = parts
+      .map(
+        (p, i) =>
+          (i ? `<span class="rfp-plus">+</span>` : "") +
+          `<span class="rfp-cls"><b>${esc(p.className)}</b>` +
+          `<span>${p.from ? ` · from ${esc(p.from)}` : " · own delta"}</span></span>`,
+      )
+      .join("");
+    return plate(
+      "Composition",
+      `why <code>${esc(recipe.variant)}</code> carries ${parts.length} classes`,
+      `<div class="rfp-compose">${chips}</div>` +
+        `<p class="rfp-note-sm">Order matters — the delta lands last, so it wins on equal specificity.</p>`,
+    );
+  }
+  return "";
+}
+
 // ---------------------------------------------------------------------------
 // Page chrome
 // ---------------------------------------------------------------------------
 
 /**
- * The preview's own styling. Class-only selectors (`.rfp-*`), so the theme's `globals` element rules
- * can never outrank it, and emitted LAST so an equal-specificity theme class still loses here. The
- * document body is deliberately left to the theme — a themed page background is part of the specimen.
+ * The preview's own styling. Two rules it exists to enforce:
+ *
+ *  - **Class-only selectors**, all under `.rfp`, emitted AFTER the theme — so a themed `body`/`h1`
+ *    rule from the `globals` subsystem can never outrank the tool around it.
+ *  - **`--rfp-spec` for specimen geometry.** Filling a swatch with the page ground makes it vanish
+ *    once the ground and the stage converge, which is precisely what happens in dark mode; using
+ *    the ink instead makes light mode a wall of near-black blobs competing with the theme. A
+ *    dedicated mid-tone reads at the same weight on both grounds.
  */
 const CHROME_CSS = `
-.rfp-root{font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#111;background:#fff;
-  max-width:1100px;margin:0 auto;padding:24px;box-sizing:border-box}
-.rfp-head{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;justify-content:space-between;
-  border-bottom:1px solid #e5e5e5;padding-bottom:12px;margin-bottom:20px}
-.rfp-title{font-size:20px;font-weight:600;margin:0}
-.rfp-sub{color:#666;font-size:12px}
-.rfp-controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
-.rfp-controls button{font:inherit;font-size:12px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;
-  background:#fafafa;color:#111;cursor:pointer}
-.rfp-controls button[aria-pressed="true"]{background:#111;border-color:#111;color:#fff}
-.rfp-group-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;align-self:center;
-  margin-right:4px}
-.rfp-section-title{font-size:15px;font-weight:600;margin:28px 0 10px}
-.rfp-plate{border:1px solid #e5e5e5;border-radius:8px;padding:14px 16px;margin-bottom:14px;background:#fff}
-.rfp-plate-title{font-size:13px;font-weight:600;margin:0 0 10px;color:#333}
-.rfp-count{color:#999;font-weight:400}
-.rfp-rows,.rfp-recipes{list-style:none;margin:0;padding:0}
-.rfp-row{display:grid;grid-template-columns:minmax(120px,220px) 1fr;gap:12px;align-items:center;
-  padding:5px 0;border-top:1px solid #f2f2f2}
+.rfp{--rfp-ground:#fff;--rfp-panel:#f7f8fa;--rfp-panel-2:#eef0f4;--rfp-ink:#14171c;--rfp-ink-2:#4d5563;
+ --rfp-ink-3:#79818f;--rfp-rule:#e4e7ec;--rfp-rule-2:#d3d8e0;--rfp-focus:#3b4ea8;--rfp-live:#2f9e6d;
+ --rfp-spec:#97a1b0;--rfp-spec-2:#c2c9d4;--rfp-hatch:#d7dce4;--rfp-stage:#f2f4f7;--rfp-raised:#fff;
+ --rfp-accent:#6b7a99;
+ --rfp-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+ --rfp-ui:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+ font-family:var(--rfp-ui);font-size:14px;line-height:1.55;color:var(--rfp-ink);
+ background:var(--rfp-ground);-webkit-font-smoothing:antialiased;
+ display:grid;grid-template-columns:216px minmax(0,1fr);gap:56px;max-width:1260px;margin:0 auto;
+ padding:0 32px 96px;align-items:start;box-sizing:border-box}
+@media (prefers-color-scheme:dark){.rfp{--rfp-ground:#0f1114;--rfp-panel:#1a1e24;--rfp-panel-2:#232830;
+ --rfp-ink:#e9ebef;--rfp-ink-2:#a8b0bd;--rfp-ink-3:#7b8492;--rfp-rule:#2b313a;--rfp-rule-2:#3b434f;
+ --rfp-focus:#8ea2ff;--rfp-live:#4ec48d;--rfp-spec:#8791a0;--rfp-spec-2:#4a5361;--rfp-hatch:#333b46;
+ --rfp-stage:#14181d;--rfp-raised:#232830;--rfp-accent:#8e9dbb}}
+.rfp *{box-sizing:border-box}
+.rfp *:focus-visible{outline:2px solid var(--rfp-focus);outline-offset:2px;border-radius:3px}
+.rfp-rail{position:sticky;top:0;padding:32px 0;max-height:100vh;overflow-y:auto}
+.rfp-brand{font-family:var(--rfp-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+ color:var(--rfp-ink-3);padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--rfp-rule)}
+.rfp-nav{display:flex;flex-direction:column;gap:1px}
+.rfp-nav a{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 8px;
+ border-radius:4px;color:var(--rfp-ink-2);text-decoration:none;font-size:13px}
+.rfp-nav a:hover{background:var(--rfp-panel);color:var(--rfp-ink)}
+.rfp-nav a[aria-current="true"]{background:var(--rfp-ink);color:var(--rfp-ground)}
+.rfp-nav .rfp-n{font-family:var(--rfp-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--rfp-ink-3)}
+.rfp-nav a[aria-current="true"] .rfp-n{color:var(--rfp-ground);opacity:.65}
+.rfp-main{padding-top:32px;min-width:0}
+.rfp-masthead{padding-bottom:28px;border-bottom:1px solid var(--rfp-rule)}
+.rfp-eyebrow{font-family:var(--rfp-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rfp-ink-3)}
+.rfp-masthead h1{font-size:34px;line-height:1.1;letter-spacing:-.025em;font-weight:640;margin:10px 0 0;text-wrap:balance}
+.rfp-meta{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:16px;font-family:var(--rfp-mono);font-size:11.5px;color:var(--rfp-ink-2)}
+.rfp-meta span{display:inline-flex;align-items:center;gap:6px}
+.rfp-meta span+span::before{content:"";width:1px;height:11px;background:var(--rfp-rule-2)}
+.rfp-meta b{font-weight:600;color:var(--rfp-ink)}
+.rfp-dot{width:6px;height:6px;border-radius:50%;background:var(--rfp-live)}
+.rfp-controls{display:flex;flex-wrap:wrap;gap:24px;padding:18px 0;border-bottom:1px solid var(--rfp-rule);
+ position:sticky;top:0;background:var(--rfp-ground);z-index:5}
+.rfp-ctl{display:flex;align-items:center;gap:8px}
+.rfp-ctl-label{font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--rfp-ink-3)}
+.rfp-seg{display:flex;border:1px solid var(--rfp-rule-2);border-radius:6px;overflow:hidden}
+.rfp-seg button{font:inherit;font-family:var(--rfp-mono);font-size:11.5px;padding:4px 10px;border:0;
+ border-left:1px solid var(--rfp-rule-2);background:var(--rfp-ground);color:var(--rfp-ink-2);cursor:pointer}
+.rfp-seg button:first-child{border-left:0}
+.rfp-seg button:hover{background:var(--rfp-panel);color:var(--rfp-ink)}
+.rfp-seg button[aria-pressed="true"]{background:var(--rfp-ink);color:var(--rfp-ground)}
+.rfp-section{padding-top:52px;scroll-margin-top:72px}
+.rfp-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.rfp-section-head h2{font-size:21px;letter-spacing:-.018em;font-weight:620;margin:6px 0 0}
+.rfp-note{color:var(--rfp-ink-2);max-width:64ch;margin:8px 0 0;font-size:13.5px}
+.rfp-note-sm{color:var(--rfp-ink-3);font-size:12.5px;margin:10px 0 0;max-width:64ch}
+.rfp-tag{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);border:1px solid var(--rfp-rule-2);border-radius:3px;padding:1px 6px}
+.rfp-plate{margin-top:22px;border-top:1px solid var(--rfp-rule);padding-top:18px}
+.rfp-plate-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.rfp-plate-name{font-family:var(--rfp-mono);font-size:12.5px;font-weight:600;color:var(--rfp-ink)}
+.rfp-plate-sub{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3)}
+.rfp-id{font-family:var(--rfp-mono);font-size:11.5px;color:var(--rfp-ink-2);background:none;border:0;
+ padding:1px 4px;margin-left:-4px;border-radius:3px;cursor:copy;text-align:left;display:inline-block}
+.rfp-id:hover{background:var(--rfp-panel-2);color:var(--rfp-ink)}
+.rfp-id.rfp-copied{background:var(--rfp-ink);color:var(--rfp-ground)}
+.rfp-var{font-family:var(--rfp-mono);font-size:10.5px;color:var(--rfp-ink-3);display:block;margin-top:1px}
+.rfp-hex{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);font-variant-numeric:tabular-nums;display:block;margin-top:1px}
+.rfp-ladder{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;align-items:start}
+.rfp-ladder+.rfp-ladder{margin-top:18px}
+.rfp-ladder-name{font-family:var(--rfp-mono);font-size:12.5px;font-weight:600}
+.rfp-ladder-base{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);margin-top:2px}
+.rfp-rungs{display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--rfp-rule)}
+.rfp-rung{flex:1 1 0;min-width:0}
+.rfp-rung-chip{height:52px}
+.rfp-rung[data-base="true"] .rfp-rung-foot{color:var(--rfp-ink);font-weight:600}
+.rfp-rung[data-base="true"] .rfp-rung-foot::before{content:"● "}
+.rfp-rung-foot{padding:5px 2px 6px;text-align:center;background:var(--rfp-panel);border-top:1px solid var(--rfp-rule);
+ font-family:var(--rfp-mono);font-size:10px;font-variant-numeric:tabular-nums;color:var(--rfp-ink-2)}
+.rfp-pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:12px}
+.rfp-pair{border:1px solid var(--rfp-rule);border-radius:6px;overflow:hidden}
+.rfp-pair-swatch{padding:16px 14px 14px;display:flex;flex-direction:column;gap:10px;min-height:92px}
+.rfp-pair-sample{font-size:14px;font-weight:600}
+.rfp-pair-ratio{align-self:flex-start;font-family:var(--rfp-mono);font-size:10.5px;font-variant-numeric:tabular-nums;
+ padding:1px 6px;border-radius:3px;border:1px solid currentColor}
+.rfp-pair-foot{padding:8px 12px;background:var(--rfp-panel);border-top:1px solid var(--rfp-rule)}
+.rfp-rows{display:flex;flex-direction:column}
+.rfp-row{display:grid;grid-template-columns:190px minmax(0,1fr) 108px;gap:20px;align-items:baseline;
+ padding:11px 0;border-top:1px solid var(--rfp-rule)}
 .rfp-row:first-child{border-top:0}
-.rfp-name{font-size:12px;color:#444;overflow-wrap:anywhere}
-.rfp-swatch{display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden}
-.rfp-val{font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:#666;background:#f6f6f6;
-  padding:1px 5px;border-radius:4px;white-space:nowrap}
-.rfp-chip{width:28px;height:28px;border-radius:5px;border:1px solid rgba(0,0,0,.15);flex:none}
-.rfp-box{width:44px;height:28px;border-radius:5px;background:#fff;border:1px solid rgba(0,0,0,.08);flex:none}
-.rfp-bar{height:10px;background:#111;border-radius:2px;flex:none;max-width:100%}
-.rfp-specimen{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.rfp-recipes{display:flex;flex-wrap:wrap;gap:14px}
-.rfp-recipe{border:1px solid #eee;border-radius:8px;padding:12px;min-width:160px;background:#fff}
-.rfp-stage{display:flex;align-items:center;justify-content:center;min-height:56px;margin-bottom:8px}
-.rfp-meta{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
-.rfp-note{font-size:13px;color:#555;background:#f8f8f8;border:1px solid #ececec;border-left:3px solid #bbb;
-  border-radius:0 6px 6px 0;padding:10px 14px;margin:0 0 14px}
-.rfp-frame{margin:0 auto;transition:max-width .15s ease}
-.rfp-files{font-size:12px;color:#666;margin:0 0 16px}
-.rfp-files code{font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
-@media (prefers-color-scheme:dark){
-  .rfp-root{color:#eee;background:#151515}
-  .rfp-head{border-bottom-color:#2c2c2c}
-  .rfp-plate,.rfp-recipe{background:#1c1c1c;border-color:#2c2c2c}
-  .rfp-plate-title{color:#ddd}.rfp-name{color:#bbb}.rfp-sub,.rfp-files{color:#999}
-  .rfp-val{background:#262626;color:#aaa}
-  .rfp-controls button{background:#222;border-color:#3a3a3a;color:#eee}
-  .rfp-controls button[aria-pressed="true"]{background:#eee;border-color:#eee;color:#111}
-  .rfp-note{background:#1d1d1d;border-color:#2c2c2c;border-left-color:#555;color:#bbb}
-  .rfp-row{border-top-color:#242424}
-  .rfp-bar{background:#eee}
+.rfp-row.rfp-centred{align-items:center}
+.rfp-rowval{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
+.rfp-specimen{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.015em}
+.rfp-leading{font-size:13px;color:var(--rfp-ink-2);max-width:52ch}
+.rfp-bar{height:12px;background:var(--rfp-spec);border-radius:2px;max-width:100%}
+.rfp-bar.rfp-ghost{background:var(--rfp-spec-2)}
+.rfp-gap{display:flex;align-items:stretch;border:1px dashed var(--rfp-rule-2);border-radius:6px;padding:10px}
+.rfp-gap>i{flex:1 1 0;height:30px;background:var(--rfp-spec-2);border-radius:3px}
+.rfp-inset{border:1px solid var(--rfp-rule);border-radius:6px;
+ background:repeating-linear-gradient(-45deg,var(--rfp-hatch) 0 4px,transparent 4px 8px)}
+.rfp-inset-core{background:var(--rfp-spec);color:var(--rfp-ground);border-radius:3px;font-family:var(--rfp-mono);
+ font-size:10.5px;font-weight:600;text-align:center;padding:8px 4px}
+.rfp-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.rfp-tile{display:flex;flex-direction:column;gap:10px}
+.rfp-stage{height:82px;display:grid;place-items:center;background:var(--rfp-stage);border-radius:6px;
+ border:1px solid var(--rfp-rule);color:var(--rfp-spec)}
+.rfp-obj{width:62px;height:62px;background:var(--rfp-spec)}
+.rfp-obj.rfp-outlined{background:transparent}
+.rfp-obj.rfp-raised{background:var(--rfp-raised)}
+.rfp-obj.rfp-accent{background:var(--rfp-accent)}
+.rfp-numeral{font-family:var(--rfp-mono);font-size:20px;font-variant-numeric:tabular-nums;color:var(--rfp-ink-2)}
+.rfp-track{height:34px;border-radius:6px;background:var(--rfp-stage);border:1px solid var(--rfp-rule);position:relative;overflow:hidden}
+.rfp-dot{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:5px;background:var(--rfp-spec)}
+.rfp-play{font:inherit;font-family:var(--rfp-mono);font-size:11.5px;padding:3px 10px;border-radius:4px;
+ border:1px solid var(--rfp-rule-2);background:var(--rfp-panel);color:var(--rfp-ink);cursor:pointer;margin-left:auto}
+.rfp-scroll{overflow-x:auto}
+.rfp-diff{width:100%;border-collapse:collapse;font-size:13px}
+.rfp-diff th{text-align:left;font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+ color:var(--rfp-ink-3);font-weight:500;padding:0 12px 8px 0;white-space:nowrap}
+.rfp-diff td{padding:7px 12px 7px 0;border-top:1px solid var(--rfp-rule);vertical-align:middle}
+.rfp-swatch-cell{display:flex;align-items:center;gap:8px}
+.rfp-chip{width:18px;height:18px;border-radius:4px;border:1px solid var(--rfp-rule-2);flex:none}
+.rfp-arrow{color:var(--rfp-ink-3);font-family:var(--rfp-mono)}
+.rfp-prose{border:1px solid var(--rfp-rule);border-radius:6px;padding:26px 28px;overflow:hidden}
+.rfp-matrix{border-collapse:collapse;min-width:560px;width:100%}
+.rfp-matrix th{font-family:var(--rfp-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+ color:var(--rfp-ink-3);font-weight:500;text-align:center;padding:0 8px 10px}
+.rfp-matrix th:first-child{text-align:left}
+.rfp-matrix td{padding:12px 8px;border-top:1px solid var(--rfp-rule);text-align:center}
+.rfp-matrix td:first-child{text-align:left;width:210px}
+.rfp-none{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);opacity:.6}
+.rfp-recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.rfp-recipe{border:1px solid var(--rfp-rule);border-radius:6px;overflow:hidden}
+.rfp-recipe-stage{min-height:96px;display:grid;place-items:center;padding:20px 16px;
+ background:linear-gradient(45deg,var(--rfp-panel) 25%,transparent 25%,transparent 75%,var(--rfp-panel) 75%),
+ linear-gradient(45deg,var(--rfp-panel) 25%,transparent 25%,transparent 75%,var(--rfp-panel) 75%);
+ background-size:14px 14px;background-position:0 0,7px 7px}
+.rfp-recipe-foot{padding:9px 12px;border-top:1px solid var(--rfp-rule);background:var(--rfp-panel)}
+.rfp-addr{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);display:block}
+.rfp-compose{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.rfp-cls{font-family:var(--rfp-mono);font-size:11.5px;padding:3px 8px;border-radius:4px;
+ border:1px solid var(--rfp-rule-2);background:var(--rfp-panel)}
+.rfp-cls b{font-weight:600;color:var(--rfp-ink)}
+.rfp-cls span{color:var(--rfp-ink-3)}
+.rfp-plus{color:var(--rfp-ink-3);font-family:var(--rfp-mono)}
+.rfp-notice{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;padding:14px 16px;
+ border:1px solid var(--rfp-rule-2);border-radius:6px;background:var(--rfp-panel);margin-top:18px}
+.rfp-notice-mark{font-family:var(--rfp-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+ padding:2px 6px;border-radius:3px;background:var(--rfp-ink);color:var(--rfp-ground);white-space:nowrap}
+.rfp-notice p{margin:0;color:var(--rfp-ink-2);font-size:13px;max-width:68ch}
+.rfp-notice p+p{margin-top:6px}
+.rfp-notice strong{color:var(--rfp-ink);font-weight:600}
+.rfp-frame{margin:0 auto}
+@media (prefers-reduced-motion:reduce){.rfp *{transition:none!important;animation:none!important}}
+@media (max-width:900px){
+ .rfp{grid-template-columns:minmax(0,1fr);gap:0;padding:0 20px 72px}
+ .rfp-rail{position:static;max-height:none;padding:24px 0 0}
+ .rfp-nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px}
+ .rfp-nav a{white-space:nowrap}
+ .rfp-ladder{grid-template-columns:minmax(0,1fr);gap:10px}
+ .rfp-row{grid-template-columns:130px minmax(0,1fr)}
+ .rfp-rowval{grid-column:1/-1;text-align:left}
 }
 `.trim();
 
-/** Mode + breakpoint controls. Plain DOM, no dependencies — the page must work from `file://`. */
 const CHROME_JS = `
 (function(){
-  var root=document.documentElement;
-  function bind(sel,onPick){
-    var btns=[].slice.call(document.querySelectorAll(sel));
-    btns.forEach(function(b){
-      b.addEventListener("click",function(){
-        btns.forEach(function(o){o.setAttribute("aria-pressed",String(o===b));});
-        onPick(b.getAttribute("data-value"));
-      });
-    });
-  }
-  bind("[data-rfp-mode]",function(v){
-    var attr=root.getAttribute("data-rfp-mode-attr");
-    if(!attr)return;
-    if(v)root.setAttribute(attr,v);else root.removeAttribute(attr);
-  });
-  bind("[data-rfp-width]",function(v){
-    var frame=document.getElementById("rfp-frame");
-    if(frame)frame.style.maxWidth=v?v+"px":"";
-  });
+ var root=document.documentElement;
+ function srgb(c){c/=255;return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
+ function lum(hex){var m=/^#([0-9a-f]{6})$/i.exec(hex.trim());if(!m)return null;var n=parseInt(m[1],16);
+  return 0.2126*srgb((n>>16)&255)+0.7152*srgb((n>>8)&255)+0.0722*srgb(n&255);}
+ // Contrast is computed here rather than baked in, so it can never drift from the swatch beside it.
+ document.querySelectorAll(".rfp-pair-swatch[data-fg]").forEach(function(el){
+  var out=el.querySelector(".rfp-pair-ratio");if(!out)return;
+  var a=lum(el.getAttribute("data-bg")||""),b=lum(el.getAttribute("data-fg")||"");
+  if(a===null||b===null){out.remove();return;}
+  var r=(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
+  out.textContent=r.toFixed(2)+":1 · "+(r>=7?"AAA":r>=4.5?"AA":r>=3?"AA large":"fail");
+ });
+ function bind(sel,onPick){
+  var btns=[].slice.call(document.querySelectorAll(sel));
+  btns.forEach(function(b){b.addEventListener("click",function(){
+   btns.forEach(function(o){o.setAttribute("aria-pressed",String(o===b));});
+   onPick(b.getAttribute("data-value"));});});
+ }
+ bind("[data-rfp-mode]",function(v){
+  var attr=root.getAttribute("data-rfp-mode-attr");if(!attr)return;
+  if(v)root.setAttribute(attr,v);else root.removeAttribute(attr);});
+ bind("[data-rfp-width]",function(v){
+  var frame=document.getElementById("rfp-frame");if(frame)frame.style.maxWidth=v?v+"px":"";});
+ var play=document.getElementById("rfp-play"),running=false;
+ if(play)play.addEventListener("click",function(){
+  running=!running;play.textContent=running?"Reset":"Play";
+  document.querySelectorAll(".rfp-dot").forEach(function(d){
+   d.style.transform=running?"translateX("+(d.parentElement.clientWidth-34)+"px)":"translateX(0)";});});
+ document.addEventListener("click",function(e){
+  var btn=e.target.closest?e.target.closest(".rfp-id"):null;if(!btn)return;
+  var text=btn.textContent.trim();
+  var done=function(){var prev=btn.textContent;btn.classList.add("rfp-copied");btn.textContent="copied";
+   setTimeout(function(){btn.classList.remove("rfp-copied");btn.textContent=prev;},900);};
+  if(navigator.clipboard){navigator.clipboard.writeText(text).then(done,done);}else{done();}});
+ var links=[].slice.call(document.querySelectorAll(".rfp-nav a"));
+ if(window.IntersectionObserver){
+  var io=new IntersectionObserver(function(es){es.forEach(function(en){if(!en.isIntersecting)return;
+   links.forEach(function(a){a.setAttribute("aria-current",String(a.getAttribute("href")==="#"+en.target.id));});});},
+   {rootMargin:"-10% 0px -80% 0px"});
+  document.querySelectorAll(".rfp-section").forEach(function(s){io.observe(s);});
+ }
 })();
 `.trim();
-
-function renderControls(
-  modes: readonly string[],
-  modeAttribute: string | undefined,
-  breakpoints: Readonly<Record<string, number>>,
-): string {
-  const parts: string[] = [];
-
-  // A mode toggle is only offered when the adapter told us HOW to switch — otherwise the buttons
-  // would be decorative. "Auto" clears the attribute and hands control back to the OS media query.
-  if (modeAttribute && modes.length > 0) {
-    const buttons = [`<button type="button" data-rfp-mode data-value="" aria-pressed="true">auto</button>`]
-      .concat(
-        modes.map(
-          mode =>
-            `<button type="button" data-rfp-mode data-value="${escapeHtml(mode)}" aria-pressed="false">` +
-            `${escapeHtml(mode)}</button>`,
-        ),
-      )
-      .join("");
-    parts.push(`<div class="rfp-controls"><span class="rfp-group-label">mode</span>${buttons}</div>`);
-  }
-
-  const widths = Object.entries(breakpoints);
-  if (widths.length > 0) {
-    const buttons = [`<button type="button" data-rfp-width data-value="" aria-pressed="true">full</button>`]
-      .concat(
-        widths.map(
-          ([name, px]) =>
-            `<button type="button" data-rfp-width data-value="${escapeHtml(String(px))}" aria-pressed="false">` +
-            `${escapeHtml(name)} · ${escapeHtml(String(px))}px</button>`,
-        ),
-      )
-      .join("");
-    parts.push(`<div class="rfp-controls"><span class="rfp-group-label">width</span>${buttons}</div>`);
-  }
-
-  return parts.join("\n");
-}
 
 /** `<style>`/`<link>` tags for the emitted artifacts, in the adapter's declared load order. */
 function renderThemeLinks(
@@ -409,8 +1009,8 @@ function renderThemeLinks(
     .map(name => {
       const body = inline ? contents?.[name] : undefined;
       return body === undefined
-        ? `<link rel="stylesheet" href="./${escapeHtml(name)}">`
-        : `<style data-rfp-source="${escapeHtml(name)}">\n${escapeTextElement(body)}\n</style>`;
+        ? `<link rel="stylesheet" href="./${esc(name)}">`
+        : `<style data-rfp-source="${esc(name)}">\n${escapeTextElement(body)}\n</style>`;
     })
     .join("\n");
 }
@@ -419,13 +1019,6 @@ function renderThemeLinks(
 // Entry point
 // ---------------------------------------------------------------------------
 
-/**
- * Build the preview artifact. Pure — returns `filename → contents` for the build layer to write.
- *
- * The adapter's declared `stylesheets` are intersected with `options.files` (what was actually
- * written), so a descriptor that drifts from `emit()` degrades to tokens-only instead of producing a
- * page that silently references a file that isn't there.
- */
 export function buildPreview(source: PreviewSource, options: PreviewOptions): PreviewOutput {
   const { usage, preview, tokens, model } = source;
   const fileName = options.file ?? DEFAULT_FILE;
@@ -434,10 +1027,36 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
   const written = new Set(options.files);
   const stylesheets = (preview?.stylesheets ?? []).filter(name => written.has(name));
   const live = stylesheets.length > 0;
+  const tokenName = preview?.tokenName;
 
-  const modes = collectModes(model);
-  const breakpoints = model.breakpoints ?? {};
-  const title = options.title ?? `${usage.format} theme preview`;
+  const leaves: TokenLeaf[] = [];
+  collectLeaves(tokens, [], undefined, leaves);
+  const groups = groupLeaves(leaves);
+
+  // Build each section from the groups that map to it; a section with no content is omitted
+  // entirely, so a theme without shadows shows no elevation plate rather than an empty box.
+  const bodies = new Map<string, string>();
+  const counts = new Map<string, number>();
+  for (const [group, items] of groups) {
+    const section = SECTION_OF[group] ?? "other";
+    counts.set(section, (counts.get(section) ?? 0) + items.length);
+  }
+
+  for (const section of SECTIONS) {
+    const own = [...groups.entries()].filter(([g]) => (SECTION_OF[g] ?? "other") === section.id);
+    if (!own.length) continue;
+    let body = "";
+    if (section.id === "palette") body = renderPalette(own.flatMap(([, l]) => l), tokenName);
+    else if (section.id === "type") body = renderTypography(own.flatMap(([, l]) => l), tokenName);
+    else if (section.id === "space") body = renderSpace(new Map(own), tokenName);
+    else if (section.id === "shape") body = renderShape(new Map(own), tokenName);
+    else if (section.id === "motion") body = renderMotion(own.flatMap(([, l]) => l), tokenName);
+    else body = own.map(([g, l]) => renderGeneric(g, l, tokenName)).join("");
+    if (body) bodies.set(section.id, body);
+  }
+
+  const modesHtml = renderModes(model, leaves.length, tokenName);
+  const globalsHtml = renderGlobals(model, live);
 
   const notes: string[] = [];
   if (!live) {
@@ -449,46 +1068,96 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
   }
   for (const note of preview?.notes ?? []) notes.push(note);
 
+  // ── Rail ────────────────────────────────────────────────────────────────
+  const navItems: string[] = [];
+  for (const section of SECTIONS) {
+    if (!bodies.has(section.id)) continue;
+    navItems.push(
+      `<a href="#rfp-${section.id}">${section.eyebrow}<span class="rfp-n">${counts.get(section.id) ?? 0}</span></a>`,
+    );
+  }
+  if (modesHtml) navItems.push(`<a href="#rfp-modes">Appearance</a>`);
+  if (globalsHtml) navItems.push(`<a href="#rfp-globals">Base elements</a>`);
+  navItems.push(`<a href="#rfp-recipes">Components<span class="rfp-n">${usage.recipes.length}</span></a>`);
+
+  // ── Masthead ────────────────────────────────────────────────────────────
+  const title = options.title ?? `${usage.format} theme`;
+  const totalBytes = options.files.reduce((sum, f) => sum + (options.contents?.[f]?.length ?? 0), 0);
+  const metaBits = [
+    `<span><i class="rfp-dot"></i> ${esc(usage.format)} · ${live ? "live" : "tokens only"}</span>`,
+    `<span>emit <b>${esc(options.plan.type)}</b></span>`,
+    `<span>${leaves.length} tokens</span>`,
+    `<span>${usage.recipes.length} recipes</span>`,
+    totalBytes ? `<span>${options.files.length} file(s) · ${bytes(totalBytes)}</span>` : "",
+  ].filter(Boolean);
+
+  const modeAttribute = preview?.modeAttribute;
+  const modes = collectModes(model);
+  const breakpoints = model.breakpoints ?? {};
+
+  const controls: string[] = [];
+  if (modeAttribute && modes.length) {
+    const buttons = [`<button type="button" data-rfp-mode data-value="" aria-pressed="true">auto</button>`]
+      .concat(modes.map(m => `<button type="button" data-rfp-mode data-value="${esc(m)}" aria-pressed="false">${esc(m)}</button>`))
+      .join("");
+    controls.push(`<div class="rfp-ctl"><span class="rfp-ctl-label">Appearance</span><div class="rfp-seg" role="group" aria-label="Appearance mode">${buttons}</div></div>`);
+  }
+  const widths = Object.entries(breakpoints);
+  if (widths.length) {
+    const buttons = [`<button type="button" data-rfp-width data-value="" aria-pressed="true">full</button>`]
+      .concat(widths.map(([n, px]) => `<button type="button" data-rfp-width data-value="${esc(String(px))}" aria-pressed="false">${esc(n)}</button>`))
+      .join("");
+    controls.push(`<div class="rfp-ctl"><span class="rfp-ctl-label">Width</span><div class="rfp-seg" role="group" aria-label="Viewport width">${buttons}</div></div>`);
+  }
+
+  // ── Sections ────────────────────────────────────────────────────────────
+  const sectionHtml = SECTIONS.filter(s => bodies.has(s.id))
+    .map(
+      s =>
+        `<section class="rfp-section" id="rfp-${s.id}"><div class="rfp-section-head"><div>` +
+        `<div class="rfp-eyebrow">${s.eyebrow}</div><h2>${s.title}</h2></div></div>` +
+        (s.note ? `<p class="rfp-note">${s.note}</p>` : "") +
+        bodies.get(s.id) +
+        `</section>`,
+    )
+    .join("");
+
   const head = [
     `<meta charset="utf-8">`,
     `<meta name="viewport" content="width=device-width,initial-scale=1">`,
-    `<title>${escapeHtml(title)}</title>`,
-    // Theme first, chrome last: equal-specificity ties then resolve in the chrome's favor.
+    `<title>${esc(title)}</title>`,
+    // Theme FIRST, chrome last: equal-specificity ties then resolve in the chrome's favour, and a
+    // themed element rule (`globals`) can never outrank a class-only chrome selector.
     renderThemeLinks(stylesheets, options.contents, inline),
+    preview?.statePinCss && live ? `<style data-rfp-state-pins>\n${escapeTextElement(preview.statePinCss)}\n</style>` : "",
     `<style>\n${CHROME_CSS}\n</style>`,
   ]
     .filter(Boolean)
     .join("\n");
 
-  const modeAttribute = preview?.modeAttribute;
-  const fileList = options.files.length
-    ? `<p class="rfp-files">Built files: ${options.files.map(f => `<code>${escapeHtml(f)}</code>`).join(" · ")}</p>`
-    : "";
-
-  const body = [
-    `<div class="rfp-root">`,
-    `<header class="rfp-head">`,
-    `<h1 class="rfp-title">${escapeHtml(title)}</h1>`,
-    `<span class="rfp-sub">format <strong>${escapeHtml(usage.format)}</strong> · emit ` +
-      `<strong>${escapeHtml(options.plan.type)}</strong> · ${usage.recipes.length} recipe(s)</span>`,
-    `</header>`,
-    fileList,
-    notes.map(n => `<p class="rfp-note">${escapeHtml(n)}</p>`).join("\n"),
-    renderControls(modes, modeAttribute, breakpoints),
-    `<div class="rfp-frame" id="rfp-frame">`,
-    `<h2 class="rfp-section-title">Tokens</h2>`,
-    renderTokenPlates(tokens),
-    `<h2 class="rfp-section-title">Recipes</h2>`,
-    renderRecipePlates(usage, preview, live),
-    `</div>`,
-    `</div>`,
-    `<script>\n${CHROME_JS}\n</script>`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const body =
+    `<div class="rfp">` +
+    `<aside class="rfp-rail"><div class="rfp-brand">refract preview</div>` +
+    `<nav class="rfp-nav">${navItems.join("")}</nav></aside>` +
+    `<main class="rfp-main">` +
+    `<header class="rfp-masthead"><div class="rfp-eyebrow">Theme specimen</div>` +
+    `<h1>${esc(title)}</h1><div class="rfp-meta">${metaBits.join("")}</div></header>` +
+    (controls.length ? `<div class="rfp-controls">${controls.join("")}</div>` : "") +
+    notes.map(n => `<p class="rfp-note">${esc(n)}</p>`).join("") +
+    `<div class="rfp-frame" id="rfp-frame">` +
+    sectionHtml +
+    modesHtml +
+    globalsHtml +
+    `<section class="rfp-section" id="rfp-recipes"><div class="rfp-section-head"><div>` +
+    `<div class="rfp-eyebrow">Components</div><h2>Recipes${live ? " and their states" : ""}</h2></div>` +
+    `<span class="rfp-tag">${live ? "rendered live" : "names only"}</span></div>` +
+    renderRecipes(usage, preview, live) +
+    `</section>` +
+    `</div></main></div>` +
+    `<script>\n${CHROME_JS}\n</script>`;
 
   const html =
-    `<!doctype html>\n<html lang="en"${modeAttribute ? ` data-rfp-mode-attr="${escapeHtml(modeAttribute)}"` : ""}>\n` +
+    `<!doctype html>\n<html lang="en"${modeAttribute ? ` data-rfp-mode-attr="${esc(modeAttribute)}"` : ""}>\n` +
     `<head>\n${head}\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
 
   return { files: { [fileName]: html } };

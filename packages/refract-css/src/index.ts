@@ -11,7 +11,7 @@
 import type { ThemeModel } from "@theme-registry/refract";
 import { mergeComponentRuleSet } from "@theme-registry/refract";
 import { toHexColor, toOklchColor } from "@theme-registry/refract/color-math";
-import type { AdapterSpec, RenderContext, ThemeAdapter, UsageRecipe } from "@theme-registry/refract";
+import type { AdapterSpec, PreviewDescriptor, RenderContext, ThemeAdapter, UsageRecipe } from "@theme-registry/refract";
 import { defineAdapter } from "@theme-registry/refract";
 import type { CssDeclaration, CssNode, CssRuleNode, CssVariablesNode } from "./nodes";
 import {
@@ -37,6 +37,7 @@ import {
   lowerAnimationRecipeGroup,
   deriveContainerContextNodes,
   CSS_KNOWN_STATES,
+  CSS_STATE_SELECTORS,
 } from "./lowering";
 import { resolveNaming, createNamer } from "./naming";
 import type { NamingOverrides } from "./naming";
@@ -527,7 +528,7 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
         // argument: `split` has a load-order contract (variables first), `subsystem`/`components`
         // name files through a user-supplied function, and `components` emits merged self-contained
         // rules keyed by the recipe's OWN class rather than the composition list every other mode uses.
-        describePreview(plan, files) {
+        describePreview(plan, files): PreviewDescriptor {
           const written = new Set(files);
           const keep = (...names: Array<string | false | undefined>): string[] =>
             names.filter((n): n is string => typeof n === "string" && written.has(n));
@@ -548,7 +549,76 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
             return name ? { attrs: { class: name } } : undefined;
           };
 
-          const base = { markup, modeAttribute: "data-theme" } as const;
+          const ruleSetOf = (r: UsageRecipe) =>
+            model.subsystems[r.subsystem]?.ruleSets?.[r.group]?.[r.variant];
+
+          /** The states this rule-set actually declares, in the adapter's canonical order. */
+          const states = (r: UsageRecipe): string[] => {
+            if (!renderable(r)) return [];
+            const declared = new Set(
+              (ruleSetOf(r)?.overrides ?? [])
+                .map(o => o.state)
+                .filter((s): s is string => typeof s === "string"),
+            );
+            return CSS_KNOWN_STATES.filter(s => declared.has(s));
+          };
+
+          // A pseudo-class can't be switched on from markup, so a specimen sheet can never show
+          // `:hover` at rest. The fix is a parallel rule keyed on a plain class: same declarations,
+          // pinnable selector. These rules exist ONLY for the preview and are inlined into the page,
+          // never added to the emitted stylesheet a consumer ships.
+          const PIN_PREFIX = "rfp-s-";
+          const statePinClass = (state: string): string | undefined =>
+            CSS_STATE_SELECTORS[state] ? `${PIN_PREFIX}${state}` : undefined;
+
+          const buildStatePinCss = (): string => {
+            collectNodes(); // enrich once; recipeNodes are mutated in place
+            const pinned: CssRuleNode[] = [];
+            for (const sub of Object.values(lowered)) {
+              for (const node of sub?.recipeNodes ?? []) {
+                if (node.kind !== "rule") continue;
+                for (const [state, suffix] of Object.entries(CSS_STATE_SELECTORS)) {
+                  if (!node.selector.includes(suffix)) continue;
+                  pinned.push({
+                    ...node,
+                    selector: node.selector.split(suffix).join(`.${PIN_PREFIX}${state}`),
+                  });
+                  break; // one state per selector — the first match is the suffix that built it
+                }
+              }
+            }
+            return pinned.length ? renderToCssString(pinned) : "";
+          };
+
+          /**
+           * A composed component emits a class LIST: one class per referenced rule-set, then its own
+           * delta last. `references` and `classList` are built in the same order, so they zip.
+           */
+          const composition = (r: UsageRecipe) => {
+            const leaf = collectClasses()[r.subsystem]?.[r.group]?.[r.variant];
+            if (!leaf || typeof leaf === "string") return undefined;
+            const classList = (leaf as ResolvedComponentClass).classList;
+            if (!classList || classList.length < 2) return undefined;
+            const references = ruleSetOf(r)?.references ?? [];
+            return classList.map((className, index) => {
+              const parsed = references[index] ? parseComponentReference(references[index]) : undefined;
+              return {
+                className,
+                from: parsed ? `${parsed.subsystem}.${parsed.group}.${parsed.variant}` : undefined,
+              };
+            });
+          };
+
+          const base = {
+            markup,
+            modeAttribute: "data-theme",
+            // The emitted custom-property name for a token path — the thing a reader actually types.
+            tokenName: (path: string): string | undefined => globalPathToVar[path],
+            states,
+            statePinClass,
+            statePinCss: buildStatePinCss(),
+            composition,
+          } as const;
 
           switch (plan.type) {
             case "single":
@@ -565,8 +635,8 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
               return {
                 ...base,
                 stylesheets: [
-                  ...keep(...subsystems.map(s => plan.filename(s, "variables"))),
-                  ...keep(...subsystems.map(s => plan.filename(s, "styles"))),
+                  ...keep(...subsystems.map(sub => plan.filename(sub, "variables"))),
+                  ...keep(...subsystems.map(sub => plan.filename(sub, "styles"))),
                 ],
                 groupBy: r => r.subsystem,
               };
@@ -576,7 +646,6 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
               const componentFile = (r: UsageRecipe): string =>
                 plan.filename({ group: r.group, variant: r.variant });
               const variables = plan.variables === false ? [] : keep(plan.variables);
-              // Every component file, in emit order, after the variables file (if any).
               const componentFiles = files.filter(f => !variables.includes(f));
               return {
                 ...base,

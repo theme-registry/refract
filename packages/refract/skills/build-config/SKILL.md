@@ -85,10 +85,21 @@ every token and lists every recipe by its real identity, and states why it can't
 If a user wants a live design-review page from an SC or SCSS theme, tell them to **add a CSS target
 to the same config** — same recipes through the same core, so it's a faithful specimen.
 
-The page follows the target's `emit` mode (variables load before styles in `split`; plates group by
+The page is a **style guide**, not a token dump: sticky section rail, colour families as contiguous
+ladders with live WCAG contrast readouts on each `text` pairing, the type ramp set in its own sizes,
+spacing as a measure *and* an applied inset (there is no `padding` token — spacing IS the padding
+scale), a **state matrix** per recipe, an **appearance-mode diff** of the tokens that actually carry
+an override, **composition** broken into its parts, and a prose specimen for the bare elements the
+`globals` subsystem themes. Sections appear only when the theme has tokens of that kind.
+
+It follows the target's `emit` mode (variables load before styles in `split`; plates group by
 subsystem or by component file), gains a light/dark toggle when the theme declares `modes`, and
 frame-width buttons when it declares `breakpoints`. A theme with **no recipes** (e.g. straight out of
 `refract create`) renders its tokens and says explicitly that recipes are missing.
+
+**State rules never reach the shipped stylesheet.** A CSS pseudo-class can't be triggered from
+markup, so the adapter emits parallel pinnable rules (`.cls.rfp-s-hover`) that are inlined into
+`preview.html` only. If a user asks why those classes aren't in `theme.css`, that's why.
 
 ## Dark-mode strategy (differs by target)
 

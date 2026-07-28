@@ -79,7 +79,7 @@ describe("preview.html", () => {
     const html = readFileSync(join(outDir, "preview.html"), "utf8");
     // Tokens are format-neutral, so they render regardless.
     expect(html).toContain("#4dabf7");
-    expect(html).toContain('rfp-plate-title">color ');
+    expect(html).toContain('id="rfp-palette"');
     // No adapter opinion ⇒ the build layer's own honest fallback, naming the format.
     expect(html).toContain("built with the stub adapter");
     expect(html).toContain("recipes are listed by name only");
@@ -136,5 +136,34 @@ describe("preview.html", () => {
     const html = readFileSync(join(outDir, "preview.html"), "utf8");
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;/style&gt;&lt;script&gt;");
+  });
+
+  it("omits a section entirely when the theme has no tokens of that kind", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: TOKENS_ONLY, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+
+    // Colour is present; a theme with no shadows/transitions must not show empty plates for them.
+    expect(html).toContain('id="rfp-palette"');
+    expect(html).not.toContain('id="rfp-shape"');
+    expect(html).not.toContain('id="rfp-motion"');
+    // …and the rail can't advertise a section that isn't there.
+    expect(html).not.toContain('href="#rfp-shape"');
+  });
+
+  it("shows no mode diff when the theme declares no modes", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+    expect(html).not.toContain('id="rfp-modes"');
+  });
+
+  it("keeps an unrecognized token group visible instead of dropping it", async () => {
+    const outDir = makeTmp();
+    // `zIndex` is mapped; a subsystem-shaped group refract doesn't special-case must still render.
+    const raw = { effects: { zIndex: { base: 0, variants: { modal: 1300 } } } };
+    await emitTheme({ raw, adapter: plainAdapter, outDir, preview: true });
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+    expect(html).toContain("1300");
   });
 });

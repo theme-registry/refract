@@ -42,7 +42,7 @@ describe("JSON adapter preview.html", () => {
 
     // Tokens still carry exact values, and recipes are still named by their real identity.
     expect(html).toContain("#4dabf7");
-    expect(html).toContain('rfp-plate-title">color ');
+    expect(html).toContain('id="rfp-palette"');
     expect(html).toContain("components.buttons.primary");
   });
 });
