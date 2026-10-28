@@ -28,6 +28,7 @@ raw theme ──▶ format-neutral Model ──▶ adapter ──▶ CSS │ sty
 | --- | --- |
 | Author a theme, consume its output, use the CLI / `emit` / DTCG | **[docs/authoring.md](docs/authoring.md)** |
 | Add a subsystem or an output adapter against the frozen contract | **[docs/extending.md](docs/extending.md)** |
+| Write a DTCG importer (`defineImporter`, Experimental) | **[docs/extending.md#writing-an-importer](docs/extending.md#writing-an-importer)** |
 | A user-facing overview / install / quickstart | **[README.md](README.md)** |
 
 ## Layout
@@ -39,7 +40,8 @@ raw theme ──▶ format-neutral Model ──▶ adapter ──▶ CSS │ sty
   plus `dependsOn`. Adding a subsystem never edits the core loop.
 - `src/adapters/<name>/` — the format targets (`css`, `styled-components`, `json`, `scss`).
   Each imports only core; each has its own subpath export. `css` is the worked reference.
-- `src/dtcg/` — DTCG interop (data-interchange, off the adapter contract).
+- `src/dtcg/` — DTCG interop (data-interchange, off the adapter contract): the token graph, the
+  importer engine + contract (`importer.ts`), the default importer (`dtcgImporter.ts`) and export.
 - `src/build/` — the Node-only build layer: `emitTheme`, `defineConfig`, the config
   loader, and the `refract` CLI. Never on the runtime `.` graph.
 

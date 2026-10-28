@@ -1668,6 +1668,34 @@ report.unmapped;   <span class="c">// [{ path: "dimension.350", reason: "no plac
           </div>
           <p>Hooks read <code>ctx.placed(id)</code> (where a token landed; composite tokens are read last, so it is final), add members elsewhere with <code>ctx.add</code> and notes with <code>ctx.note</code>. An importer pins <code>version: 1</code>; another version throws <code>REFRACT_E_IMPORTER</code>.</p>
 
+          <h3>The importer contract <span class="req-no">Experimental</span></h3>
+          <p>The contract is new (version <code>1</code>) and may change in a patch release while it settles; a change that breaks importers bumps <code>IMPORTER_CONTRACT_VERSION</code>, so an old importer fails loudly instead of misplacing tokens. DTCG import with the default importer stays Stable. Everything below is exported from <code>@theme-registry/refract/dtcg</code>.</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Placement <code>kind</code></th><th>Fields</th><th>Where it lands</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">token</td><td class="ty">subsystem · property · member</td><td><code>&lt;subsystem&gt;.&lt;property&gt;</code>; <code>member: "$root"</code> is the base, any other member a variant.</td></tr>
+                <tr><td class="prop">external</td><td class="ty">property · target</td><td><code>colors.&lt;property&gt; = { external: target }</code>, for an alias to another document's token. <code>value</code> isn't called.</td></tr>
+                <tr><td class="prop">breakpoint</td><td class="ty">name</td><td><code>breakpoints.&lt;name&gt;</code>; <code>value</code> returns px.</td></tr>
+                <tr><td class="prop">recipe</td><td class="ty">group · name</td><td><code>typography.recipes.&lt;group&gt;.&lt;name&gt;</code>; <code>value</code> returns the recipe's fields.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Context</th><th>What it gives</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">ctx.placed(id)</td><td>Where a token landed, as its final path, or <code>undefined</code>.</td></tr>
+                <tr><td class="prop">ctx.cssValue(id)</td><td>The token's value in 2024 string form (<code>#hex</code> / <code>rgba()</code>).</td></tr>
+                <tr><td class="prop">ctx.add(sub, prop, member, value)</td><td>Add a member to another property; returns the name it was stored under.</td></tr>
+                <tr><td class="prop">ctx.baseFallback(sub, prop, value)</td><td>The base to use when the property ends with no <code>$root</code> or <code>base</code> member.</td></tr>
+                <tr><td class="prop">ctx.note(message)</td><td>A note about the current token in the report.</td></tr>
+                <tr><td class="prop">ctx.doc · ctx.options · ctx.graph</td><td>The document, the import options and the parsed graph.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>What the engine guarantees: <b>every token ends in <code>placements</code> or in <code>unmapped</code> with a reason</b> (<code>{ skip: reason }</code>, or a default reason when <code>value</code> returns nothing). Tokens are read in document order, composites (<code>shadow</code>, <code>typography</code>, <code>border</code>, <code>transition</code>, <code>gradient</code>) last, so <code>ctx.placed</code> is final inside them. Colliding members are renamed <code>-2</code>, <code>-3</code>…; a property's base is its <code>$root</code>, else a <code>base</code> member, else <code>ctx.baseFallback</code>, else <code>default</code>, else its first member in name order. <code>finalize</code> runs last and its result is the import's result. <code>dtcgImporter</code> is the worked reference: the default rules written as these hooks.</p>
+
           <h3>Reading DTCG 2025.10</h3>
           <p>Every import starts by parsing the document into a <b>token graph</b>: one typed token per DTCG token, with its value in a canonical shape and its aliases kept as edges rather than flattened. A 2024-draft document (<code>"#4c6ef5"</code>, <code>"16px"</code>) parses into the same shapes, so both versions import the same way. <code>parseDTCGGraph</code> returns the graph if you want to inspect a document before importing it.</p>
           <div class="tbl-wrap">
@@ -4773,11 +4801,12 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
                 <tr><td class="prop">JSON adapter<span class="st-sub">outputs a JSON token document</span></td><td><span class="kind">Adapter</span></td><td><span class="req-no">Experimental</span></td><td><a href="#a-json">JSON adapter</a></td></tr>
                 <tr><td class="prop">styled-components adapter<span class="st-sub">outputs TS/JS theme modules</span></td><td><span class="kind">Adapter</span></td><td><span class="req-yes">Stable</span></td><td><a href="#a-sc">SC adapter</a></td></tr>
                 <tr><td class="prop">DTCG interop<span class="st-sub">DTCG token import + export</span></td><td><span class="kind">Interop</span></td><td><span class="req-yes">Stable</span></td><td><a href="#dtcg">DTCG interop</a></td></tr>
+                <tr><td class="prop">Importer contract<span class="st-sub">defineImporter · ImporterSpec · ImportPlacement · ImportContext</span></td><td><span class="kind">Interop</span></td><td><span class="req-no">Experimental</span></td><td><a href="#dtcg">DTCG interop</a></td></tr>
                 <tr><td class="prop">MCP server<span class="st-sub">live theme queries for AI agents</span></td><td><span class="kind">Tooling</span></td><td><span class="req-yes">Stable</span></td><td><a href="#mcp">MCP server</a></td></tr>
               </tbody>
             </table>
           </div>
-          <p>In short: <b>core, the CSS and styled-components adapters, DTCG interop, and the MCP server are stable</b> at public release — the authoring format, the theme runtime, the adapter contract, the emitted names, and the agent query surface. The SCSS and JSON adapters are still settling.</p>
+          <p>In short: <b>core, the CSS and styled-components adapters, DTCG interop, and the MCP server are stable</b> at public release — the authoring format, the theme runtime, the adapter contract, the emitted names, and the agent query surface. The SCSS and JSON adapters, and the importer contract for custom DTCG importers, are still settling.</p>
 
           <h3>Versioning</h3>
           <p>refract and its adapters version <b>in lockstep</b>: all six packages share one version through the whole <code>0.x</code> line — a single <a href="https://github.com/changesets/changesets" target="_blank" rel="noopener">Changesets</a> <code>fixed</code> group that publishes together — so a matched set is always safe to install. Stability tiers are signalled by an npm <b>dist-tag</b>, not by divergent versions: the stable packages ride <code>latest</code>, the SCSS and JSON adapters are reachable via the <code>experimental</code> tag. <b>Pin exact versions through <code>0.x</code></b>; at 1.0 the <code>fixed</code> group splits into independent lines (core on its own <code>1.x</code>). Full policy: <a href="https://github.com/theme-registry/refract/blob/main/RELEASING.md" target="_blank" rel="noopener">RELEASING.md</a>. One guarantee already holds: <b>token paths are stable identifiers</b> — a path won't change or vanish within a minor/patch release, so agents and DTCG documents can bind to it (see <a href="#naming">Token paths &amp; naming</a>).</p>

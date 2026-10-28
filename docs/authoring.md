@@ -812,7 +812,9 @@ members, picks bases, renames collisions and writes the report, so a token a hoo
 shows up in `unmapped`. Composite tokens (shadow, typography, border, transition) are read after every
 other token, so `placed()` returns final paths. An importer pins `version`; one written against another
 contract version throws `REFRACT_E_IMPORTER`. The generated `theme.raw.ts` names the importer that
-produced it.
+produced it. The importer contract is **Experimental** (DTCG import with the default importer is
+Stable); the full reference — placements, `ctx`, what the engine guarantees — is in
+[extending.md](extending.md#writing-an-importer).
 
 **Recipe round-trip (opt-in).** DTCG has no component model, so recipes are out of standard scope.
 For a lossless `refract → DTCG → refract` trip, `toDTCG(theme, { includeRecipes: true })` stashes the

@@ -1,7 +1,8 @@
 # Extending refract
 
-For developers adding a new **output adapter** (a format target) or a new **subsystem** (a
-token domain). For authoring a theme, see **[authoring.md](authoring.md)**.
+For developers adding a new **output adapter** (a format target), a new **subsystem** (a
+token domain) or a **DTCG importer** (how a `tokens.json` becomes a raw theme). For authoring a theme,
+see **[authoring.md](authoring.md)**.
 
 - [The format-neutral Model](#the-format-neutral-model)
 - [The adapter contract](#the-adapter-contract)
@@ -9,6 +10,7 @@ token domain). For authoring a theme, see **[authoring.md](authoring.md)**.
 - [Worked reference: the CSS adapter](#worked-reference-the-css-adapter)
 - [Format-neutrality: JSON and SCSS](#format-neutrality-json-and-scss)
 - [Writing a subsystem](#writing-a-subsystem)
+- [Writing an importer](#writing-an-importer)
 - [Versioning](#versioning)
 
 ## The format-neutral Model
@@ -317,6 +319,97 @@ has its `unit` resolved through the units config just like a plain literal lengt
 value has no magnitude and is never synthesized. See `test/scale-synthesis.test.ts` for the
 authoritative examples.
 
+## Writing an importer
+
+> **Experimental.** The importer contract is new (contract version `1`) and may change in a patch
+> release while it settles; a change that breaks importers bumps `IMPORTER_CONTRACT_VERSION`. DTCG
+> import itself (`importDTCG` / `fromDTCG` with the default importer) is Stable.
+
+An importer decides where each token of a DTCG document lands in the raw theme. It is four hooks
+over the token graph; the **engine** (`runImporter`) does everything else — collects members into
+properties, picks bases, renames collisions, assembles the raw theme and writes the report. Everything
+here is exported from `@theme-registry/refract/dtcg`.
+
+```ts
+import { defineImporter, IMPORTER_CONTRACT_VERSION } from "@theme-registry/refract/dtcg";
+
+export default defineImporter({
+  name: "my-importer",
+  version: IMPORTER_CONTRACT_VERSION,  // the contract this importer was written against
+  extends: undefined,                  // the importer `next` delegates to (default: dtcgImporter)
+  place(token, ctx, next) { /* … */ return next(token); },
+});
+```
+
+`defineImporter(spec)` returns a complete `Importer`: each hook the spec leaves out comes from
+`spec.extends` (default `dtcgImporter`, the rules `refract import` uses), and each hook it gives is
+called with that importer's hook as `next`. Chains work: `extends: someImporter` makes `next` that
+importer's hook, whose own `next` is whatever *it* extends. Run one with `importDTCG(doc, { importer })`,
+`runImporter(importer, doc, options)`, or `refract import tokens.json --importer ./file.ts` (a module
+whose default or `importer` export is an `Importer`; `isImporter(v)` is the check the CLI uses).
+
+### The hooks
+
+| Hook | Called | Returns |
+| --- | --- | --- |
+| `parse(doc, ctx, next)` | once | the `DTCGTokenGraph` every later hook reads |
+| `place(token, ctx, next)` | once per graph token | an `ImportPlacement`, or `{ skip: reason }` |
+| `value(token, placement, ctx, next)` | once per placed token (not for `external`) | the raw value, or `{ skip: reason }` |
+| `finalize(result, ctx, next)` | once, last | `{ raw, report }` |
+
+A **graph token** (`DTCGGraphToken`) carries `id` (dot-joined path, the id aliases use), `path`,
+`type` (own `$type`, else the group's, else the alias target's; `"unknown"` when none), `value` (the
+canonical value with aliases followed: a colour object, `{ value, unit }` for dimensions and durations,
+a number for font weights, composites field by field; `undefined` when invalid or external), `raw`
+(the `$value` as written), `alias`, `external`, `references`, `description`, `deprecated` and
+`extensions` (its `$extensions`, untouched).
+
+### Placements
+
+| `kind` | Fields | Where it lands | `value` returns |
+| --- | --- | --- | --- |
+| `"token"` | `subsystem`, `property`, `member` | `<subsystem>.<property>`; `member: "$root"` is the base, any other member a variant | the member's raw value |
+| `"external"` | `property`, `target` | `colors.<property> = { external: target }` (an alias to another document's token) | — (`value` isn't called) |
+| `"breakpoint"` | `name` | `breakpoints.<name>` | a number of px |
+| `"recipe"` | `group`, `name` | `typography.recipes.<group>.<name>` | the recipe's fields |
+
+`subsystem` is one of `colors`, `typography`, `effects`, `borders`, `layout`, `animation`.
+
+### What the engine guarantees
+
+- **Every token is accounted for.** A token ends up in `report.placements` or in `report.unmapped`
+  with a reason. `{ skip: reason }` from `place` or `value` uses that reason; `value` returning
+  `undefined` is reported as `"<type> value can't be read (see diagnostics)"`. A token with no
+  placement that a placed token references (a primitive inside a shadow, say) is reported as
+  "used by X, which carries its value".
+- **Order.** Tokens are read in document order, except that composite types (`shadow`, `typography`,
+  `border`, `transition`, `gradient`) are read after every other token. So inside a composite's hooks,
+  `ctx.placed(id)` of anything it references is final.
+- **Members and bases.** A member that would overwrite another is renamed `-2`, `-3`, … (listed in
+  `report.renamed`). A property's base is its `$root` member, else a member named `base`, else the
+  value given to `ctx.baseFallback`, else its `default` member, else its first member in natural name
+  order (listed in `report.bases`). Variants are written in natural name order; colour properties get
+  `tones: false`. Recipe names that collide are renamed the same way.
+- **Breakpoints.** If any token is placed as a breakpoint, the document's breakpoints replace the
+  `breakpoints` option.
+- **`finalize` runs last** and may change both `raw` and `report`; what it returns is the result.
+
+### The context
+
+| Member | What it gives |
+| --- | --- |
+| `ctx.doc` | the document as passed in (top-level `$extensions` included) |
+| `ctx.options` | the import options (`groupMapping`, `breakpoints`, `breakpointGroup`, …) |
+| `ctx.graph` | the parsed graph (throws inside `parse`) |
+| `ctx.placed(id)` | where a token landed, as its final path (`colors.brand`, `colors.brand.hover`), or `undefined` |
+| `ctx.cssValue(id)` | the token's value in 2024 string form (`#hex` / `rgba()`), as written when the default `parse` produced the graph, else converted from the canonical value |
+| `ctx.add(subsystem, property, member, value)` | add a member to a property other than the current token's own; returns the name it was stored under |
+| `ctx.baseFallback(subsystem, property, value)` | the base to use when the property ends with no `$root` or `base` member |
+| `ctx.note(message)` | a note about the current token in `report.notes` (`"(document)"` outside a token) |
+
+`packages/refract/src/dtcg/dtcgImporter.ts` is the worked reference: the default rules written as these
+hooks. A version mismatch, or something that isn't an importer, throws `REFRACT_E_IMPORTER`.
+
 ## Versioning
 
 `AdapterSpec.version` is the contract number external adapter packages pin to. Keep the
@@ -324,3 +417,9 @@ required surface small (the four primitives) and the version stable; bump it onl
 breaking change to what `bind` receives or must return. The Model, the `RenderContext`,
 and the primitive signatures are the frozen public contract — everything else about a
 format lives inside the adapter.
+
+`IMPORTER_CONTRACT_VERSION` plays the same role for importers. While the importer contract is
+Experimental it may change in a patch release; any change that breaks an existing importer (a hook's
+signature, a placement's shape, a `ctx` member removed, an ordering guarantee dropped) bumps the
+version, so an importer written against the old one fails loudly instead of misplacing tokens.
+Additions (a new placement kind, a new `ctx` member) keep the version.

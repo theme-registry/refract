@@ -84,7 +84,7 @@ export type ImportPlacement =
 export type ImportContext = {
   readonly doc: DTCGDocument;
   readonly options: Readonly<FromDTCGOptions>;
-  /** The parsed graph (`undefined` inside `parse`). */
+  /** The parsed graph (throws inside `parse`, before it exists). */
   readonly graph: DTCGTokenGraph;
   /**
    * Where a token landed, as its final refract path (`colors.brand`, `colors.brand.hover`), or

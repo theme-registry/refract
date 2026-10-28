@@ -105,6 +105,9 @@ refract import tokens.json --importer ./tokens.importer.ts
 - `ctx.placed(id)` is where a token landed; `ctx.add(...)` adds a member to another property;
   `ctx.note(message)` adds to the report. The report stays complete whatever the hooks do.
 - `version` must be `1` (`IMPORTER_CONTRACT_VERSION`); another version throws `REFRACT_E_IMPORTER`.
+- The importer contract is **Experimental** (it may change in a patch; a breaking change bumps the
+  version). Tell the user before they build a lot on it. Full reference: `docs/extending.md`,
+  "Writing an importer".
 - `groupMapping` still covers the simple case (a whole top-level group to one subsystem); reach for an
   importer when the rule depends on more than the group name.
 
