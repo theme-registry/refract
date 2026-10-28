@@ -1,0 +1,292 @@
+{
+  "$description": "Synthetic import sample: deep colour groups with $root, a ramp with no base, colliding second segments (border/brand/panel .main), dimensions placed by keyword, two text styles and a colour/dimension mix under elevation.",
+  "color": {
+    "$type": "color",
+    "palette": {
+      "indigo": {
+        "100": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.1412,
+              0.2039,
+              0.5608
+            ],
+            "hex": "#24348f"
+          }
+        },
+        "110": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0941,
+              0.1412,
+              0.4157
+            ],
+            "hex": "#18246a"
+          }
+        },
+        "010": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.9333,
+              0.9451,
+              0.9843
+            ],
+            "hex": "#eef1fb"
+          }
+        },
+        "050": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6392,
+              0.6902,
+              0.8784
+            ],
+            "hex": "#a3b0e0"
+          }
+        },
+        "090": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.2275,
+              0.3098,
+              0.6902
+            ],
+            "hex": "#3a4fb0"
+          }
+        }
+      }
+    }
+  },
+  "panel": {
+    "$type": "color",
+    "main": {
+      "$root": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1412,
+            0.2039,
+            0.5608
+          ],
+          "hex": "#24348f"
+        }
+      },
+      "hover": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1843,
+            0.2667,
+            0.6588
+          ],
+          "hex": "#2f44a8"
+        }
+      },
+      "pressed": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0941,
+            0.1412,
+            0.4157
+          ],
+          "hex": "#18246a"
+        }
+      }
+    },
+    "alert": {
+      "danger": {
+        "$root": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.7529,
+              0.149,
+              0.1765
+            ],
+            "hex": "#c0262d"
+          }
+        },
+        "hover": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6196,
+              0.1216,
+              0.1451
+            ],
+            "hex": "#9e1f25"
+          }
+        },
+        "pressed": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.4784,
+              0.0941,
+              0.1137
+            ],
+            "hex": "#7a181d"
+          }
+        }
+      }
+    }
+  },
+  "border": {
+    "$type": "color",
+    "primary": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1412,
+          0.2039,
+          0.5608
+        ],
+        "hex": "#24348f"
+      }
+    },
+    "onPanel": {
+      "main": {
+        "$root": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6392,
+              0.6902,
+              0.8784
+            ],
+            "hex": "#a3b0e0"
+          }
+        }
+      }
+    }
+  },
+  "brand": {
+    "$type": "color",
+    "primary": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1843,
+          0.2667,
+          0.6588
+        ],
+        "hex": "#2f44a8"
+      }
+    }
+  },
+  "font": {
+    "size": {
+      "400": {
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        }
+      },
+      "700": {
+        "$value": {
+          "value": 28,
+          "unit": "px"
+        }
+      },
+      "$type": "dimension"
+    }
+  },
+  "text": {
+    "$type": "typography",
+    "heading": {
+      "h1": {
+        "$value": {
+          "fontFamily": "Inter",
+          "fontSize": {
+            "value": 28,
+            "unit": "px"
+          },
+          "fontWeight": 700,
+          "letterSpacing": {
+            "value": 0,
+            "unit": "px"
+          },
+          "lineHeight": 1.2
+        }
+      }
+    },
+    "body": {
+      "regular": {
+        "$value": {
+          "fontFamily": "Inter",
+          "fontSize": {
+            "value": 16,
+            "unit": "px"
+          },
+          "fontWeight": 400,
+          "letterSpacing": {
+            "value": 0,
+            "unit": "px"
+          },
+          "lineHeight": 1.5
+        }
+      }
+    }
+  },
+  "padding": {
+    "field": {
+      "$type": "dimension",
+      "compact": {
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        }
+      },
+      "default": {
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        }
+      }
+    }
+  },
+  "radii": {
+    "$type": "dimension",
+    "default": {
+      "$value": {
+        "value": 4,
+        "unit": "px"
+      }
+    },
+    "round": {
+      "$value": {
+        "value": 999,
+        "unit": "px"
+      }
+    }
+  },
+  "elevation": {
+    "low": {
+      "$root": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "hex": "#cccccc"
+        }
+      },
+      "blur": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        }
+      }
+    }
+  }
+}

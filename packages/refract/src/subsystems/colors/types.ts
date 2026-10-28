@@ -64,12 +64,18 @@ export type PaletteVariantInput =
  * dark), so the same label reads at the same lightness across every palette. Named tonal variants
  * (`light`/`lighter`/`dark`/`darker`) are auto-generated when no `steps` are declared; they stay
  * relative, compounding `lightenBy`/`darkenBy` as OKLCH ΔL points (which do NOT apply to numeric
- * steps). (`variants` is NOT here — it's a first-class key on {@link PaletteExtendedProperty},
+ * steps). `tones: false` turns both off. (`variants` is NOT here — it's a first-class key on {@link PaletteExtendedProperty},
  * widened to accept derivation specs.)
  */
 export type PalettePropertyExtras = {
   text?: ColorInput;
   steps?: number[];
+  /**
+   * `false` turns off the auto-generated tones — the named `light`/`lighter`/`dark`/`darker` set, or
+   * the numeric `steps` ladder — so the property carries only its base and the variants you write.
+   * For palettes taken as-is from elsewhere (a DTCG import sets it). Default `true`.
+   */
+  tones?: boolean;
   lightenBy?: number;
   darkenBy?: number;
   harmony?: HarmonyOption;

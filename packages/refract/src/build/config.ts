@@ -93,7 +93,7 @@ export const findConfigFile = (fromDir: string = process.cwd()): string | undefi
  * and every temp file removed; `.mjs`/`.js` are imported directly.
  */
 let importCounter = 0;
-async function importConfigModule(path: string): Promise<Record<string, unknown>> {
+export async function importConfigModule(path: string): Promise<Record<string, unknown>> {
   if (extname(path) !== ".ts") {
     // Cache-bust the ESM import: Node caches modules by URL, so a repeated `loadConfig` on an *edited*
     // config (e.g. a long-lived MCP server watching `theme.config.mjs`) would otherwise re-get the stale

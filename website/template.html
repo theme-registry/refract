@@ -1589,40 +1589,131 @@ document.head.<span class="n">append</span>(Object.<span class="n">assign</span>
         <section class="doc-section" id="dtcg">
           <div class="eyebrow">Delivery <b>/ DTCG interop</b></div>
           <h2>DTCG interop</h2>
-          <p class="lead"><b>DTCG</b> — the <a href="https://www.designtokens.org/" target="_blank" rel="noopener">Design Tokens Community Group</a> format — is the standard interchange for design tokens; Figma, Style Dictionary and the wider token ecosystem speak it. refract speaks it <b>both ways</b>. It is <b>not an adapter</b>: it's a small, format-neutral interop boundary at the <code>@theme-registry/refract/dtcg</code> subpath, so a Node / build script can use it without pulling the runtime graph.</p>
+          <p class="lead"><b>DTCG</b> — the <a href="https://www.designtokens.org/" target="_blank" rel="noopener">Design Tokens Community Group</a> format — is the standard interchange for design tokens; Figma, Style Dictionary and the wider token ecosystem speak it. refract speaks it <b>both ways</b>, and reads <b>DTCG 2025.10</b>, the first stable release, as well as the older 2024 draft. It is <b>not an adapter</b>: it's a small, format-neutral interop boundary at the <code>@theme-registry/refract/dtcg</code> subpath, so a Node / build script can use it without pulling the runtime graph.</p>
           <div class="note"><b>Export carries property tokens only.</b> DTCG has no component/recipe model, so <b>recipes and composition don't round-trip</b> through a standard DTCG document — <code>toDTCG</code> emits your colour, type, spacing and other property tokens (synthesized steps included), not your rule-sets. Tokens survive a trip through any DTCG tool; recipes are refract-specific and stay in the <code>RawTheme</code>.</div>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>Direction</th><th>Function</th><th>What it is</th></tr></thead>
               <tbody>
-                <tr><td class="prop">Import</td><td class="ty">fromDTCG(doc)</td><td>A transform <b>into</b> a <code>RawTheme</code> — you then call <code>createTheme</code>.</td></tr>
+                <tr><td class="prop">Import</td><td class="ty">importDTCG(doc)</td><td>A transform <b>into</b> a <code>RawTheme</code>, plus a <b>report</b> of where every token landed and what was left out. <code>fromDTCG(doc)</code> returns just the raw theme.</td></tr>
                 <tr><td class="prop">Export</td><td class="ty">toDTCG(theme)</td><td>A built theme's property tokens <b>out</b> as a DTCG document (also the <code>refract tokens</code> CLI).</td></tr>
-                <tr><td class="prop">Resolve</td><td class="ty">parseDTCGDocument(doc)</td><td>Flatten a DTCG doc, resolving its <code>{ ref }</code> chains → resolved tokens.</td></tr>
+                <tr><td class="prop">Parse</td><td class="ty">parseDTCGGraph(doc)</td><td>A DTCG doc as a typed <b>token graph</b>: canonical values, alias edges kept, <code>$extensions</code> preserved, and a diagnostic for anything it can't read.</td></tr>
+                <tr><td class="prop">Resolve</td><td class="ty">parseDTCGDocument(doc)</td><td>The graph flattened to resolved tokens with string values — the view <code>fromDTCG</code> maps from.</td></tr>
               </tbody>
             </table>
           </div>
 
           <h3>Import — DTCG → RawTheme</h3>
-          <p><code>fromDTCG</code> returns a <b>plain <code>RawTheme</code> input</b> you pass to <code>createTheme</code> — and can edit first. Import is a <b>build-time transform</b>, not a runtime step: DTCG groups are mapped to subsystems (auto-detected from <code>$type</code> and group name by default).</p>
+          <p><code>importDTCG</code> returns a <b>plain <code>RawTheme</code> input</b> you pass to <code>createTheme</code> — and can edit first — with a report of what it did. Import is a <b>build-time transform</b>, not a runtime step. Each token is placed on its own, by its <code>$type</code> and then by the words in its path:</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Token</th><th>Lands in</th><th>Example</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">color</td><td>A <code>colors</code> property named after the token's group (minus a leading <code>color</code> group); the token name is the variant, <code>$root</code> the base. Imported colours set <code>tones: false</code>, so no tones are invented.</td><td><code>panel.alert.danger.hover</code> → <code>colors.panel-alert-danger.hover</code></td></tr>
+                <tr><td class="prop">dimension</td><td>By path keyword: radius → <code>borders.radius</code>, border-width → <code>borders.width</code>, font size / line height / letter spacing → <code>typography</code>, blur → <code>effects.blur</code>, gutter → <code>layout.gutters</code>, padding / gap / spacing → <code>layout.spacing</code>, size / width / height → <code>layout.sizes</code>.</td><td><code>padding.field.compact</code> → <code>layout.spacing.padding-field-compact</code></td></tr>
+                <tr><td class="prop">shadow</td><td><code>effects.shadow</code> as structured layers; each layer's colour is the imported colour it aliases, or a new colour property for a literal.</td><td><code>shadow.elevation.low</code> → <code>effects.shadow.elevation-low</code></td></tr>
+                <tr><td class="prop">typography</td><td>A <b>typography recipe</b> per text style — one class each — whose fields name typography variants.</td><td><code>text.heading.h1</code> → <code>.…-typography-text-heading-h1</code></td></tr>
+                <tr><td class="prop">fontFamily · fontWeight · duration · cubicBezier · strokeStyle · transition · border</td><td>The matching <code>typography</code>, <code>animation</code>, <code>borders</code> or <code>effects</code> property.</td><td><code>font.weight.bold</code> → <code>typography.fontWeight.bold</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>A property with no <code>$root</code> or <code>base</code> member takes its <code>default</code> member as base, else its first in name order (<code>005</code> before <code>100</code>). Spaces in names become <code>-</code>, and a name that would overwrite another gets a suffix. Lengths keep their unit: <code>px</code> becomes a number, <code>1.5rem</code> stays <code>"1.5rem"</code>. Values are resolved literals; aliases aren't kept in the raw theme yet.</p>
           <div class="codeblock">
             <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">import.ts</span><button class="cb-copy" data-copy>Copy</button></div>
-            <pre><span class="k">import</span> { fromDTCG } <span class="k">from</span> <span class="s">"@theme-registry/refract/dtcg"</span>;
+            <pre><span class="k">import</span> { importDTCG } <span class="k">from</span> <span class="s">"@theme-registry/refract/dtcg"</span>;
 <span class="k">import</span> { createTheme } <span class="k">from</span> <span class="s">"@theme-registry/refract"</span>;
 <span class="k">import</span> { createCssAdapter } <span class="k">from</span> <span class="s">"@theme-registry/refract-css"</span>;
 
-<span class="k">const</span> raw = <span class="n">fromDTCG</span>(dtcgDoc);   <span class="c">// a RawTheme input — edit it freely</span>
+<span class="k">const</span> { raw, report } = <span class="n">importDTCG</span>(dtcgDoc);   <span class="c">// a RawTheme input — edit it freely</span>
+report.unmapped;   <span class="c">// [{ path: "dimension.350", reason: "no placement for a dimension…" }]</span>
 <span class="k">const</span> theme = <span class="n">createTheme</span>(raw, { adapter: <span class="n">createCssAdapter</span>() });</pre>
           </div>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>Option</th><th>Type</th><th>Description</th></tr></thead>
               <tbody>
-                <tr><td class="prop">groupMapping</td><td class="ty">Record&lt;string, "colors"|"typography"|"effects"|"borders"|"layout"|"ignore"&gt;</td><td>Map a DTCG group to a subsystem (or <code>"ignore"</code>). Default: auto-detect from <code>$type</code> + name.</td></tr>
+                <tr><td class="prop">groupMapping</td><td class="ty">Record&lt;string, "colors"|"typography"|"effects"|"borders"|"layout"|"ignore"&gt;</td><td>Send every token under a top-level group to one subsystem (or <code>"ignore"</code> them). Default: placed by <code>$type</code> and path keywords. Also <code>"animation"</code>.</td></tr>
                 <tr><td class="prop">breakpoints</td><td class="ty">Record&lt;string, number&gt;</td><td>Breakpoints as <code>name → px</code> — DTCG has no breakpoint type, so supply them here.</td></tr>
                 <tr><td class="prop">breakpointGroup</td><td class="ty">string</td><td>A DTCG group path to source breakpoints from (its dimension tokens are parsed to px).</td></tr>
               </tbody>
             </table>
           </div>
+
+          <h3>Custom importers</h3>
+          <p>The placement rules above are the default importer, <code>dtcgImporter</code>. To change one rule, write an importer with <code>defineImporter</code>: each hook you leave out comes from the importer you extend, and each hook you write gets that importer's hook as <code>next</code>, so it handles its case and hands the rest back.</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">tokens.importer.ts</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="k">import</span> { defineImporter } <span class="k">from</span> <span class="s">"@theme-registry/refract/dtcg"</span>;
+
+<span class="k">export default</span> <span class="n">defineImporter</span>({
+  name: <span class="s">"scale-is-spacing"</span>,
+  version: <span class="n">1</span>,
+  <span class="n">place</span>(token, ctx, next) {
+    <span class="k">if</span> (token.path[<span class="n">0</span>] === <span class="s">"scale"</span>) <span class="k">return</span> { kind: <span class="s">"token"</span>, subsystem: <span class="s">"layout"</span>, property: <span class="s">"spacing"</span>, member: token.path.<span class="n">at</span>(-<span class="n">1</span>) };
+    <span class="k">return</span> <span class="n">next</span>(token);
+  },
+});</pre>
+          </div>
+          <p>Run it with <code>refract import tokens.json --importer ./tokens.importer.ts</code> or <code>importDTCG(doc, { importer })</code>. The engine, not the hooks, collects members, picks bases and writes the report, so a token no hook places still appears in <code>unmapped</code>.</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Hook</th><th>Receives</th><th>Returns</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">parse</td><td>The DTCG document</td><td>The token graph</td></tr>
+                <tr><td class="prop">place</td><td>A graph token</td><td>A placement (<code>token</code>, <code>external</code>, <code>breakpoint</code>, <code>recipe</code>) or <code>{ skip: reason }</code></td></tr>
+                <tr><td class="prop">value</td><td>The token and its placement</td><td>The raw value, or <code>{ skip: reason }</code></td></tr>
+                <tr><td class="prop">finalize</td><td><code>{ raw, report }</code></td><td><code>{ raw, report }</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Hooks read <code>ctx.placed(id)</code> (where a token landed; composite tokens are read last, so it is final), add members elsewhere with <code>ctx.add</code> and notes with <code>ctx.note</code>. An importer pins <code>version: 1</code>; another version throws <code>REFRACT_E_IMPORTER</code>.</p>
+
+          <h3>The importer contract <span class="req-no">Experimental</span></h3>
+          <p>The contract is new (version <code>1</code>) and may change in a patch release while it settles; a change that breaks importers bumps <code>IMPORTER_CONTRACT_VERSION</code>, so an old importer fails loudly instead of misplacing tokens. DTCG import with the default importer stays Stable. Everything below is exported from <code>@theme-registry/refract/dtcg</code>.</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Placement <code>kind</code></th><th>Fields</th><th>Where it lands</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">token</td><td class="ty">subsystem · property · member</td><td><code>&lt;subsystem&gt;.&lt;property&gt;</code>; <code>member: "$root"</code> is the base, any other member a variant.</td></tr>
+                <tr><td class="prop">external</td><td class="ty">property · target</td><td><code>colors.&lt;property&gt; = { external: target }</code>, for an alias to another document's token. <code>value</code> isn't called.</td></tr>
+                <tr><td class="prop">breakpoint</td><td class="ty">name</td><td><code>breakpoints.&lt;name&gt;</code>; <code>value</code> returns px.</td></tr>
+                <tr><td class="prop">recipe</td><td class="ty">group · name</td><td><code>typography.recipes.&lt;group&gt;.&lt;name&gt;</code>; <code>value</code> returns the recipe's fields.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Context</th><th>What it gives</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">ctx.placed(id)</td><td>Where a token landed, as its final path, or <code>undefined</code>.</td></tr>
+                <tr><td class="prop">ctx.cssValue(id)</td><td>The token's value in 2024 string form (<code>#hex</code> / <code>rgba()</code>).</td></tr>
+                <tr><td class="prop">ctx.add(sub, prop, member, value)</td><td>Add a member to another property; returns the name it was stored under.</td></tr>
+                <tr><td class="prop">ctx.baseFallback(sub, prop, value)</td><td>The base to use when the property ends with no <code>$root</code> or <code>base</code> member.</td></tr>
+                <tr><td class="prop">ctx.note(message)</td><td>A note about the current token in the report.</td></tr>
+                <tr><td class="prop">ctx.doc · ctx.options · ctx.graph</td><td>The document, the import options and the parsed graph.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>What the engine guarantees: <b>every token ends in <code>placements</code> or in <code>unmapped</code> with a reason</b> (<code>{ skip: reason }</code>, or a default reason when <code>value</code> returns nothing). Tokens are read in document order, composites (<code>shadow</code>, <code>typography</code>, <code>border</code>, <code>transition</code>, <code>gradient</code>) last, so <code>ctx.placed</code> is final inside them. Colliding members are renamed <code>-2</code>, <code>-3</code>…; a property's base is its <code>$root</code>, else a <code>base</code> member, else <code>ctx.baseFallback</code>, else <code>default</code>, else its first member in name order. <code>finalize</code> runs last and its result is the import's result. <code>dtcgImporter</code> is the worked reference: the default rules written as these hooks.</p>
+
+          <h3>Reading DTCG 2025.10</h3>
+          <p>Every import starts by parsing the document into a <b>token graph</b>: one typed token per DTCG token, with its value in a canonical shape and its aliases kept as edges rather than flattened. A 2024-draft document (<code>"#4c6ef5"</code>, <code>"16px"</code>) parses into the same shapes, so both versions import the same way. <code>parseDTCGGraph</code> returns the graph if you want to inspect a document before importing it.</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>2025.10 feature</th><th>How refract reads it</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">Colour objects</td><td><code>{ colorSpace, components, alpha?, hex? }</code>. <code>srgb</code>, <code>srgb-linear</code>, <code>hsl</code>, <code>hwb</code>, <code>oklab</code> and <code>oklch</code> convert natively. Other spaces (<code>display-p3</code>, <code>lab</code>, <code>rec2020</code>…) are read through their <code>hex</code> fallback, and are an error without one.</td></tr>
+                <tr><td class="prop">Dimension · duration</td><td><code>{ value, unit }</code> with <code>px</code>/<code>rem</code> and <code>ms</code>/<code>s</code>. Another unit is kept, with a warning.</td></tr>
+                <tr><td class="prop">Font weight</td><td>A number from 1 to 1000, or a spec name (<code>regular</code>, <code>bold</code>, <code>extra-black</code>…) read as its number.</td></tr>
+                <tr><td class="prop">$root</td><td>A group's own token, referenced as <code>{group.$root}</code>. <code>fromDTCG</code> reads it as the group's <code>base</code>.</td></tr>
+                <tr><td class="prop">Aliases · $ref</td><td><code>{a.b}</code> and JSON Pointer <code>$ref</code>, including a pointer into part of another value (one shadow layer's colour). An untyped alias takes its target's type. A curly alias to a token outside the document stays an <code>external</code> reference.</td></tr>
+                <tr><td class="prop">$extends</td><td>The group inherits the target group's tokens, deep-merged, with its own on top.</td></tr>
+                <tr><td class="prop">$deprecated · $extensions</td><td>Carried on each token (a group's <code>$deprecated</code> applies to its tokens); extensions from any tool are kept untouched.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><b>Nothing is guessed.</b> A token with no <code>$type</code> anywhere, a font weight of 1200, a dimension with no unit or a colour refract can't convert becomes a <b>diagnostic</b> on the graph instead of a silent fallback. A circular alias or <code>$extends</code> throws <code>REFRACT_E_CYCLE</code>.</p>
+          <div class="note"><b>Nothing is dropped silently.</b> The report lists where every token landed (<code>placements</code>), each token left out and why (<code>unmapped</code>), each base that had to be chosen (<code>bases</code>), each rename, and the parse diagnostics; <code>refract import</code> prints it. A token used only inside another one, like a primitive a padding token aliases, is reported as carried by that token. A pluggable importer, with a preset for Figma exports, is planned.</div>
 
           <h3>Export — Theme → DTCG</h3>
           <p><code>toDTCG</code> walks the flat <code>theme.tokens</code> map, resolves each path to a concrete literal (following aliases and running <code>lighten</code>/<code>darken</code>), and re-groups into DTCG. <b>Property tokens only</b> — recipes and composition are out of standard scope; colours emit as <b>hex</b> (the DTCG convention); synthesized tonal steps are included.</p>
@@ -2151,6 +2242,7 @@ themeService.<span class="n">setTheme</span>(warm);   <span class="c">// re-inje
                   <tr><td class="prop">text</td><td class="ty">ColorInput</td><td><span class="req-no">Optional</span></td><td class="def">—</td><td>The on-colour foreground (any <code>ColorInput</code>, same as <code>base</code>) → <code>--dt-colors-&lt;name&gt;-text</code>.</td></tr>
                   <tr><td class="prop">variants</td><td class="ty">Record&lt;string, VariantInput&gt;</td><td><span class="req-no">Optional</span></td><td class="def">—</td><td>Named variants — each a literal colour, a <b>derivation spec</b> (<code>{ lighten | darken | alpha }</code>, see below), or an extended <code>{ base, … }</code>. Author-declared variants also <b>seed</b> the auto tonal steps.</td></tr>
                   <tr><td class="prop">steps</td><td class="ty">number[]</td><td><span class="req-no">Optional</span></td><td class="def">auto: light…darker</td><td><b>Numeric</b> tonal steps (e.g. <code>[100, …, 900]</code>) — an <b>absolute-lightness ladder</b>: each label maps to a fixed OKLCH lightness via <code>L = (1000 − label) / 10</code> (<code>50</code>→L95, <code>500</code>→L50, <code>950</code>→L5), so the same label reads at the same lightness across every palette. When omitted, the default named set (<code>light</code> / <code>lighter</code> / <code>dark</code> / <code>darker</code>) is auto-generated instead.</td></tr>
+                  <tr><td class="prop">tones</td><td class="ty">boolean</td><td><span class="req-no">Optional</span></td><td class="def">true</td><td><code>false</code> generates no tones (neither the named set nor <code>steps</code>): the property carries only its base and the variants you write. For palettes taken as-is from elsewhere; a DTCG import sets it.</td></tr>
                   <tr><td class="prop">lightenBy</td><td class="ty">number</td><td><span class="req-no">Optional</span></td><td class="def">10</td><td>OKLCH lightness Δ (points, 0–100) per step along the lighter chain. Named set only — numeric <code>steps</code> use absolute lightness, not Δ.</td></tr>
                   <tr><td class="prop">darkenBy</td><td class="ty">number</td><td><span class="req-no">Optional</span></td><td class="def">10</td><td>OKLCH lightness Δ (points, 0–100) per step along the darker chain. Named set only.</td></tr>
                   <tr><td class="prop">harmony</td><td class="ty">scheme | { scheme: [names] }</td><td><span class="req-no">Optional</span></td><td class="def">—</td><td>Auto-generate related colours by hue rotation (<code>complement</code> / <code>analogous</code> / <code>split-complement</code> / <code>triadic</code> / <code>tetradic</code>) — see <b>Harmony</b> below.</td></tr>
@@ -4663,14 +4755,14 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="note"><b>What the lineage proves — and doesn't.</b> The <b>design</b> (author → override → runtime-or-prebuilt, foundations included) is battle-tested across real multi-brand estates: a flagship + ~130 regional sites on one shared infrastructure; a multi-brand media group with per-brand child overrides side by side; a pan-European NGO federation, override-per-member at federation scale; and a multi-identity civic institution, distinct identities on one platform without forking. <b>The idea has the better part of a decade of production behind it; the published package is new</b> — a clean, standardized rewrite that earns its own miles. Client names are withheld — the credibility is in the shapes, not the logos.</div>
 
           <h3>Tested &amp; gated</h3>
-          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">760</b> tests across <b data-q="testfiles">66</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">819</b> tests across <b data-q="testfiles">70</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
               <tbody>
                 <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
                 <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
-                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">760</b>-case suite</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">819</b>-case suite</td></tr>
                 <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
                 <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
               </tbody>
@@ -4686,7 +4778,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
                 <tr data-pkg="@theme-registry/refract"><td class="prop">@theme-registry/refract <span class="st-sub">runtime core</span></td><td><b>≤&nbsp;30&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-css"><td class="prop">@theme-registry/refract-css</td><td><b>≤&nbsp;9&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-styled-components"><td class="prop">@theme-registry/refract-styled-components</td><td><b>≤&nbsp;6.5&nbsp;KB</b></td></tr>
-                <tr data-pkg="@theme-registry/refract/dtcg"><td class="prop">@theme-registry/refract/dtcg <span class="st-sub">interop subpath</span></td><td><b>≤&nbsp;4.5&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract/dtcg"><td class="prop">@theme-registry/refract/dtcg <span class="st-sub">interop subpath</span></td><td><b>≤&nbsp;10&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-scss"><td class="prop">@theme-registry/refract-scss</td><td><b>≤&nbsp;4&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-json"><td class="prop">@theme-registry/refract-json</td><td><b>≤&nbsp;3&nbsp;KB</b></td></tr>
               </tbody>
@@ -4709,11 +4801,12 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
                 <tr><td class="prop">JSON adapter<span class="st-sub">outputs a JSON token document</span></td><td><span class="kind">Adapter</span></td><td><span class="req-no">Experimental</span></td><td><a href="#a-json">JSON adapter</a></td></tr>
                 <tr><td class="prop">styled-components adapter<span class="st-sub">outputs TS/JS theme modules</span></td><td><span class="kind">Adapter</span></td><td><span class="req-yes">Stable</span></td><td><a href="#a-sc">SC adapter</a></td></tr>
                 <tr><td class="prop">DTCG interop<span class="st-sub">DTCG token import + export</span></td><td><span class="kind">Interop</span></td><td><span class="req-yes">Stable</span></td><td><a href="#dtcg">DTCG interop</a></td></tr>
+                <tr><td class="prop">Importer contract<span class="st-sub">defineImporter · ImporterSpec · ImportPlacement · ImportContext</span></td><td><span class="kind">Interop</span></td><td><span class="req-no">Experimental</span></td><td><a href="#dtcg">DTCG interop</a></td></tr>
                 <tr><td class="prop">MCP server<span class="st-sub">live theme queries for AI agents</span></td><td><span class="kind">Tooling</span></td><td><span class="req-yes">Stable</span></td><td><a href="#mcp">MCP server</a></td></tr>
               </tbody>
             </table>
           </div>
-          <p>In short: <b>core, the CSS and styled-components adapters, DTCG interop, and the MCP server are stable</b> at public release — the authoring format, the theme runtime, the adapter contract, the emitted names, and the agent query surface. The SCSS and JSON adapters are still settling.</p>
+          <p>In short: <b>core, the CSS and styled-components adapters, DTCG interop, and the MCP server are stable</b> at public release — the authoring format, the theme runtime, the adapter contract, the emitted names, and the agent query surface. The SCSS and JSON adapters, and the importer contract for custom DTCG importers, are still settling.</p>
 
           <h3>Versioning</h3>
           <p>refract and its adapters version <b>in lockstep</b>: all six packages share one version through the whole <code>0.x</code> line — a single <a href="https://github.com/changesets/changesets" target="_blank" rel="noopener">Changesets</a> <code>fixed</code> group that publishes together — so a matched set is always safe to install. Stability tiers are signalled by an npm <b>dist-tag</b>, not by divergent versions: the stable packages ride <code>latest</code>, the SCSS and JSON adapters are reachable via the <code>experimental</code> tag. <b>Pin exact versions through <code>0.x</code></b>; at 1.0 the <code>fixed</code> group splits into independent lines (core on its own <code>1.x</code>). Full policy: <a href="https://github.com/theme-registry/refract/blob/main/RELEASING.md" target="_blank" rel="noopener">RELEASING.md</a>. One guarantee already holds: <b>token paths are stable identifiers</b> — a path won't change or vanish within a minor/patch release, so agents and DTCG documents can bind to it (see <a href="#naming">Token paths &amp; naming</a>).</p>

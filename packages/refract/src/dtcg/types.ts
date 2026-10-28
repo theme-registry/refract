@@ -1,19 +1,54 @@
 /**
  * W3C Design Tokens Community Group (DTCG) format types.
- * Based on Second Editors' Draft (2024).
+ *
+ * Reads DTCG **2025.10** (the first stable release, 28 October 2025: Format + Color modules) and the
+ * older Second Editors' Draft (2024), whose string values (`"#hex"`, `"16px"`, `"200ms"`) are still
+ * accepted on import. Both shapes parse into the same canonical token graph (`parseDTCGGraph`).
  */
 
 // --- Primitive token value types ---
 
-export type DTCGColorValue = string;
+/** The colour spaces the DTCG 2025.10 Color module defines. */
+export type DTCGColorSpace =
+  | "srgb"
+  | "srgb-linear"
+  | "hsl"
+  | "hwb"
+  | "lab"
+  | "lch"
+  | "oklab"
+  | "oklch"
+  | "display-p3"
+  | "a98-rgb"
+  | "prophoto-rgb"
+  | "rec2020"
+  | "xyz-d65"
+  | "xyz-d50";
 
-export type DTCGDimensionValue = string; // e.g. "16px", "1rem"
+/** A DTCG 2025.10 colour: three components in `colorSpace` (`"none"` = a missing component). */
+export type DTCGColorObject = {
+  colorSpace: DTCGColorSpace;
+  components: [number | "none", number | "none", number | "none"];
+  alpha?: number;
+  /** Optional 6-digit hex fallback for tools that can't read the colour space. */
+  hex?: string;
+};
+
+/** A DTCG 2025.10 dimension. The spec allows `px` and `rem` only. */
+export type DTCGDimensionObject = { value: number; unit: "px" | "rem" };
+
+/** A DTCG 2025.10 duration. */
+export type DTCGDurationObject = { value: number; unit: "ms" | "s" };
+
+export type DTCGColorValue = string | DTCGColorObject;
+
+export type DTCGDimensionValue = string | DTCGDimensionObject; // "16px" (2024) or { value: 16, unit: "px" }
 
 export type DTCGFontFamilyValue = string | string[];
 
 export type DTCGFontWeightValue = number | string; // 400 or "bold"
 
-export type DTCGDurationValue = string; // "200ms", "0.3s"
+export type DTCGDurationValue = string | DTCGDurationObject; // "200ms" (2024) or { value: 200, unit: "ms" }
 
 export type DTCGCubicBezierValue = [number, number, number, number];
 
@@ -76,13 +111,20 @@ export type DTCGToken = {
   $type?: DTCGTokenType;
   $description?: string;
   $extensions?: Record<string, unknown>;
+  /** 2025.10: `true`, or a reason string, marks the token deprecated. */
+  $deprecated?: boolean | string;
 };
 
 export type DTCGGroup = {
   $type?: DTCGTokenType;
   $description?: string;
   $extensions?: Record<string, unknown>;
-  [key: string]: DTCGToken | DTCGGroup | DTCGTokenType | string | Record<string, unknown> | undefined;
+  $deprecated?: boolean | string;
+  /** 2025.10: inherit another group's tokens (`"{path.to.group}"` or a `#/json/pointer`), deep-merged. */
+  $extends?: string;
+  /** 2025.10: the group's own base token, referenced as `{group.$root}`. */
+  $root?: DTCGToken;
+  [key: string]: DTCGToken | DTCGGroup | DTCGTokenType | string | boolean | Record<string, unknown> | undefined;
 };
 
 export type DTCGDocument = DTCGGroup & {
@@ -91,6 +133,11 @@ export type DTCGDocument = DTCGGroup & {
 
 // --- Resolved token (after reference resolution) ---
 
+/**
+ * The flat, string-valued view `parseDTCGDocument` returns (the shape `fromDTCG` maps from). Values
+ * are in the 2024 string form: 2025.10 colour/dimension/duration objects are serialized (`"#24348f"`,
+ * `"16px"`), and a `$root` token's path segment reads `"base"`. The full typed form is the token graph.
+ */
 export type ResolvedDTCGToken = {
   path: string[];
   type: DTCGTokenType;

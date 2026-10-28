@@ -3,7 +3,7 @@
  *
  * After the shared normalize pass, each palette colour synthesizes its variants:
  *  - **auto variants** — numeric tonal `steps` (`100…900`) when declared, else the default named
- *    set (`light` / `lighter` / `dark` / `darker`);
+ *    set (`light` / `lighter` / `dark` / `darker`); none when `tones: false`;
  *  - **derivation-spec variants** — authored `{ darken | lighten | alpha, ref? }` (§13.3), each
  *    resolved against its source (base by default, or another variant via `ref`).
  *
@@ -298,11 +298,12 @@ const bakeDerivedModes = (
   });
 };
 
-/** Auto variants: numeric tonal `steps` when declared, else the default named tonal set. */
+/** Auto variants: numeric tonal `steps` when declared, else the default named tonal set; none with `tones: false`. */
 const generateAutoVariants = (
   palette: NormalizedPaletteValue,
   propertyName: string,
 ): Record<string, PaletteVariant> => {
+  if (palette.tones === false) return {};
   if (palette.steps && palette.steps.length) {
     return generateNumericSteps(palette, propertyName);
   }
