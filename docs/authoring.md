@@ -563,7 +563,7 @@ Scaffold and build with the `refract` CLI:
 
 ```bash
 npx refract init            # writes theme.config.(ts|js|mjs); --js / --mjs / --force
-npx refract import t.json   # seed theme.raw.ts (+ config) from a DTCG tokens.json; --out / --raw-only / --force
+npx refract import t.json   # seed theme.raw.ts (+ config) from a DTCG tokens.json; --out / --raw-only / --force / --importer
                             #   --breakpoint-group <name> / --breakpoints <n:px,…>
 npx refract build           # --config <path> --target <name|index> --out <dir>
 npx refract tokens          # --config <path> --out <file>  (DTCG export, adapter-free)
@@ -773,6 +773,46 @@ stays `"1.5rem"`). Values are resolved literals: aliases aren't kept in the raw 
 The report lists `placements` (token → where it landed), `unmapped` (with a reason; a primitive used
 only inside another token says so), `bases` that had to be chosen, `renamed` members and the parse
 `diagnostics`. `refract import` prints it.
+
+**Custom importers.** The placement rules above are the default importer, `dtcgImporter`. To change one
+rule without forking the rest, write an importer with `defineImporter`: each hook you leave out comes
+from the importer you extend (default `dtcgImporter`), and each hook you write receives that importer's
+hook as `next`.
+
+```ts
+// tokens.importer.ts
+import { defineImporter } from "@theme-registry/refract/dtcg";
+
+export default defineImporter({
+  name: "scale-is-spacing",
+  version: 1, // IMPORTER_CONTRACT_VERSION
+  place(token, ctx, next) {
+    // Our `scale.*` dimensions are spacing, whatever their names say.
+    if (token.path[0] === "scale" && token.type === "dimension") {
+      return { kind: "token", subsystem: "layout", property: "spacing", member: token.path.slice(1).join("-") };
+    }
+    return next(token);
+  },
+});
+```
+
+Run it with `refract import tokens.json --importer ./tokens.importer.ts`, or in code with
+`importDTCG(doc, { importer })`. The four hooks:
+
+| Hook | Receives | Returns |
+| --- | --- | --- |
+| `parse(doc, ctx, next)` | the DTCG document | the token graph |
+| `place(token, ctx, next)` | a graph token | a placement (`token` / `external` / `breakpoint` / `recipe`) or `{ skip: reason }` |
+| `value(token, placement, ctx, next)` | the token and its placement | the raw value, or `{ skip: reason }` |
+| `finalize(result, ctx, next)` | `{ raw, report }` | `{ raw, report }` |
+
+`ctx` gives `placed(id)` (where a token landed), `cssValue(id)`, `add(...)` for members outside the
+token's own property, `baseFallback(...)` and `note(message)`. The engine, not the hooks, collects
+members, picks bases, renames collisions and writes the report, so a token a hook places nowhere still
+shows up in `unmapped`. Composite tokens (shadow, typography, border, transition) are read after every
+other token, so `placed()` returns final paths. An importer pins `version`; one written against another
+contract version throws `REFRACT_E_IMPORTER`. The generated `theme.raw.ts` names the importer that
+produced it.
 
 **Recipe round-trip (opt-in).** DTCG has no component model, so recipes are out of standard scope.
 For a lossless `refract → DTCG → refract` trip, `toDTCG(theme, { includeRecipes: true })` stashes the

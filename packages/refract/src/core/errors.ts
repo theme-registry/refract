@@ -41,6 +41,7 @@ export type RefractErrorCode =
   | "REFRACT_E_REFERENCE" // a composition / rule-set reference didn't resolve
   | "REFRACT_E_NAMING" // a naming override / default path produced a collision
   | "REFRACT_E_DTCG_VERSION" // an unreadable DTCG refract-extension version
+  | "REFRACT_E_IMPORTER" // not an importer, or one written against another importer contract version
   | "REFRACT_E_AUDIT" // a strict contrast audit failed
   | "REFRACT_E_RAW_SHAPE"; // a value passed where a RawTheme is required isn't theme-shaped (e.g. a defineConfig, an array, null)
 

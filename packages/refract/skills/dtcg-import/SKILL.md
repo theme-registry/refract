@@ -16,6 +16,7 @@ format. It is Model-first and **property-tokens-only** — recipes and compositi
 ```
 refract import tokens.json
 refract import tokens.json --out theme.raw.ts --breakpoints sm:576,md:768,lg:992
+refract import tokens.json --importer ./tokens.importer.ts   # your own placement rules (below)
 ```
 
 Turns a DTCG document into a `createTheme` raw input (and, unless `--raw-only`, a starter
@@ -73,6 +74,40 @@ Rules worth knowing when you review the result:
 After importing, read the printed report with the user: chosen bases and unmapped tokens are the
 places a human decision may be needed.
 
+## Custom importers — change one placement rule
+
+When the default rules put a group in the wrong place, don't hand-edit the result after every
+re-import: write an importer that overrides only that rule and hands the rest to `next`.
+
+```ts
+// tokens.importer.ts
+import { defineImporter } from "@theme-registry/refract/dtcg";
+
+export default defineImporter({
+  name: "scale-is-spacing",
+  version: 1,
+  place(token, ctx, next) {
+    if (token.path[0] === "scale" && token.type === "dimension") {
+      return { kind: "token", subsystem: "layout", property: "spacing", member: token.path.slice(1).join("-") };
+    }
+    return next(token);
+  },
+});
+```
+
+```
+refract import tokens.json --importer ./tokens.importer.ts
+```
+
+- Hooks: `parse` (document → graph), `place` (→ a placement or `{ skip: reason }`), `value` (→ the raw
+  value or `{ skip }`), `finalize` (`{ raw, report }` → `{ raw, report }`). Leave out what you don't change.
+- `extends: otherImporter` makes `next` that importer's hook instead of the default's.
+- `ctx.placed(id)` is where a token landed; `ctx.add(...)` adds a member to another property;
+  `ctx.note(message)` adds to the report. The report stays complete whatever the hooks do.
+- `version` must be `1` (`IMPORTER_CONTRACT_VERSION`); another version throws `REFRACT_E_IMPORTER`.
+- `groupMapping` still covers the simple case (a whole top-level group to one subsystem); reach for an
+  importer when the rule depends on more than the group name.
+
 ## Export — emit standard tokens
 
 ```
@@ -122,6 +157,8 @@ The same conversions are on the `@theme-registry/refract/dtcg` subpath:
 - `importDTCG(doc, opts?)` → `{ raw, report }` — the raw theme plus `placements`, `unmapped` (with
   reasons), `bases`, `renamed`, `notes`, `diagnostics`.
 - `fromDTCG(doc, opts?)` → a raw theme input (`importDTCG(doc).raw`).
+- `defineImporter(spec)` → an importer; pass it as `importDTCG(doc, { importer })`. `dtcgImporter` is
+  the default; `runImporter(importer, doc, opts)` runs one directly.
 - `toDTCG(theme, opts?)` → a DTCG document (`opts.includeRecipes` adds the round-trip extension).
 - `fromDTCGTheme(doc, { adapter, ... })` → a built `Theme` with recipes restored (lossless round-trip).
 - `readRefractExtension(doc)` → the `com.theme-registry.refract` payload, or `undefined`.

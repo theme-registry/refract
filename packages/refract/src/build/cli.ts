@@ -14,7 +14,7 @@
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { runBuild } from "./buildCommand";
-import { runImport, parseBreakpointsFlag, importReportLines } from "./importCommand";
+import { runImport, parseBreakpointsFlag, importReportLines, loadImporter } from "./importCommand";
 import { runInit, type ConfigVariant } from "./init";
 import {
   AGENT_TARGETS,
@@ -46,6 +46,7 @@ Usage:
   refract init [--js | --mjs] [--force]
   refract import <tokens.json> [--out <file>] [--raw-only] [--force]
                    [--breakpoint-group <name>] [--breakpoints <n:px,…>]
+                   [--importer <dtcg|path/to/importer.ts>]
   refract build [--config <path>] [--target <name|index>] [--out <dir>]
   refract tokens [--config <path>] [--out <file>]
   refract diff <candidate> [--config <path>] [--max-class-changes <n>]
@@ -203,6 +204,7 @@ async function cmdImport(argv: string[]): Promise<number> {
       force: { type: "boolean", default: false },
       "breakpoint-group": { type: "string" },
       breakpoints: { type: "string" },
+      importer: { type: "string" },
     },
     allowPositionals: true,
   });
@@ -218,8 +220,10 @@ async function cmdImport(argv: string[]): Promise<number> {
   }
 
   try {
+    const importer = values.importer ? await loadImporter(values.importer) : undefined;
     const result = runImport({
       input,
+      importer,
       out: values.out,
       rawOnly: Boolean(values["raw-only"]),
       force: Boolean(values.force),
@@ -227,7 +231,8 @@ async function cmdImport(argv: string[]): Promise<number> {
       breakpoints: values.breakpoints ? parseBreakpointsFlag(values.breakpoints) : undefined,
     });
     const { report } = result;
-    process.stdout.write(`Imported ${result.inputFile} (${report.mapped} of ${report.tokens} tokens)\n`);
+    const using = importer ? ` with the "${importer.name}" importer` : "";
+    process.stdout.write(`Imported ${result.inputFile}${using} (${report.mapped} of ${report.tokens} tokens)\n`);
     process.stdout.write(`  raw    → ${result.rawFile}\n`);
     if (result.configFile) process.stdout.write(`  config → ${result.configFile}\n`);
     for (const line of importReportLines(result.raw, report)) process.stdout.write(`${line}\n`);

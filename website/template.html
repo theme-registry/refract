@@ -1639,6 +1639,35 @@ report.unmapped;   <span class="c">// [{ path: "dimension.350", reason: "no plac
             </table>
           </div>
 
+          <h3>Custom importers</h3>
+          <p>The placement rules above are the default importer, <code>dtcgImporter</code>. To change one rule, write an importer with <code>defineImporter</code>: each hook you leave out comes from the importer you extend, and each hook you write gets that importer's hook as <code>next</code>, so it handles its case and hands the rest back.</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">tokens.importer.ts</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="k">import</span> { defineImporter } <span class="k">from</span> <span class="s">"@theme-registry/refract/dtcg"</span>;
+
+<span class="k">export default</span> <span class="n">defineImporter</span>({
+  name: <span class="s">"scale-is-spacing"</span>,
+  version: <span class="n">1</span>,
+  <span class="n">place</span>(token, ctx, next) {
+    <span class="k">if</span> (token.path[<span class="n">0</span>] === <span class="s">"scale"</span>) <span class="k">return</span> { kind: <span class="s">"token"</span>, subsystem: <span class="s">"layout"</span>, property: <span class="s">"spacing"</span>, member: token.path.<span class="n">at</span>(-<span class="n">1</span>) };
+    <span class="k">return</span> <span class="n">next</span>(token);
+  },
+});</pre>
+          </div>
+          <p>Run it with <code>refract import tokens.json --importer ./tokens.importer.ts</code> or <code>importDTCG(doc, { importer })</code>. The engine, not the hooks, collects members, picks bases and writes the report, so a token no hook places still appears in <code>unmapped</code>.</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>Hook</th><th>Receives</th><th>Returns</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">parse</td><td>The DTCG document</td><td>The token graph</td></tr>
+                <tr><td class="prop">place</td><td>A graph token</td><td>A placement (<code>token</code>, <code>external</code>, <code>breakpoint</code>, <code>recipe</code>) or <code>{ skip: reason }</code></td></tr>
+                <tr><td class="prop">value</td><td>The token and its placement</td><td>The raw value, or <code>{ skip: reason }</code></td></tr>
+                <tr><td class="prop">finalize</td><td><code>{ raw, report }</code></td><td><code>{ raw, report }</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Hooks read <code>ctx.placed(id)</code> (where a token landed; composite tokens are read last, so it is final), add members elsewhere with <code>ctx.add</code> and notes with <code>ctx.note</code>. An importer pins <code>version: 1</code>; another version throws <code>REFRACT_E_IMPORTER</code>.</p>
+
           <h3>Reading DTCG 2025.10</h3>
           <p>Every import starts by parsing the document into a <b>token graph</b>: one typed token per DTCG token, with its value in a canonical shape and its aliases kept as edges rather than flattened. A 2024-draft document (<code>"#4c6ef5"</code>, <code>"16px"</code>) parses into the same shapes, so both versions import the same way. <code>parseDTCGGraph</code> returns the graph if you want to inspect a document before importing it.</p>
           <div class="tbl-wrap">
@@ -4698,14 +4727,14 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="note"><b>What the lineage proves — and doesn't.</b> The <b>design</b> (author → override → runtime-or-prebuilt, foundations included) is battle-tested across real multi-brand estates: a flagship + ~130 regional sites on one shared infrastructure; a multi-brand media group with per-brand child overrides side by side; a pan-European NGO federation, override-per-member at federation scale; and a multi-identity civic institution, distinct identities on one platform without forking. <b>The idea has the better part of a decade of production behind it; the published package is new</b> — a clean, standardized rewrite that earns its own miles. Client names are withheld — the credibility is in the shapes, not the logos.</div>
 
           <h3>Tested &amp; gated</h3>
-          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">803</b> tests across <b data-q="testfiles">69</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">819</b> tests across <b data-q="testfiles">70</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
               <tbody>
                 <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
                 <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
-                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">803</b>-case suite</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">819</b>-case suite</td></tr>
                 <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
                 <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
               </tbody>
@@ -4721,7 +4750,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
                 <tr data-pkg="@theme-registry/refract"><td class="prop">@theme-registry/refract <span class="st-sub">runtime core</span></td><td><b>≤&nbsp;30&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-css"><td class="prop">@theme-registry/refract-css</td><td><b>≤&nbsp;9&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-styled-components"><td class="prop">@theme-registry/refract-styled-components</td><td><b>≤&nbsp;6.5&nbsp;KB</b></td></tr>
-                <tr data-pkg="@theme-registry/refract/dtcg"><td class="prop">@theme-registry/refract/dtcg <span class="st-sub">interop subpath</span></td><td><b>≤&nbsp;9&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract/dtcg"><td class="prop">@theme-registry/refract/dtcg <span class="st-sub">interop subpath</span></td><td><b>≤&nbsp;10&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-scss"><td class="prop">@theme-registry/refract-scss</td><td><b>≤&nbsp;4&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-json"><td class="prop">@theme-registry/refract-json</td><td><b>≤&nbsp;3&nbsp;KB</b></td></tr>
               </tbody>
