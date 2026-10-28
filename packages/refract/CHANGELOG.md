@@ -1,5 +1,47 @@
 # @theme-registry/refract
 
+## 0.1.19
+
+### Patch Changes
+
+- 39752bd: Read DTCG 2025.10 documents on import.
+
+  **2025.10 values are now understood.** Colour objects (`{ colorSpace, components, alpha?, hex? }`), `{ value, unit }` dimensions and durations, and font-weight names used to reach `fromDTCG` as objects and land in the raw theme as `"[object Object]"`. On a real Figma export most such values came out this way. They now parse into canonical shapes; 2024-draft strings parse into the same shapes, so both versions import the same way. `srgb`, `srgb-linear`, `hsl`, `hwb`, `oklab` and `oklch` convert natively; other colour spaces are read through their `hex` fallback.
+
+  **`$root`, `$ref`, `$extends`, `$deprecated`.** A group's `$root` token was skipped, leaving every `{group.$root}` alias unresolved; it is now read as the group's `base`. JSON Pointer `$ref`s resolve (including into part of another value), `$extends` groups are deep-merged, and `$deprecated` and every tool's `$extensions` are kept.
+
+  **New: `parseDTCGGraph(doc)`** on `@theme-registry/refract/dtcg` returns the parsed document as a token graph: typed tokens with canonical values, alias edges kept rather than flattened, and a diagnostic for anything the spec doesn't allow, where the old walker fell back silently (an untyped token used to be read as a colour). `parseDTCGDocument` is now a view over the graph. A `#/…` pointer to nothing is an error rather than an external alias.
+
+  Mapping groups onto subsystems is unchanged, including its known limits (colour-name collisions, shadows that don't build). The `./dtcg` size budget rises from 4.5 KB to 7.5 KB gzip for the parser.
+
+- 1bcf6a5: Import places each DTCG token on its own, reports what it did, and no longer invents colours.
+
+  **Colours keep their groups.** A colour's group path is now its property and its name the variant (`panel.alert.danger.hover` → `colors.panel-alert-danger.hover`), so tokens no longer overwrite each other because they share a second path segment: `border.primary`, `brand.primary` and `panel.main` used to collapse into one property. A group with no `$root` or `base` member takes its `default` member as base, else its first member in name order.
+
+  **New colour option `tones: false`.** It turns off the generated tones (the named `light`/`lighter`/`dark`/`darker` set and `steps`), leaving only the base and the variants you write. Every imported colour sets it, so an imported palette comes out exactly as designed, with no colours nobody chose.
+
+  **Tokens are placed one by one.** `$type` decides first, then the words in the token's path: radius → `borders.radius`, padding and gap → `layout.spacing`, font size → `typography.fontSize`, blur → `effects.blur`, and so on. A group mixing colours and dimensions is split rather than sent whole to one subsystem. Lengths keep their unit (`1.5rem` stays `"1.5rem"` instead of becoming `24`).
+
+  **Shadows build.** They are imported as structured layers whose colour is the imported colour they alias. Before, they were written as CSS strings, which `effects.shadow` rejects.
+
+  **Text styles become typography recipes**, one class per DTCG `typography` token, instead of anonymous per-property variants.
+
+  **New: `importDTCG(doc) → { raw, report }`.** The report lists where every token landed, every token left out and why, every base that had to be chosen, renames and parse diagnostics; `refract import` prints it. `fromDTCG` returns the same raw theme. The `./dtcg` size budget rises to 9 KB gzip.
+
+- 8a76d77: Importers are pluggable: change one placement rule without forking the rest.
+
+  **New: `defineImporter({ name, version, extends?, parse?, place?, value?, finalize? })`.** Each hook you leave out comes from the importer you extend (default `dtcgImporter`, the rules `refract import` has always used); each hook you write receives that importer's hook as `next`, so it handles its own case and hands the rest back. Pass the result as `importDTCG(doc, { importer })` or `fromDTCG(doc, { importer })`.
+
+  **New: `refract import tokens.json --importer <dtcg | ./path/to/importer.ts>`.** A path loads a `.ts`/`.mjs`/`.js` module whose default export is an importer. The generated `theme.raw.ts` now says which importer produced it.
+
+  **The report stays complete whatever the hooks do.** The engine, not the hooks, collects members, picks bases, renames collisions and writes the report: a token no hook places, or whose value comes back empty, is listed in `unmapped`. Composite tokens (shadow, typography, border, transition) are read after every other token, so `ctx.placed(id)` returns final paths.
+
+  **Experimental.** The importer contract may change in a patch release while it settles; a breaking change bumps `IMPORTER_CONTRACT_VERSION`. DTCG import with the default importer stays Stable. The full reference is in `docs/extending.md` ("Writing an importer") and on the site's DTCG page.
+
+  **Versioned like adapters.** An importer pins `version` (`IMPORTER_CONTRACT_VERSION`, now `1`); one written against another version throws the new `REFRACT_E_IMPORTER`.
+
+  The default importer's output is unchanged; `report.bases` is now listed in property order. The `./dtcg` size budget rises to 10 KB gzip.
+
 ## 0.1.18
 
 ### Patch Changes
