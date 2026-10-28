@@ -20,9 +20,10 @@ refract import tokens.json --out theme.raw.ts --breakpoints sm:576,md:768,lg:992
 
 Turns a DTCG document into a `createTheme` raw input (and, unless `--raw-only`, a starter
 `theme.config`). Flags: `--out <file>`, `--raw-only`, `--force`, `--breakpoint-group <name>`,
-`--breakpoints <n:px,…>` (DTCG has no breakpoint concept, so supply them). After importing, the
-palettes/scales are plain tokens — layer refract's synthesis (`steps`, `ratio`), recipes, and
-composition on top by hand.
+`--breakpoints <n:px,…>` (DTCG has no breakpoint concept, so supply them). It prints a report:
+counts per subsystem, chosen bases, renames and unmapped tokens with reasons. After importing, the
+palettes/scales are plain tokens — to layer refract's synthesis on a colour (`steps`, named tones),
+remove its `tones: false` first; then add recipes and composition by hand.
 
 ### What import reads (DTCG 2025.10 and the 2024 draft)
 
@@ -45,19 +46,32 @@ Nothing is guessed: check `parseDTCGGraph(doc).diagnostics` before trusting an i
 `dimension-unit`, `alias-unresolved`, `extends-unresolved`. A circular alias or `$extends` throws
 `REFRACT_E_CYCLE`.
 
-### Known limits — tell the user
+### Where tokens land
 
-The parse is complete, but **mapping to subsystems is still heuristic** (by `$type` and group name):
+`refract import` (and `importDTCG(doc)` → `{ raw, report }`) places each token on its own:
 
-- Colour properties are keyed by the **second path segment**, so `border.primary`, `brand.primary`
-  and `panel.main` collide and overwrite each other.
-- Groups the heuristic can't place are **dropped without a warning**; mixed groups (e.g. an
-  `elevation` group with a colour `$root` and dimension children) land in one subsystem.
-- **Shadows don't build yet**: the import writes a CSS string, which `effects.shadow` rejects. Remove
-  or hand-author shadows in the generated `theme.raw.ts`.
-- Aliases are kept in the graph, but the generated raw theme still holds **resolved literals**.
+| Token | Lands in |
+| --- | --- |
+| `color` | `colors["<group path>"]`, token name = variant, `$root` = base, minus a leading `color` group. `panel.alert.danger.hover` → `colors.panel-alert-danger.hover`. Always `tones: false`. |
+| `dimension` | By path keyword: radius → `borders.radius`; border-width → `borders.width`; font size / line height / letter spacing → `typography`; blur → `effects.blur`; gutter → `layout.gutters`; padding / gap / spacing → `layout.spacing`; size / width / height → `layout.sizes`. |
+| `shadow` | `effects.shadow.<name>` as structured layers; each layer's `color` is the `colors.*` path of the colour it aliases (a literal gets its own `colors.shadow-<name>`). |
+| `typography` | A typography **recipe** per text style (`typography.recipes.text.heading-h1` → class `…-typography-text-heading-h1`), its fields naming per-style typography variants. |
+| `fontFamily` / `fontWeight` / `duration` / `cubicBezier` / `strokeStyle` / `transition` / `border` | The matching `typography`, `animation`, `borders` or `effects` property. |
 
-So after `refract import`, diff the token count against the source document and review the raw theme.
+Rules worth knowing when you review the result:
+
+- A property with no `$root`/`base` member takes `default` as base, else the **first member in name
+  order** (`005` before `100`) — listed in `report.bases`. Tell the user which bases were chosen.
+- Names keep their case; spaces and punctuation become `-` (`Slate Blue 4` → `Slate-Blue-4`). A member
+  that would overwrite another gets `-2` (`report.renamed`).
+- Lengths keep their unit: `px` → number, `1.5rem` stays `"1.5rem"` (no assumed 16px root).
+- Values are **resolved literals** — aliases are kept in the graph, not yet in the raw theme.
+- Tokens it can't place are in `report.unmapped` with a reason. A primitive that's only used inside
+  another token (a `dimension.100` a padding token aliases) says "used by …, which carries its value".
+- `groupMapping: { <top-level group>: subsystem | "ignore" }` overrides placement for a whole group.
+
+After importing, read the printed report with the user: chosen bases and unmapped tokens are the
+places a human decision may be needed.
 
 ## Export — emit standard tokens
 
@@ -98,13 +112,16 @@ An `external` token (a passthrough to a **parent-owned** var) is kept out of the
 surface (a `var(--…)` colour can't be re-imported) — it round-trips via the extension above. Going
 the other way, a DTCG **alias** `"{group.token}"` whose target is **absent** from the document is
 treated as genuinely external and imported as a refract `external` token (`{color.brand}` →
-`{ external: "colors.brand" }`); a **resolvable** same-document alias flattens to its literal as before.
+`{ external: "colors.brand" }`, named by the same colour rules as an import of the parent); a
+**resolvable** same-document alias flattens to its literal as before.
 
 ## Programmatic API
 
 The same conversions are on the `@theme-registry/refract/dtcg` subpath:
 
-- `fromDTCG(doc, opts?)` → a raw theme input.
+- `importDTCG(doc, opts?)` → `{ raw, report }` — the raw theme plus `placements`, `unmapped` (with
+  reasons), `bases`, `renamed`, `notes`, `diagnostics`.
+- `fromDTCG(doc, opts?)` → a raw theme input (`importDTCG(doc).raw`).
 - `toDTCG(theme, opts?)` → a DTCG document (`opts.includeRecipes` adds the round-trip extension).
 - `fromDTCGTheme(doc, { adapter, ... })` → a built `Theme` with recipes restored (lossless round-trip).
 - `readRefractExtension(doc)` → the `com.theme-registry.refract` payload, or `undefined`.

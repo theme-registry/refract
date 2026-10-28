@@ -155,7 +155,11 @@ brand:   { base: "#4c6ef5", lightenBy: 12, darkenBy: 15 },          // tune the 
 accent:  { base: "#e64980", steps: [100,200,300,400,500,600,700,800,900] }, // absolute-L ladder: L = (1000 − label)/10
 neutral: { base: "#868e96", variants: { hover: { adjust: { l: 45, c: 0.8 } } } }, // one-shot OKLCH placement
 danger:  { base: "#e03131", harmony: "complement" },               // auto hue-rotated relatives
+imported: { base: "#24348f", tones: false, variants: { hover: "#2f44a8" } }, // no generated tones at all
 ```
+
+`tones: false` turns off both the named set and `steps`, so the property carries only its base and
+the variants you write. A DTCG import sets it, so an imported palette comes out exactly as designed.
 
 Numeric `steps` are an **absolute-lightness ladder** — each label sits at `L = (1000 − label)/10`
 (`500`→L50, `900`→L10), so the same label reads at the same lightness in every palette (the exact
@@ -727,7 +731,7 @@ independent of any adapter:
 ```ts
 import { fromDTCG, toDTCG } from "@theme-registry/refract/dtcg";
 
-const raw = fromDTCG(designTokensJson);   // DTCG document → createTheme raw input
+const raw = fromDTCG(designTokensJson);   // DTCG document → createTheme raw input (importDTCG adds a report)
 const doc = toDTCG(createTheme(raw, { adapter: createCssAdapter() })); // theme.tokens → DTCG document
 ```
 
@@ -748,9 +752,27 @@ with canonical values; 2024 strings (`"#4c6ef5"`, `"16px"`) parse into the same 
 - `$extends` (deep merge), `$deprecated`, and every tool's `$extensions`, kept untouched.
 
 Nothing is guessed: a value the spec doesn't allow becomes a diagnostic on `graph.diagnostics`, and a
-circular alias or `$extends` throws `REFRACT_E_CYCLE`. Mapping groups onto subsystems is unchanged
-(by `$type` and group name), so colour names keyed by their second path segment can collide, and
-imported shadows don't yet build. Review an imported theme before relying on it.
+circular alias or `$extends` throws `REFRACT_E_CYCLE`.
+
+**Where tokens land.** `importDTCG(doc)` returns `{ raw, report }` (`fromDTCG` is its `raw` half).
+Each token is placed on its own, by `$type` and then by the words in its path:
+
+- **colours** keep their grouping: the group path is the property (minus a leading `color` group),
+  the token name the variant, `$root` the base — `panel.alert.danger.hover` →
+  `colors.panel-alert-danger.hover`. Imported colours set `tones: false`;
+- **dimensions** by keyword: radius → `borders.radius`, border-width → `borders.width`, font size /
+  line height / letter spacing → `typography`, blur → `effects.blur`, gutter → `layout.gutters`,
+  padding / gap / spacing → `layout.spacing`, size / width / height → `layout.sizes`;
+- **shadows** → `effects.shadow` as structured layers whose colour is the imported colour they alias;
+- **text styles** (`typography` tokens) → one typography recipe each, so each style is a class.
+
+A property with no `$root` or `base` member takes its `default` member as base, else its first in name
+order. Names keep their case; spaces become `-`. Lengths keep their unit (`px` → a number, `1.5rem`
+stays `"1.5rem"`). Values are resolved literals: aliases aren't kept in the raw theme yet.
+
+The report lists `placements` (token → where it landed), `unmapped` (with a reason; a primitive used
+only inside another token says so), `bases` that had to be chosen, `renamed` members and the parse
+`diagnostics`. `refract import` prints it.
 
 **Recipe round-trip (opt-in).** DTCG has no component model, so recipes are out of standard scope.
 For a lossless `refract → DTCG → refract` trip, `toDTCG(theme, { includeRecipes: true })` stashes the

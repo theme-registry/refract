@@ -47,6 +47,10 @@ unnumbered `colors.<name>` token — a rung is never aliased to it, and `lighten
 With **no** `steps`, refract auto-generates the named tonal set `light` / `lighter` / `dark` /
 `darker`, each compounding `lightenBy` / `darkenBy` (default `10`) as OKLCH ΔL points.
 
+`tones: false` generates **no** tones (neither set): only the base and the variants you write. Use
+it for a palette taken as-is from a design tool; `refract import` sets it on every imported colour,
+so don't tell the user their imported palette has `light`/`dark` variants.
+
 ## Variants — derivation specs
 
 Beyond literals, a variant can be a **derivation spec** — a `modifiers` **chain** of single-key

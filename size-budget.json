@@ -5,7 +5,7 @@
   },
   "@theme-registry/refract/dtcg": {
     "files": ["packages/refract/dist/dtcg.esm.js"],
-    "maxGzip": 7680
+    "maxGzip": 9216
   },
   "@theme-registry/refract-css": {
     "files": ["packages/refract-css/dist/index.esm.js"],

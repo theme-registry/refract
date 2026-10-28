@@ -57,10 +57,10 @@ describe("dtcg — fromDTCG → createTheme", () => {
     // Raw shape (unchanged authoring shape) — nested subsystem slices.
     expect(raw.colors).toBeTruthy();
     expect(raw.breakpoints).toEqual({ md: 768, lg: 1024 });
-    // rem → px (16px base) in the layout mapping.
+    // px → a number; other units keep their unit (no assumed 16px root).
     const spacing = (raw.layout as any).spacing;
     expect(spacing.base).toBe(16);
-    expect(spacing.variants.lg).toBe(24);
+    expect(spacing.variants.lg).toBe("1.5rem");
 
     // Feeds createTheme (adapter required) and yields flat tokens.
     const theme = createTheme(raw, { adapter: adapter() });
@@ -130,7 +130,7 @@ describe("dtcg — round-trip (property tokens)", () => {
     // Dimension groups survive the round-trip byte-for-value (px normalized).
     expect((out.spacing as any).base).toEqual({ $value: "16px" });
     expect((out.spacing as any).sm).toEqual({ $value: "8px" });
-    expect((out.spacing as any).lg).toEqual({ $value: "24px" }); // 1.5rem → 24px
+    expect((out.spacing as any).lg).toEqual({ $value: "1.5rem" }); // the authored unit survives
     expect((out.radius as any).base).toEqual({ $value: "6px" });
     expect((out.radius as any).lg).toEqual({ $value: "12px" });
     expect((out.breakpoint as any).md).toEqual({ $value: "768px" });
@@ -153,6 +153,6 @@ describe("dtcg — external aliases (dec.6 / §12 Phase 2)", () => {
       color: { $type: "color", brand: { $value: "#4c6ef5" }, surface: { $value: "{color.brand}" } },
     } as unknown as DTCGDocument;
     const raw = fromDTCG(doc) as any;
-    expect(raw.colors.surface).toEqual({ base: "#4c6ef5" }); // resolved in-doc → literal, no external
+    expect(raw.colors.surface).toEqual({ base: "#4c6ef5", tones: false }); // resolved in-doc → literal, no external
   });
 });

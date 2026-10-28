@@ -14,7 +14,7 @@
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { runBuild } from "./buildCommand";
-import { runImport, parseBreakpointsFlag } from "./importCommand";
+import { runImport, parseBreakpointsFlag, importReportLines } from "./importCommand";
 import { runInit, type ConfigVariant } from "./init";
 import {
   AGENT_TARGETS,
@@ -226,12 +226,12 @@ async function cmdImport(argv: string[]): Promise<number> {
       breakpointGroup: values["breakpoint-group"],
       breakpoints: values.breakpoints ? parseBreakpointsFlag(values.breakpoints) : undefined,
     });
-    process.stdout.write(`Imported ${result.inputFile}\n`);
+    const { report } = result;
+    process.stdout.write(`Imported ${result.inputFile} (${report.mapped} of ${report.tokens} tokens)\n`);
     process.stdout.write(`  raw    → ${result.rawFile}\n`);
     if (result.configFile) process.stdout.write(`  config → ${result.configFile}\n`);
-    const seeded = Object.entries(result.counts).map(([k, n]) => `${k} (${n})`).join(", ");
-    if (seeded) process.stdout.write(`  seeded: ${seeded}\n`);
-    process.stdout.write(`Next: review the inferred tokens, then add recipes/components and run \`refract build\`.\n`);
+    for (const line of importReportLines(result.raw, report)) process.stdout.write(`${line}\n`);
+    process.stdout.write(`Next: review the imported tokens, then add recipes/components and run \`refract build\`.\n`);
     return 0;
   } catch (err) {
     return reportError("import", err);

@@ -220,7 +220,8 @@ The `./dtcg` subpath reads/writes the W3C Design Token Community Group `tokens.j
 format, so a theme round-trips through Figma / Style Dictionary / other DTCG tooling.
 It is data-interchange, **not** an output adapter — property tokens only. Import reads
 DTCG **2025.10** (colour objects, `{ value, unit }` dimensions, `$root`, `$ref`, `$extends`) as well
-as the older 2024 draft; `parseDTCGGraph(doc)` shows the parsed tokens and any diagnostics.
+as the older 2024 draft; `parseDTCGGraph(doc)` shows the parsed tokens and any diagnostics, and
+`importDTCG(doc)` returns the raw theme with a report of where every token landed.
 
 ```ts
 import { fromDTCG, toDTCG } from "@theme-registry/refract/dtcg";
@@ -235,7 +236,7 @@ const doc   = toDTCG(theme);                     // built theme's tokens → DTC
 | --- | --- |
 | `@theme-registry/refract` | `createTheme`, `createCssAdapter`, `createStyledComponentsAdapter`, `defineAdapter`, the Model/adapter types, subsystem descriptors |
 | `…/css` · `…/styled-components` · `…/json` · `…/scss` | each adapter's factory + types, as its own bundle |
-| `…/dtcg` | `fromDTCG` / `toDTCG` / `parseDTCGGraph` / `parseDTCGDocument` (pure, no runtime adapter graph) |
+| `…/dtcg` | `importDTCG` / `fromDTCG` / `toDTCG` / `parseDTCGGraph` / `parseDTCGDocument` (pure, no runtime adapter graph) |
 | `…/build` | `defineConfig`, `emitTheme`, the `RawTheme` authoring types, the `Emit` vocabulary (Node-only) |
 
 ## Documentation

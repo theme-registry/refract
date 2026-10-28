@@ -203,14 +203,8 @@ describe("parseDTCGDocument — the 2024 string view fromDTCG maps from", () => 
   });
 
   it("fromDTCG on a 2025.10 document produces no [object Object] and builds", () => {
-    expect(JSON.stringify(fromDTCG(fixture))).not.toContain("[object Object]");
-    // Shadows are left out of the build: see the todo below.
-    const { shadow: _shadow, ...noShadows } = fixture as Record<string, unknown>;
-    const raw = fromDTCG(noShadows as DTCGDocument);
+    const raw = fromDTCG(fixture);
+    expect(JSON.stringify(raw)).not.toContain("[object Object]");
     expect(() => createTheme(raw, { adapter: createNoopAdapter() })).not.toThrow();
   });
-
-  // fromDTCG still maps a shadow to a CSS string, which effects has rejected since shadows became
-  // structured (colour = a `colors.*` path). Needs the importer's naming map: Step B.
-  it.todo("fromDTCG maps shadow tokens to structured layers that build");
 });
