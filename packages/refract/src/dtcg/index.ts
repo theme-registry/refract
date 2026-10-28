@@ -5,7 +5,9 @@
  *
  *  - `fromDTCG(doc, opts?) -> raw` — a DTCG document → a `createTheme` raw input.
  *  - `toDTCG(theme, opts?) -> doc` — a built theme's flat `theme.tokens` → a DTCG document.
- *  - `parseDTCGDocument(doc)` — the low-level walker (resolves `{ref}` chains → resolved tokens).
+ *  - `parseDTCGGraph(doc)` — the token graph: DTCG 2025.10 (or 2024-draft) tokens with canonical
+ *    values, alias edges, `$root`, resolved `$extends` / `$ref`, preserved `$extensions`, diagnostics.
+ *  - `parseDTCGDocument(doc)` — the flat 2024-string view of the graph that `fromDTCG` maps from.
  *  - `fromDTCGTheme(doc, { adapter })` — the lossless `refract → DTCG → refract` round-trip entry.
  *
  * Model-first: `toDTCG` walks the flat `theme.tokens` map + `theme.resolveToken` + the Model's
@@ -16,6 +18,8 @@
  * `ThemeAdapter` contract.
  */
 export * from "./types";
+export { parseDTCGGraph } from "./graph";
+export type { DTCGTokenGraph, DTCGGraphToken, DTCGDiagnostic, DTCGDiagnosticCode } from "./graph";
 export * from "./parse";
 export * from "./import";
 export * from "./export";

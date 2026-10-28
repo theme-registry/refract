@@ -1589,7 +1589,7 @@ document.head.<span class="n">append</span>(Object.<span class="n">assign</span>
         <section class="doc-section" id="dtcg">
           <div class="eyebrow">Delivery <b>/ DTCG interop</b></div>
           <h2>DTCG interop</h2>
-          <p class="lead"><b>DTCG</b> — the <a href="https://www.designtokens.org/" target="_blank" rel="noopener">Design Tokens Community Group</a> format — is the standard interchange for design tokens; Figma, Style Dictionary and the wider token ecosystem speak it. refract speaks it <b>both ways</b>. It is <b>not an adapter</b>: it's a small, format-neutral interop boundary at the <code>@theme-registry/refract/dtcg</code> subpath, so a Node / build script can use it without pulling the runtime graph.</p>
+          <p class="lead"><b>DTCG</b> — the <a href="https://www.designtokens.org/" target="_blank" rel="noopener">Design Tokens Community Group</a> format — is the standard interchange for design tokens; Figma, Style Dictionary and the wider token ecosystem speak it. refract speaks it <b>both ways</b>, and reads <b>DTCG 2025.10</b>, the first stable release, as well as the older 2024 draft. It is <b>not an adapter</b>: it's a small, format-neutral interop boundary at the <code>@theme-registry/refract/dtcg</code> subpath, so a Node / build script can use it without pulling the runtime graph.</p>
           <div class="note"><b>Export carries property tokens only.</b> DTCG has no component/recipe model, so <b>recipes and composition don't round-trip</b> through a standard DTCG document — <code>toDTCG</code> emits your colour, type, spacing and other property tokens (synthesized steps included), not your rule-sets. Tokens survive a trip through any DTCG tool; recipes are refract-specific and stay in the <code>RawTheme</code>.</div>
           <div class="tbl-wrap">
             <table class="doc-table">
@@ -1597,7 +1597,8 @@ document.head.<span class="n">append</span>(Object.<span class="n">assign</span>
               <tbody>
                 <tr><td class="prop">Import</td><td class="ty">fromDTCG(doc)</td><td>A transform <b>into</b> a <code>RawTheme</code> — you then call <code>createTheme</code>.</td></tr>
                 <tr><td class="prop">Export</td><td class="ty">toDTCG(theme)</td><td>A built theme's property tokens <b>out</b> as a DTCG document (also the <code>refract tokens</code> CLI).</td></tr>
-                <tr><td class="prop">Resolve</td><td class="ty">parseDTCGDocument(doc)</td><td>Flatten a DTCG doc, resolving its <code>{ ref }</code> chains → resolved tokens.</td></tr>
+                <tr><td class="prop">Parse</td><td class="ty">parseDTCGGraph(doc)</td><td>A DTCG doc as a typed <b>token graph</b>: canonical values, alias edges kept, <code>$extensions</code> preserved, and a diagnostic for anything it can't read.</td></tr>
+                <tr><td class="prop">Resolve</td><td class="ty">parseDTCGDocument(doc)</td><td>The graph flattened to resolved tokens with string values — the view <code>fromDTCG</code> maps from.</td></tr>
               </tbody>
             </table>
           </div>
@@ -1623,6 +1624,25 @@ document.head.<span class="n">append</span>(Object.<span class="n">assign</span>
               </tbody>
             </table>
           </div>
+
+          <h3>Reading DTCG 2025.10</h3>
+          <p>Every import starts by parsing the document into a <b>token graph</b>: one typed token per DTCG token, with its value in a canonical shape and its aliases kept as edges rather than flattened. A 2024-draft document (<code>"#4c6ef5"</code>, <code>"16px"</code>) parses into the same shapes, so both versions import the same way. <code>parseDTCGGraph</code> returns the graph if you want to inspect a document before importing it.</p>
+          <div class="tbl-wrap">
+            <table class="doc-table">
+              <thead><tr><th>2025.10 feature</th><th>How refract reads it</th></tr></thead>
+              <tbody>
+                <tr><td class="prop">Colour objects</td><td><code>{ colorSpace, components, alpha?, hex? }</code>. <code>srgb</code>, <code>srgb-linear</code>, <code>hsl</code>, <code>hwb</code>, <code>oklab</code> and <code>oklch</code> convert natively. Other spaces (<code>display-p3</code>, <code>lab</code>, <code>rec2020</code>…) are read through their <code>hex</code> fallback, and are an error without one.</td></tr>
+                <tr><td class="prop">Dimension · duration</td><td><code>{ value, unit }</code> with <code>px</code>/<code>rem</code> and <code>ms</code>/<code>s</code>. Another unit is kept, with a warning.</td></tr>
+                <tr><td class="prop">Font weight</td><td>A number from 1 to 1000, or a spec name (<code>regular</code>, <code>bold</code>, <code>extra-black</code>…) read as its number.</td></tr>
+                <tr><td class="prop">$root</td><td>A group's own token, referenced as <code>{group.$root}</code>. <code>fromDTCG</code> reads it as the group's <code>base</code>.</td></tr>
+                <tr><td class="prop">Aliases · $ref</td><td><code>{a.b}</code> and JSON Pointer <code>$ref</code>, including a pointer into part of another value (one shadow layer's colour). An untyped alias takes its target's type. A curly alias to a token outside the document stays an <code>external</code> reference.</td></tr>
+                <tr><td class="prop">$extends</td><td>The group inherits the target group's tokens, deep-merged, with its own on top.</td></tr>
+                <tr><td class="prop">$deprecated · $extensions</td><td>Carried on each token (a group's <code>$deprecated</code> applies to its tokens); extensions from any tool are kept untouched.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><b>Nothing is guessed.</b> A token with no <code>$type</code> anywhere, a font weight of 1200, a dimension with no unit or a colour refract can't convert becomes a <b>diagnostic</b> on the graph instead of a silent fallback. A circular alias or <code>$extends</code> throws <code>REFRACT_E_CYCLE</code>.</p>
+          <div class="note"><b>Mapping to subsystems is unchanged.</b> The graph reads a 2025.10 document completely, but <code>fromDTCG</code> still maps groups to subsystems by <code>$type</code> and name. Colour names are keyed by their second path segment, so <code>border.primary</code> and <code>brand.primary</code> can collide, and imported shadows don't yet build. Review an imported <code>theme.raw.ts</code> before relying on it. A pluggable importer, with a preset for Figma exports, is planned.</div>
 
           <h3>Export — Theme → DTCG</h3>
           <p><code>toDTCG</code> walks the flat <code>theme.tokens</code> map, resolves each path to a concrete literal (following aliases and running <code>lighten</code>/<code>darken</code>), and re-groups into DTCG. <b>Property tokens only</b> — recipes and composition are out of standard scope; colours emit as <b>hex</b> (the DTCG convention); synthesized tonal steps are included.</p>
@@ -4663,14 +4683,14 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="note"><b>What the lineage proves — and doesn't.</b> The <b>design</b> (author → override → runtime-or-prebuilt, foundations included) is battle-tested across real multi-brand estates: a flagship + ~130 regional sites on one shared infrastructure; a multi-brand media group with per-brand child overrides side by side; a pan-European NGO federation, override-per-member at federation scale; and a multi-identity civic institution, distinct identities on one platform without forking. <b>The idea has the better part of a decade of production behind it; the published package is new</b> — a clean, standardized rewrite that earns its own miles. Client names are withheld — the credibility is in the shapes, not the logos.</div>
 
           <h3>Tested &amp; gated</h3>
-          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">760</b> tests across <b data-q="testfiles">66</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">778</b> tests across <b data-q="testfiles">67</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
               <tbody>
                 <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
                 <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
-                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">760</b>-case suite</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">778</b>-case suite</td></tr>
                 <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
                 <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
               </tbody>
@@ -4686,7 +4706,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
                 <tr data-pkg="@theme-registry/refract"><td class="prop">@theme-registry/refract <span class="st-sub">runtime core</span></td><td><b>≤&nbsp;30&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-css"><td class="prop">@theme-registry/refract-css</td><td><b>≤&nbsp;9&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-styled-components"><td class="prop">@theme-registry/refract-styled-components</td><td><b>≤&nbsp;6.5&nbsp;KB</b></td></tr>
-                <tr data-pkg="@theme-registry/refract/dtcg"><td class="prop">@theme-registry/refract/dtcg <span class="st-sub">interop subpath</span></td><td><b>≤&nbsp;4.5&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract/dtcg"><td class="prop">@theme-registry/refract/dtcg <span class="st-sub">interop subpath</span></td><td><b>≤&nbsp;7.5&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-scss"><td class="prop">@theme-registry/refract-scss</td><td><b>≤&nbsp;4&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-json"><td class="prop">@theme-registry/refract-json</td><td><b>≤&nbsp;3&nbsp;KB</b></td></tr>
               </tbody>

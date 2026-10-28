@@ -1,0 +1,113 @@
+{
+  "$description": "Synthetic DTCG 2025.10 fixture: colour objects in several spaces, dimension/duration objects, $root, aliases (whole and inside composites), JSON Pointer $ref, $extends, $deprecated and $extensions.",
+  "$extensions": { "com.example.exporter": { "version": 1, "source": "synthetic" } },
+  "color": {
+    "$type": "color",
+    "palette": {
+      "blue": {
+        "100": { "$value": { "colorSpace": "srgb", "components": [0.8588, 0.8941, 1], "hex": "#dbe4ff" } },
+        "500": {
+          "$value": { "colorSpace": "srgb", "components": [0.298, 0.4314, 0.9608], "hex": "#4c6ef5" },
+          "$extensions": { "com.figma": { "collection": "primitives", "scopes": ["ALL_SCOPES"] } }
+        },
+        "900": { "$value": { "colorSpace": "oklch", "components": [0.35, 0.12, 265] } }
+      },
+      "grey": {
+        "Stone 6": { "$value": { "colorSpace": "hsl", "components": [220, 10, 40] } }
+      },
+      "wide": { "$value": { "colorSpace": "display-p3", "components": [0.3, 0.45, 0.95], "hex": "#4c6ef5" } },
+      "lost": { "$value": { "colorSpace": "rec2020", "components": [0.3, 0.45, 0.95] } }
+    }
+  },
+  "brand": {
+    "$type": "color",
+    "primary": {
+      "$root": { "$value": "{color.palette.blue.500}" },
+      "subtle": { "$value": "{color.palette.blue.100}" }
+    }
+  },
+  "surface": { "$value": "{color.palette.grey.Stone 6}" },
+  "elevation": {
+    "low": {
+      "$root": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.15, "hex": "#000000" }
+      },
+      "blur": { "$type": "dimension", "$value": { "value": 8, "unit": "px" } },
+      "y": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } }
+    }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "low": {
+      "$value": {
+        "color": "{elevation.low.$root}",
+        "offsetX": { "value": 0, "unit": "px" },
+        "offsetY": "{elevation.low.y}",
+        "blur": "{elevation.low.blur}",
+        "spread": { "value": 0, "unit": "px" }
+      }
+    },
+    "focus": {
+      "$value": [
+        { "color": "{brand.primary.$root}", "offsetX": { "value": 0, "unit": "px" }, "offsetY": { "value": 0, "unit": "px" }, "blur": { "value": 0, "unit": "px" }, "spread": { "value": 2, "unit": "px" } },
+        { "color": "{color.palette.blue.100}", "offsetX": { "value": 0, "unit": "px" }, "offsetY": { "value": 0, "unit": "px" }, "blur": { "value": 0, "unit": "px" }, "spread": { "value": 4, "unit": "px" }, "inset": true }
+      ]
+    }
+  },
+  "dimension": {
+    "$type": "dimension",
+    "100": { "$value": { "value": 4, "unit": "px" } },
+    "200": { "$value": { "value": 0.5, "unit": "rem" } }
+  },
+  "spacing": {
+    "$type": "dimension",
+    "inset": { "$value": { "$ref": "#/dimension/100" } }
+  },
+  "radius": {
+    "$type": "dimension",
+    "md": { "$value": { "$ref": "#/dimension/200/$value" } }
+  },
+  "focusColor": { "$type": "color", "$value": { "$ref": "#/shadow/low/$value/color" } },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "sans": { "$value": ["Inter", "sans-serif"] },
+      "body": { "$value": "{font.family.sans}" }
+    },
+    "weight": {
+      "$type": "fontWeight",
+      "regular": { "$value": "regular" },
+      "bold": { "$value": 700 }
+    }
+  },
+  "text": {
+    "$type": "typography",
+    "body": {
+      "$value": {
+        "fontFamily": "{font.family.body}",
+        "fontSize": { "value": 16, "unit": "px" },
+        "fontWeight": "{font.weight.regular}",
+        "letterSpacing": { "value": 0, "unit": "px" },
+        "lineHeight": 1.5
+      },
+      "$description": "Body copy"
+    }
+  },
+  "motion": {
+    "duration": { "$type": "duration", "fast": { "$value": { "value": 150, "unit": "ms" } } },
+    "ease": { "$type": "cubicBezier", "out": { "$value": [0, 0, 0.58, 1] } }
+  },
+  "theme": {
+    "base": {
+      "$type": "color",
+      "bg": { "$value": "{color.palette.blue.100}" },
+      "fg": { "$value": "{color.palette.blue.900}" }
+    },
+    "legacy": {
+      "$extends": "{theme.base}",
+      "$deprecated": "Use theme.base",
+      "bg": { "$value": "{color.palette.blue.900}" }
+    }
+  }
+}

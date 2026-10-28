@@ -734,6 +734,24 @@ const doc = toDTCG(createTheme(raw, { adapter: createCssAdapter() })); // theme.
 `refract tokens` is the CLI wrapper around `toDTCG` — it reads only the config's `raw`,
 so it needs no adapter.
 
+**DTCG 2025.10.** Import reads the first stable DTCG release (2025.10) as well as the older 2024
+draft. Every import starts with `parseDTCGGraph(doc)`, which turns the document into typed tokens
+with canonical values; 2024 strings (`"#4c6ef5"`, `"16px"`) parse into the same shapes:
+
+- colour objects `{ colorSpace, components, alpha?, hex? }`: `srgb`, `srgb-linear`, `hsl`, `hwb`,
+  `oklab` and `oklch` convert natively; other spaces are read through `hex`, and are an error without it;
+- dimensions and durations as `{ value, unit }` (`px`/`rem`, `ms`/`s`); font-weight names
+  (`regular`, `bold`…) as numbers;
+- `$root` tokens (`{group.$root}`), which `fromDTCG` reads as the group's `base`;
+- `{a.b}` aliases and JSON Pointer `$ref`s, kept as edges; an untyped alias takes its target's type;
+  a curly alias to a token outside the document stays an `external` reference;
+- `$extends` (deep merge), `$deprecated`, and every tool's `$extensions`, kept untouched.
+
+Nothing is guessed: a value the spec doesn't allow becomes a diagnostic on `graph.diagnostics`, and a
+circular alias or `$extends` throws `REFRACT_E_CYCLE`. Mapping groups onto subsystems is unchanged
+(by `$type` and group name), so colour names keyed by their second path segment can collide, and
+imported shadows don't yet build. Review an imported theme before relying on it.
+
 **Recipe round-trip (opt-in).** DTCG has no component model, so recipes are out of standard scope.
 For a lossless `refract → DTCG → refract` trip, `toDTCG(theme, { includeRecipes: true })` stashes the
 rule-set IR under a reverse-DNS `$extensions` key (`com.theme-registry.refract`, versioned), and
