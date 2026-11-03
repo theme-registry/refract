@@ -1,0 +1,85 @@
+{
+  "$schema": "https://theme-registry.github.io/refract/schema/dtcg-profile/v1.json",
+  "$description": "Synthetic profile example: the design doc's side-by-side theme.",
+  "$extensions": {
+    "com.theme-registry.refract.profile": {
+      "version": 1,
+      "breakpoints": { "sm": 576, "md": 768, "lg": 1024 },
+      "containers": { "card": { "type": "inline-size", "sizes": { "sm": 280, "md": 480 } } },
+      "recipes": {
+        "colors": {
+          "solid": {
+            "brand": {
+              "background": "{colors.brand}",
+              "color": "{colors.brand.text}",
+              "states": { "hover": { "background": "{colors.brand.dark}" } },
+              "responsive": [{ "breakpoint": "md", "query": "min", "background": "{colors.brand.darker}" }]
+            }
+          }
+        },
+        "components": {
+          "buttons": {
+            "primary": {
+              "colors": "solid.brand",
+              "css": { "padding": "{layout.spacing.md}", "borderRadius": 6, "cursor": "pointer" },
+              "states": { "hover": { "css": { "transform": "translateY(-1px)" } } }
+            }
+          }
+        }
+      }
+    }
+  },
+  "colors": {
+    "$type": "color",
+    "brand": {
+      "$extensions": { "com.theme-registry.refract.profile": { "tones": { "lightenBy": 10, "darkenBy": 10 } } },
+      "$root": { "$value": { "colorSpace": "srgb", "components": [0.298, 0.431, 0.961], "hex": "#4c6ef5" } },
+      "text": { "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#ffffff" } },
+      "dark": {
+        "$value": { "colorSpace": "srgb", "components": [0.2, 0.302, 0.824], "hex": "#334dd2" },
+        "$extensions": { "com.theme-registry.refract.profile": { "generated": "tones" } }
+      }
+    },
+    "surface": {
+      "$extensions": { "com.theme-registry.refract.profile": { "tones": false } },
+      "$root": { "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#ffffff" } }
+    },
+    "highlight": { "$root": { "$value": "{colors.brand}" } }
+  },
+  "typography": {
+    "fontFamily": { "$type": "fontFamily", "$root": { "$value": ["Inter", "sans-serif"] } },
+    "fontSize": {
+      "$type": "dimension",
+      "$root": { "$value": { "value": 16, "unit": "px" } },
+      "lg": { "$value": { "value": 20, "unit": "px" } }
+    },
+    "textTransform": {
+      "$extensions": { "com.theme-registry.refract.profile": { "values": { "$root": "none", "upper": "uppercase" } } }
+    }
+  },
+  "layout": {
+    "spacing": {
+      "$type": "dimension",
+      "$extensions": { "com.theme-registry.refract.profile": { "scale": { "step": 4, "steps": { "sm": 2, "md": 3, "lg": 4 } } } },
+      "$root": { "$value": { "value": 4, "unit": "px" } },
+      "md": {
+        "$value": { "value": 12, "unit": "px" },
+        "$extensions": {
+          "com.theme-registry.refract.profile": {
+            "generated": "scale",
+            "responsive": [{ "breakpoint": "sm", "query": "max", "$value": { "value": 8, "unit": "px" } }]
+          }
+        }
+      }
+    }
+  },
+  "animation": {
+    "easing": {
+      "$type": "cubicBezier",
+      "$root": {
+        "$value": [0.42, 0, 0.58, 1],
+        "$extensions": { "com.theme-registry.refract.profile": { "keyword": "ease-in-out" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "version": "2025.10",
+  "sets": { "base": { "sources": [{ "$ref": "base.tokens.json" }] } },
+  "modifiers": {
+    "scheme": {
+      "$extensions": { "com.theme-registry.refract.profile": { "as": "modes" } },
+      "default": "light",
+      "contexts": { "light": [], "dark": [{ "$ref": "dark.tokens.json" }] }
+    }
+  },
+  "resolutionOrder": [{ "$ref": "#/sets/base" }, { "$ref": "#/modifiers/scheme" }]
+}
