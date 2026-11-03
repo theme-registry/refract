@@ -380,6 +380,24 @@
   .pg-src:focus-visible { box-shadow: inset var(--rf-ring); }
   .pg-preview { min-height: 128px; background: #ffffff; }
   .pg-out { margin: 0; max-height: 264px; overflow: auto; padding: 13px 15px; font-family: var(--rf-mono); font-size: 12px; line-height: 1.6; color: var(--rf-cb-ink); white-space: pre; }
+  /* translate page: two panes (source · output) with per-file tabs, a swap control, report + check */
+  .tr { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: start; margin: 6px 0 12px; }
+  @media (max-width: 860px) { .tr { grid-template-columns: 1fr; } .tr-swap { justify-self: center; transform: rotate(90deg); } }
+  .tr-swap { align-self: center; font-family: var(--rf-mono); font-size: 16px; line-height: 1; color: var(--rf-cb-ink); background: var(--rf-cb-head); border: 1px solid var(--rf-cb-line); border-radius: 999px; width: 40px; height: 40px; cursor: pointer; transition: border-color .14s; }
+  .tr-swap:hover { border-color: #464e6e; }
+  .tr-swap:focus-visible { outline: none; box-shadow: var(--rf-ring); }
+  .tr-tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px 8px 0; background: var(--rf-cb-head); border-bottom: 1px solid var(--rf-cb-line); }
+  .tr-tabs:empty { display: none; }
+  .tr-tab { font-family: var(--rf-mono); font-size: 11px; color: var(--rf-cb-faint); background: transparent; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; padding: 5px 10px; cursor: pointer; }
+  .tr-tab[aria-selected="true"] { color: var(--rf-cb-ink); background: var(--rf-cb-bg); border-color: var(--rf-cb-line); }
+  .tr-tab:focus-visible { outline: none; box-shadow: var(--rf-ring); }
+  .tr-out { min-height: 440px; max-height: 640px; }
+  .tr-foot { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .tr-card { border: 1px solid var(--rf-cb-line); border-radius: 12px; background: var(--rf-cb-bg); padding: 12px 14px; font-size: 13px; color: var(--rf-cb-ink); min-width: 0; }
+  .tr-card h4 { margin: 0 0 6px; font-family: var(--rf-mono); font-size: 11.5px; font-weight: 500; color: var(--rf-cb-faint); text-transform: uppercase; letter-spacing: .06em; }
+  .tr-card ul { margin: 0; padding-left: 18px; }
+  .tr-card code { font-size: 12px; }
+  .tr-diff { margin: 6px 0 0; font-family: var(--rf-mono); font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .pg-status { font-family: var(--rf-mono); font-size: 11px; color: var(--rf-cb-faint); }
   .pg-status.ok { color: #58c26a; }
   .pg-status.err { color: #f0787f; }
@@ -582,6 +600,7 @@
           <a href="#scaffold">Scaffold a theme</a>
           <a href="#quickstart">Quickstart</a>
           <a href="#playground">Playground</a>
+          <a href="#translate">Translate raw ↔ DTCG</a>
         </nav>
       </div>
       <div class="side-group">
@@ -1065,6 +1084,59 @@ theme.css;  <span class="c">// unchanged</span></pre>
             </div>
           </div>
           <div class="note"><b>JSON forms only here</b> — the one thing you can't express is a function-valued field (e.g. a custom type-scale <code>algorithm</code>), which needs a real <code>.ts</code> theme. Everything else is live: change <code>brand.base</code> and the tonal steps re-synthesize, edit a recipe and the class re-emits, add a <code>states.hover</code> and hover the preview. Note a component's <code>css</code> delta is <a href="#p-components">literal-first</a> — a bare string is a raw CSS value; mark a token with the JSON-safe <code>{ "ref": "…" }</code> object (the <code>ref()</code> helper's data form).</div>
+        </section>
+
+        <section class="doc-section" id="translate">
+          <div class="eyebrow">Getting started <b>/ Translate</b></div>
+          <h2>Translate raw ↔ DTCG</h2>
+          <p class="lead">Paste a <code>RawTheme</code> on the left and see the same theme as <a href="#dtcg">Refract DTCG profile</a> files on the right: a resolver, the base token file and one file per mode. Swap to go the other way: edit DTCG files and see the raw theme they read into. Both run the real library in your browser, and the check below builds both sides to show they produce the same CSS.</p>
+          <div class="tr">
+            <div class="pg-pane">
+              <div class="pg-head"><span id="trSrcLabel">RawTheme (JSON)</span><button class="pg-reset" id="trReset" type="button">Reset</button></div>
+              <div class="tr-tabs" id="trSrcTabs" role="tablist" aria-label="Source files"></div>
+<textarea id="trSrc" class="pg-src" spellcheck="false" aria-label="Source">{
+  "breakpoints": { "sm": 576, "md": 768 },
+  "colors": {
+    "brand": { "base": "#4c6ef5", "text": "#ffffff", "lightenBy": 10, "darkenBy": 10 },
+    "surface": { "base": "#ffffff", "tones": false, "modes": [{ "mode": "dark", "base": "#14171c" }] },
+    "recipes": {
+      "solid": {
+        "brand": { "background": "brand", "color": "brand.text", "states": { "hover": { "background": "brand.dark" } } }
+      }
+    }
+  },
+  "typography": {
+    "fontFamily": "Inter, sans-serif",
+    "fontSize": { "base": 16, "variants": { "lg": 20 } }
+  },
+  "layout": {
+    "spacing": {
+      "base": 4, "step": 4, "steps": { "sm": 2, "md": 3, "lg": 4 },
+      "responsive": [{ "breakpoint": "sm", "query": "max", "target": "md", "base": 8 }]
+    }
+  },
+  "components": {
+    "recipes": {
+      "buttons": {
+        "primary": { "colors": "solid.brand", "css": { "padding": { "ref": "layout.spacing.md" }, "borderRadius": 6, "cursor": "pointer" } }
+      }
+    }
+  }
+}</textarea>
+            </div>
+            <button class="tr-swap" id="trSwap" type="button" aria-label="Swap direction" title="Swap direction">⇄</button>
+            <div class="pg-pane">
+              <div class="pg-head"><span id="trOutLabel">Refract DTCG profile</span><span style="display:flex;gap:6px"><button class="pg-reset" id="trDownload" type="button">Download file</button><button class="pg-reset" id="trDownloadAll" type="button">Download all</button></span></div>
+              <div class="tr-tabs" id="trOutTabs" role="tablist" aria-label="Output files"></div>
+              <pre class="pg-out tr-out" id="trOut" tabindex="0" aria-label="Output"></pre>
+            </div>
+          </div>
+          <div class="tr-foot">
+            <div class="tr-card"><h4>Status</h4><span class="pg-status" id="trStatus">—</span></div>
+            <div class="tr-card"><h4>Same output</h4><div id="trCheck">—</div></div>
+            <div class="tr-card"><h4>Report</h4><div id="trReport">—</div></div>
+          </div>
+          <div class="note"><b>JSON on the raw side</b>, like the <a href="#playground">Playground</a>: write a token reference in a <code>css</code> block as <code>{ "ref": "…" }</code>. On the DTCG side the tabs follow the resolver: add a <code>$ref</code> to a new file in <code>resolver.json</code> and its tab appears. Nothing leaves your browser.</div>
         </section>
 
         <section class="doc-section" id="agent">
@@ -1781,6 +1853,7 @@ report.unmapped;   <span class="c">// [{ path: "dimension.350", reason: "no plac
 <span class="c">// $ refract validate tokens/resolver.json</span></pre>
           </div>
           <p>The format is specified by a JSON Schema at <code>https://theme-registry.github.io/refract/schema/dtcg-profile/v1.json</code> (also <code>schema/dtcg-profile/v1.json</code> in the package): point an editor or CI at it. <code>refract validate</code> checks what the schema can't — references, scale targets, mode files, generated-value drift — and lists values only refract sees (an <code>em</code> length, a <code>textTransform</code> keyword: DTCG has no type for them). A plain DTCG file that doesn't follow the profile still goes through <code>importDTCG</code> / <code>refract import</code> above.</p>
+          <p><b>Try it:</b> the <a href="#translate">Translate page</a> turns a raw theme into profile files and back, live, and shows that both build the same CSS.</p>
           <div class="note"><b>Experimental.</b> Profile version 1 may still change in a patch release while it settles. Not expressible yet: a responsive value under a mode condition, a multi-part transition, a literal-form (<code>--var</code>) external. The CLI doesn't build <code>"as": "themes"</code> child themes yet; build them in code with <code>override()</code>.</div>
 
           <h3>Supported token types</h3>
@@ -5511,6 +5584,177 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
       else window.prompt("Copy this link:", url);
     });
     compile();
+  })();
+
+  // ── translate page: raw theme (JSON) ⇄ Refract DTCG profile files, live, both directions ──
+  (function initTranslate() {
+    var srcEl = document.getElementById("trSrc");
+    if (!srcEl || !refract.toDTCG || !refract.importDTCGProfile) return;
+    var outEl = document.getElementById("trOut");
+    var srcTabs = document.getElementById("trSrcTabs");
+    var outTabs = document.getElementById("trOutTabs");
+    var srcLabel = document.getElementById("trSrcLabel");
+    var outLabel = document.getElementById("trOutLabel");
+    var statusEl = document.getElementById("trStatus");
+    var checkEl = document.getElementById("trCheck");
+    var reportEl = document.getElementById("trReport");
+    var seed = srcEl.value;
+    var dir = "raw"; // the source side: "raw" (raw → DTCG) or "dtcg" (DTCG → raw)
+    var rawText = seed;
+    var files = {}; // DTCG source: name → text
+    var activeSrc = "resolver.json";
+    var out = {}; // output: name → text
+    var activeOut = "";
+
+    var pretty = function (v) { return JSON.stringify(v, null, 2); };
+    var cssOf = function (raw) { return refract.createTheme(raw, { adapter: refract.createCssAdapter() }).css; };
+
+    function setStatus(ok, msg) {
+      statusEl.className = "pg-status " + (ok ? "ok" : "err");
+      statusEl.textContent = (ok ? "✓ " : "✗ ") + msg;
+    }
+    function tabs(el, names, active, onPick) {
+      el.innerHTML = "";
+      names.forEach(function (name) {
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "tr-tab"; b.setAttribute("role", "tab");
+        b.setAttribute("aria-selected", String(name === active)); b.textContent = name;
+        b.addEventListener("click", function () { onPick(name); });
+        el.appendChild(b);
+      });
+    }
+    /** The resolver's file $refs, so the source tabs follow it. */
+    function refsOf(text) {
+      var names = [];
+      try {
+        var r = JSON.parse(text);
+        var visit = function (sources) { (sources || []).forEach(function (s) { if (s && typeof s.$ref === "string" && s.$ref.charAt(0) !== "#" && names.indexOf(s.$ref) < 0) names.push(s.$ref); }); };
+        Object.keys(r.sets || {}).forEach(function (k) { visit(r.sets[k].sources); });
+        Object.keys(r.modifiers || {}).forEach(function (k) { var c = r.modifiers[k].contexts || {}; Object.keys(c).forEach(function (n) { visit(c[n]); }); });
+      } catch (e) { /* keep the current tabs while the resolver is mid-edit */ return null; }
+      return names;
+    }
+    function sourceNames() {
+      var refs = refsOf(files["resolver.json"] || "{}");
+      var names = ["resolver.json"].concat(refs || Object.keys(files).filter(function (n) { return n !== "resolver.json"; }));
+      names.forEach(function (n) { if (files[n] === undefined) files[n] = "{}"; });
+      return names;
+    }
+    function renderSource() {
+      if (dir === "raw") {
+        srcLabel.textContent = "RawTheme (JSON)";
+        srcTabs.innerHTML = "";
+        srcEl.value = rawText;
+        return;
+      }
+      srcLabel.textContent = "Refract DTCG profile";
+      var names = sourceNames();
+      if (names.indexOf(activeSrc) < 0) activeSrc = names[0];
+      tabs(srcTabs, names, activeSrc, function (name) { activeSrc = name; renderSource(); });
+      srcEl.value = files[activeSrc];
+    }
+    function renderOutput() {
+      outLabel.textContent = dir === "raw" ? "Refract DTCG profile" : "RawTheme (JSON)";
+      var names = Object.keys(out);
+      if (names.indexOf(activeOut) < 0) activeOut = names[0] || "";
+      if (names.length > 1) tabs(outTabs, names, activeOut, function (name) { activeOut = name; renderOutput(); });
+      else outTabs.innerHTML = "";
+      outEl.textContent = out[activeOut] || "";
+    }
+    function list(items) { return "<ul>" + items.map(function (i) { return "<li>" + i + "</li>"; }).join("") + "</ul>"; }
+    function renderReport(report) {
+      var items = [esc(report.tokens + " token(s) read")];
+      if (report.modes.length) items.push("modes: " + report.modes.map(function (m) { return "<code>" + esc(m) + "</code>"; }).join(", "));
+      if (report.generated.length) items.push(esc(report.generated.length + " generated token(s), written with their values and a generated marker"));
+      if (report.extensionOnly.length) items.push("extension-only (other DTCG tools don't see these): " + report.extensionOnly.map(function (p) { return "<code>" + esc(p) + "</code>"; }).join(", "));
+      report.diagnostics.filter(function (d) { return d.severity === "warning"; }).forEach(function (d) { items.push("⚠ <code>" + esc(d.path) + "</code> " + esc(d.message)); });
+      reportEl.innerHTML = list(items);
+    }
+    function renderCheck(a, b) {
+      if (a === b) { checkEl.innerHTML = "✓ Both sides build byte-identical CSS (" + (a.length / 1024).toFixed(1) + " KB)."; return; }
+      var la = a.split("\n"), lb = b.split("\n"), i = 0;
+      while (i < la.length && la[i] === lb[i]) i++;
+      checkEl.innerHTML = "✗ The CSS differs from line " + (i + 1) + ':<pre class="tr-diff">− ' + esc(la[i] || "") + "\n+ " + esc(lb[i] || "") + "</pre>";
+    }
+    function fail(msg) {
+      setStatus(false, msg);
+      checkEl.textContent = "—";
+      reportEl.textContent = "—";
+    }
+
+    function translate() {
+      if (dir === "raw") {
+        var raw;
+        try { raw = JSON.parse(rawText); } catch (e) { return fail("JSON — " + e.message); }
+        var written;
+        try { written = refract.toDTCG(raw, { profile: true }); } catch (e) { return fail(e.message); }
+        out = { "resolver.json": pretty(written.resolver) };
+        Object.keys(written.files).forEach(function (n) { out[n] = pretty(written.files[n]); });
+        renderOutput();
+        try {
+          var back = refract.importDTCGProfile({ resolver: written.resolver, files: written.files });
+          renderReport(back.report);
+          renderCheck(cssOf(raw), cssOf(back.raw));
+        } catch (e) { return fail(e.message); }
+        setStatus(true, "raw theme → " + Object.keys(out).length + " DTCG file(s)");
+        return;
+      }
+      var docs = {}, name;
+      try {
+        for (name in files) docs[name] = JSON.parse(files[name]);
+      } catch (e) { return fail(name + ": JSON — " + e.message); }
+      var resolver = docs["resolver.json"];
+      var others = {};
+      Object.keys(docs).forEach(function (n) { if (n !== "resolver.json") others[n] = docs[n]; });
+      var input = resolver && Array.isArray(resolver.resolutionOrder) ? { resolver: resolver, files: others } : docs[Object.keys(others)[0]];
+      var result;
+      try { result = refract.importDTCGProfile(input); } catch (e) { return fail(e.message); }
+      out = { "theme.raw.json": pretty(result.raw) };
+      Object.keys(result.themes).forEach(function (m) {
+        Object.keys(result.themes[m]).forEach(function (c) { out[m + "." + c + ".override.json"] = pretty(result.themes[m][c]); });
+      });
+      renderOutput();
+      renderReport(result.report);
+      try {
+        var again = refract.toDTCG(result.raw, { profile: true });
+        renderCheck(cssOf(result.raw), cssOf(refract.importDTCGProfile(again).raw));
+      } catch (e) { checkEl.textContent = "Round trip failed: " + e.message; }
+      setStatus(true, Object.keys(docs).length + " DTCG file(s) → raw theme");
+    }
+
+    var timer;
+    srcEl.addEventListener("input", function () {
+      if (dir === "raw") rawText = srcEl.value;
+      else {
+        files[activeSrc] = srcEl.value;
+        if (activeSrc === "resolver.json") { var keep = srcEl.selectionStart; renderSource(); srcEl.selectionStart = srcEl.selectionEnd = keep; }
+      }
+      clearTimeout(timer); timer = setTimeout(translate, 250);
+    });
+    document.getElementById("trSwap").addEventListener("click", function () {
+      if (dir === "raw") {
+        if (!out["resolver.json"]) return;
+        files = {}; Object.keys(out).forEach(function (n) { files[n] = out[n]; });
+        activeSrc = "base.tokens.json"; dir = "dtcg";
+      } else {
+        if (!out["theme.raw.json"]) return;
+        rawText = out["theme.raw.json"]; dir = "raw";
+      }
+      renderSource(); translate();
+    });
+    document.getElementById("trReset").addEventListener("click", function () { dir = "raw"; rawText = seed; renderSource(); translate(); });
+    function download(name) {
+      var url = URL.createObjectURL(new Blob([out[name] + "\n"], { type: "application/json" }));
+      var a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+    document.getElementById("trDownload").addEventListener("click", function () { if (activeOut) download(activeOut); });
+    document.getElementById("trDownloadAll").addEventListener("click", function () {
+      Object.keys(out).forEach(function (n, i) { setTimeout(function () { download(n); }, i * 250); });
+    });
+
+    renderSource();
+    translate();
   })();
 
   // ── build preset switcher ──

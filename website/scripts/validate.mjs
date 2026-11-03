@@ -128,7 +128,10 @@ const fail = (msg) => { console.log("  ✗", msg); failures++; };
     return e;
   };
   const byId = {};
-  ["refract-out", "activeLabel", "activeBlurb", "sweep", "presets", "themeToggle", "menuBtn", "navBackdrop"].forEach((id) => (byId[id] = mkEl(id)));
+  ["refract-out", "activeLabel", "activeBlurb", "sweep", "presets", "themeToggle", "menuBtn", "navBackdrop", "trStatus", "trCheck", "trOut"].forEach((id) => (byId[id] = mkEl(id)));
+  // The Translate page's source pane, seeded with the template's example so the page really translates.
+  const unesc = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  byId.trSrc = Object.assign(mkEl("textarea"), { value: unesc(tpl.match(/<textarea id="trSrc"[^>]*>([\s\S]*?)<\/textarea>/)[1]) });
   const subs = ["colors", "typography", "effects", "borders", "animation", "layout", "components", "globals"];
   const qsa = (sel) => {
     if (sel === "[data-raw]") return subs.map((w) => { const e = mkEl("pre"); e._attr = { "data-raw": w }; return e; });
@@ -155,7 +158,10 @@ const fail = (msg) => { console.log("  ✗", msg); failures++; };
     if (/:where/.test(out)) fail("dom — globals :where() rules leaked into the global inject");
     else if (!/^\s*:root/.test(out)) fail("dom — globals block (bare element rules) not stripped: inject must start at :root");
     else if (!/dt-comp/.test(out)) fail("dom — global inject missing :root vars or component classes");
-    else console.log("  ✓ dom — full page script executed clean; global inject correct");
+    else if (!/^✓ raw theme → \d+ DTCG file/.test(byId.trStatus._text || "")) fail(`dom — translate page didn't translate its example: ${byId.trStatus._text}`);
+    else if (!/byte-identical/.test(byId.trCheck._html || "")) fail(`dom — translate page's same-output check failed: ${byId.trCheck._html || byId.trCheck._text}`);
+    else if (!/com\.theme-registry\.refract\.profile/.test(byId.trOut._text || "")) fail("dom — translate page output isn't a profile file");
+    else console.log("  ✓ dom — full page script executed clean; global inject correct; translate page round-trips its example");
   } catch (e) { fail(`dom — page script threw: ${e.message}`); }
 }
 

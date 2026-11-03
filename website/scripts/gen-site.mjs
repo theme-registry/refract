@@ -68,11 +68,12 @@ import { createCssAdapter } from "@theme-registry/refract-css";
 import { createScssAdapter } from "@theme-registry/refract-scss";
 import { createJsonAdapter } from "@theme-registry/refract-json";
 import { createStyledComponentsAdapter } from "@theme-registry/refract-styled-components";
+import { importDTCGProfile, toDTCG } from "@theme-registry/refract/dtcg";
 
 // Expose Vite's configured base path to the (framework-free) router in the app script. Undefined in
 // the self-contained artifact (no bundler) → the router falls back to "/".
 window.__SITE_BASE__ = import.meta.env.BASE_URL;
-window.refract = { createTheme, createCssAdapter, createScssAdapter, createJsonAdapter, createStyledComponentsAdapter };
+window.refract = { createTheme, createCssAdapter, createScssAdapter, createJsonAdapter, createStyledComponentsAdapter, importDTCGProfile, toDTCG };
 
 ${ui}
 `;
