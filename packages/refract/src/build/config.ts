@@ -120,6 +120,11 @@ export type ResolvedThemeConfig = Omit<ThemeConfig, "raw"> & { readonly raw: Raw
 
 export interface LoadedConfig {
   readonly config: ResolvedThemeConfig;
+  /**
+   * Child themes from a profile `raw`'s `"as": "themes"` modifiers: `modifier → context → partial raw
+   * theme` (whole changed properties), each built next to the base by `refract build`. Empty otherwise.
+   */
+  readonly themes: Readonly<Record<string, Readonly<Record<string, Partial<RawTheme>>>>>;
   /** Absolute path the config was loaded from. */
   readonly path: string;
 }
@@ -146,14 +151,7 @@ export async function loadConfig(
   if (typeof config.raw === "string") {
     const profilePath = resolve(dirname(path), config.raw);
     const { raw, themes } = await loadDTCGProfile(profilePath);
-    const themed = Object.keys(themes);
-    if (themed.length) {
-      throw new Error(
-        `"${config.raw}" has "as": "themes" modifier(s) (${themed.join(", ")}); the CLI doesn't build child themes yet. ` +
-          `Build them in code: theme.override(themes.<modifier>.<context>) from loadDTCGProfile().`,
-      );
-    }
-    return { config: { ...config, raw }, path };
+    return { config: { ...config, raw }, path, themes };
   }
-  return { config: config as ResolvedThemeConfig, path };
+  return { config: config as ResolvedThemeConfig, path, themes: {} };
 }

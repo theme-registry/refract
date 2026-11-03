@@ -161,9 +161,12 @@ refract validate tokens/resolver.json    # read + build; report generated, modes
 The JSON Schema is `schema/dtcg-profile/v1.json` in the package
 (`https://theme-registry.github.io/refract/schema/dtcg-profile/v1.json`). Errors are
 `REFRACT_E_PROFILE` with the token's path. Not expressible yet (the writer throws): a responsive
-value under a mode, a multi-part transition, a `--var` external. The CLI refuses `"as": "themes"`
-files for now — use `importDTCGProfile(...).themes` with `override()`. A DTCG file that isn't a
-profile file still goes through `refract import`.
+value under a mode, a multi-part transition, a `--var` external. With `"as": "themes"`, `refract build`
+writes the default context to each target's `outDir` and every other context to `<outDir>/<context>/`
+(`<modifier>-<context>` when there are several such modifiers): a complete theme each, same names, its
+own values, so an app switches theme by swapping the stylesheet. In code, apply
+`importDTCGProfile(...).themes.<modifier>.<context>` with `override()`. `tokens`, `diff` and `audit` use
+the default context. A DTCG file that isn't a profile file still goes through `refract import`.
 
 ## Lossless round-trip (opt-in) — `refract → DTCG → refract`
 

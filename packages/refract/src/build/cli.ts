@@ -266,7 +266,8 @@ async function cmdBuild(argv: string[]): Promise<number> {
     });
     process.stdout.write(`Built from ${result.configPath}\n`);
     for (const t of result.targets) {
-      const label = t.name ? `${t.name} [${t.adapter}]` : t.adapter;
+      const base = t.name ? `${t.name} [${t.adapter}]` : t.adapter;
+      const label = t.theme ? `${base} · theme ${t.theme}` : base;
       process.stdout.write(`  ${label} → ${t.outDir} (${t.files.length} file(s))\n`);
       for (const f of t.files) process.stdout.write(`      ${f}\n`);
     }
