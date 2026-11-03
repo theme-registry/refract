@@ -44,7 +44,7 @@
       "$extensions": { "com.theme-registry.refract.profile": { "tones": false } },
       "$root": { "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#ffffff" } }
     },
-    "highlight": { "$root": { "$value": "{colors.brand}" } }
+    "highlight": { "$root": { "$value": "{colors.brand.$root}" } }
   },
   "typography": {
     "fontFamily": { "$type": "fontFamily", "$root": { "$value": ["Inter", "sans-serif"] } },
