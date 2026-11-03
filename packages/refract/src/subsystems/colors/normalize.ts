@@ -167,16 +167,30 @@ export const finalizePaletteNormalization = (
   const bakedModes = bakeDerivedModes(normalized, name, variants);
   const bakedResponsive = bakeResponsiveDerivations(normalized, name, variants);
 
+  // The generator settings have done their job; drop them so core doesn't read the scalar ones
+  // (`lightenBy: 10`, `harmony: "complement"`) as `text`-like extras and mint them as tokens.
+  const settled = stripPaletteSettings(normalized);
+
   if (!Object.keys(variants).length && !bakedModes && !bakedResponsive) {
-    return normalized;
+    return settled;
   }
 
   return {
-    ...normalized,
+    ...settled,
     ...(Object.keys(variants).length ? { variants } : {}),
     ...(bakedModes ? { modes: bakedModes } : {}),
     ...(bakedResponsive ? { responsive: bakedResponsive } : {}),
   };
+};
+
+/** Palette generator settings: consumed during normalize, never tokens. `text` is an extra that IS one. */
+const PALETTE_SETTINGS = ["steps", "tones", "lightenBy", "darkenBy", "harmony"] as const;
+
+const stripPaletteSettings = (normalized: NormalizedPaletteValue): NormalizedPaletteValue => {
+  if (!PALETTE_SETTINGS.some(key => key in normalized)) return normalized;
+  const out = { ...normalized } as Record<string, unknown>;
+  for (const key of PALETTE_SETTINGS) delete out[key];
+  return out as NormalizedPaletteValue;
 };
 
 /**

@@ -47,10 +47,27 @@ export const finalizeTypographyNormalization = (
   propertyKey: string,
   normalized: NormalizedPropertyValue<unknown>,
 ): NormalizedPropertyValue<unknown> => {
-  if (propertyKey !== "fontSize") return normalized;
-  return generateFontSizeScaleVariants(
-    normalized as unknown as NormalizedPropertyValue<number, FontSizeExtras>,
-  ) as unknown as NormalizedPropertyValue<unknown>;
+  const scaled =
+    propertyKey === "fontSize"
+      ? (generateFontSizeScaleVariants(
+          normalized as unknown as NormalizedPropertyValue<number, FontSizeExtras>,
+        ) as unknown as NormalizedPropertyValue<unknown>)
+      : normalized;
+  return stripScaleSettings(scaled);
+};
+
+/**
+ * The modular-scale settings ({@link FontSizeExtras}) are consumed above, never tokens. Without this,
+ * core reads the scalar ones (`ratio: "major-third"`, `unit: "rem"`) as extras and mints
+ * `typography.fontSize.ratio` etc. as tokens.
+ */
+const SCALE_SETTINGS = ["ratio", "precision", "unit", "baseFontSize", "algorithm"] as const;
+
+const stripScaleSettings = (normalized: NormalizedPropertyValue<unknown>): NormalizedPropertyValue<unknown> => {
+  if (!SCALE_SETTINGS.some(key => key in normalized)) return normalized;
+  const out = { ...normalized } as Record<string, unknown>;
+  for (const key of SCALE_SETTINGS) delete out[key];
+  return out as NormalizedPropertyValue<unknown>;
 };
 
 /**
