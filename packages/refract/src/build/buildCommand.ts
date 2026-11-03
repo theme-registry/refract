@@ -11,7 +11,8 @@
  * `--target` is only allowed when the config has exactly one target (otherwise it is ambiguous).
  * Per-target `helpers` are always honored.
  */
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import type { RawTheme } from "../core/rawTheme";
 import { loadConfig, type EmitTarget } from "./config";
 import { emitTheme } from "./emitTheme";
 
@@ -27,6 +28,8 @@ export interface BuildOptions {
 
 export interface BuildTargetSummary {
   readonly name?: string;
+  /** For a child theme of a profile's `"as": "themes"` modifier: its folder name (`b`, or `brand-b`). */
+  readonly theme?: string;
   readonly adapter: string;
   /** Absolute outDir the target was written to. */
   readonly outDir: string;
@@ -60,10 +63,34 @@ function selectTargets(targets: readonly EmitTarget[], selector?: string): EmitT
   );
 }
 
+/**
+ * The child themes of a profile's `"as": "themes"` modifiers as whole raw themes: each partial (whole
+ * changed properties) merged over the base. One folder per context — `<context>`, or
+ * `<modifier>-<context>` when there are several such modifiers.
+ */
+const childThemes = (
+  raw: RawTheme,
+  themes: Readonly<Record<string, Readonly<Record<string, Partial<RawTheme>>>>>,
+): Array<{ folder: string; raw: RawTheme }> => {
+  const modifiers = Object.keys(themes);
+  const out: Array<{ folder: string; raw: RawTheme }> = [];
+  for (const modifier of modifiers) {
+    for (const [context, partial] of Object.entries(themes[modifier])) {
+      const merged: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+      for (const [sub, slice] of Object.entries(partial as Record<string, unknown>)) {
+        merged[sub] = { ...((merged[sub] as Record<string, unknown> | undefined) ?? {}), ...(slice as Record<string, unknown>) };
+      }
+      out.push({ folder: modifiers.length > 1 ? `${modifier}-${context}` : context, raw: merged as RawTheme });
+    }
+  }
+  return out;
+};
+
 /** Load the config and emit every (selected) target to disk. */
 export async function runBuild(options: BuildOptions = {}): Promise<BuildResult> {
   const cwd = options.cwd ?? process.cwd();
-  const { config, path } = await loadConfig({ cwd, configPath: options.configPath });
+  const { config, path, themes } = await loadConfig({ cwd, configPath: options.configPath });
+  const children = childThemes(config.raw, themes);
 
   if (!config.targets.length) {
     throw new Error(`"${path}" has no targets to build.`);
@@ -90,24 +117,32 @@ export async function runBuild(options: BuildOptions = {}): Promise<BuildResult>
         : isAbsolute(target.outDir)
           ? target.outDir
           : resolve(configDir, target.outDir);
-    const result = await emitTheme({
-      raw: config.raw,
-      adapter: target.adapter,
-      outDir,
-      helpers: target.helpers,
-      emit: target.emit,
-      media: config.media,
-      units: config.units,
-      baseFontSize: config.baseFontSize,
-      guide: target.guide,
-      preview: target.preview,
-    });
+    const emitWith = (raw: typeof config.raw, dir: string) =>
+      emitTheme({
+        raw,
+        adapter: target.adapter,
+        outDir: dir,
+        helpers: target.helpers,
+        emit: target.emit,
+        media: config.media,
+        units: config.units,
+        baseFontSize: config.baseFontSize,
+        guide: target.guide,
+        preview: target.preview,
+      });
+    const result = await emitWith(config.raw, outDir);
     summaries.push({
       name: target.name,
       adapter: target.adapter.name,
       outDir: result.outDir,
       files: result.files,
     });
+    // A child theme is a complete theme of its own — same class names, its own values — built into a
+    // subfolder, so an app switches theme by swapping the stylesheet (or module).
+    for (const child of children) {
+      const childResult = await emitWith(child.raw, join(outDir, child.folder));
+      summaries.push({ name: target.name, theme: child.folder, adapter: target.adapter.name, outDir: childResult.outDir, files: childResult.files });
+    }
   }
 
   return { configPath: path, targets: summaries };
