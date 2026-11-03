@@ -4,6 +4,12 @@ import type { ThemeModel, RuleSetGroup, Keyframe, ContainerModel, PropertyModel 
 import type { DTCGDocument, DTCGTokenType } from "./types";
 import { REFRACT_DTCG_EXTENSION, REFRACT_DTCG_EXTENSION_VERSION } from "./types";
 import { toHexColor } from "../subsystems/colors/utils";
+import { RefractError } from "../core/errors";
+import type { RawTheme } from "../core";
+import { writeDTCGProfile } from "./profileWriter";
+import type { ProfileFiles } from "./profileWriter";
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** The refract round-trip payload stashed under {@link REFRACT_DTCG_EXTENSION}. Built IR, verbatim. */
 export type RefractDTCGExtension = {
@@ -81,7 +87,27 @@ export type ToDTCGOptions = {
  *
  * Returns a plain object — modify it freely before writing to a file.
  */
-export const toDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
+export function toDTCG(theme: Theme, options?: ToDTCGOptions): DTCGDocument;
+/**
+ * Write a **raw** theme as Refract DTCG profile files — a resolver plus `base.tokens.json` and one file
+ * per mode — that `importDTCGProfile` reads back into the same theme. A built `Theme` can't be written
+ * this way: it keeps no raw input, so the rules behind generated tokens are gone.
+ */
+export function toDTCG(raw: RawTheme, options: ToDTCGOptions & { profile: true }): ProfileFiles;
+export function toDTCG(input: Theme | RawTheme, options?: ToDTCGOptions & { profile?: boolean }): DTCGDocument | ProfileFiles {
+  if (options?.profile) {
+    if (isObject(input) && "model" in input && "tokens" in input) {
+      throw new RefractError(
+        "REFRACT_E_PROFILE",
+        "toDTCG(…, { profile: true }) takes the raw theme, not a built one: a built theme keeps no raw input, so the rules behind generated tokens are gone.",
+      );
+    }
+    return writeDTCGProfile(input as RawTheme);
+  }
+  return toPlainDTCG(input as Theme, options);
+}
+
+const toPlainDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
   const doc: DTCGDocument = {};
 
   if (options?.name) {

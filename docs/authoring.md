@@ -842,6 +842,33 @@ produced it. The importer contract is **Experimental** (DTCG import with the def
 Stable); the full reference — placements, `ctx`, what the engine guarantees — is in
 [extending.md](extending.md#writing-an-importer).
 
+**Refract DTCG profile — DTCG as a theme format.** A theme can also be written *as* DTCG files: DTCG
+2025.10 tokens plus one extension key, `com.theme-registry.refract.profile`, for what the spec can't
+express (generator settings, recipes, responsive values, …). Modes use the DTCG Resolver. Refract
+reads these files directly, with no guessing, and writes them back without loss; other DTCG tools see
+a complete, valid token set. The format is specified for producers (export scripts, design tools,
+agents) by a JSON Schema, `schema/dtcg-profile/v1.json` in this package
+(`https://theme-registry.github.io/refract/schema/dtcg-profile/v1.json`).
+
+```ts
+// theme.config.ts — every CLI command reads the files
+export default defineConfig({ raw: "./tokens/resolver.json", targets: [/* … */] });
+
+// in code
+import { fromDTCGProfile, toDTCG } from "@theme-registry/refract/dtcg";
+import { loadDTCG } from "@theme-registry/refract/build";   // Node: a resolver + its files from disk
+
+createTheme(fromDTCGProfile(doc), { adapter });                // one token file (or { resolver, files })
+createTheme(await loadDTCG("./tokens/resolver.json"), { adapter });
+const { resolver, files } = toDTCG(raw, { profile: true });    // raw theme → profile files
+```
+
+`refract tokens --profile` writes `tokens/resolver.json` plus `base.tokens.json` and one file per mode;
+`refract validate <file>` reads and builds a profile and reports generated tokens, modes and values
+only Refract sees. `importDTCGProfile` returns the raw theme together with `themes` (one partial theme
+per context of an `"as": "themes"` modifier, for `override()`) and the report. A plain DTCG file that
+doesn't follow the profile still goes through `importDTCG` / `refract import`.
+
 **Recipe round-trip (opt-in).** DTCG has no component model, so recipes are out of standard scope.
 For a lossless `refract → DTCG → refract` trip, `toDTCG(theme, { includeRecipes: true })` stashes the
 rule-set IR under a reverse-DNS `$extensions` key (`com.theme-registry.refract`, versioned), and

@@ -38,3 +38,8 @@ export type {
 } from "./importer";
 export { dtcgImporter } from "./dtcgImporter";
 export * from "./export";
+export { importDTCGProfile, fromDTCGProfile } from "./resolver";
+export type { ProfileInput, ProfileSetInput, ProfileSetResult, DTCGResolverDocument } from "./resolver";
+export { PROFILE_EXTENSION, PROFILE_VERSION } from "./profile";
+export type { ProfileReport, ProfileDiagnostic } from "./profile";
+export type { ProfileFiles } from "./profileWriter";

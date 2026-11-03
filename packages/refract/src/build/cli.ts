@@ -25,6 +25,7 @@ import {
   type InstallScope,
 } from "./skillsCommand";
 import { runTokens } from "./tokensCommand";
+import { runValidate } from "./validateCommand";
 import { runAudit } from "./auditCommand";
 import { runDiff } from "./diffCommand";
 import { runCreate } from "./createCommand";
@@ -48,7 +49,8 @@ Usage:
                    [--breakpoint-group <name>] [--breakpoints <n:px,…>]
                    [--importer <dtcg|path/to/importer.ts>]
   refract build [--config <path>] [--target <name|index>] [--out <dir>]
-  refract tokens [--config <path>] [--out <file>]
+  refract tokens [--config <path>] [--out <file>] [--profile]
+  refract validate <resolver.json | file.tokens.json>
   refract diff <candidate> [--config <path>] [--max-class-changes <n>]
                    [--max-token-changes <n>] [--fail-below <AA|AAA|AA-large>]
   refract audit [--config <path>] [--strict] [--min-wcag <AA|AAA|AA-large>] [--large]
@@ -61,7 +63,9 @@ Commands:
   init     Scaffold a runnable theme.config.(ts|js|mjs) in the current directory.
   import   Seed a theme.raw.ts (+ theme.config.ts) from a DTCG tokens.json (one-shot).
   build    Load the config and emit every target's files to its outDir.
-  tokens   Export the theme's tokens as a DTCG tokens.json (adapter-free).
+  tokens   Export the theme's tokens as a DTCG tokens.json (adapter-free); --profile writes Refract
+           DTCG profile files (resolver.json + token files, default folder tokens/) instead.
+  validate Read and build a Refract DTCG profile; report generated tokens, modes, extension-only values.
   diff     Show a candidate theme's blast radius vs the config (tokens/classes/contrast); thresholds gate CI.
   audit    Score colour pairings for WCAG-2 contrast (+ advisory APCA). Reports; --strict fails.
   skills   Install the bundled AI skills into your agent CLI(s) (claude/codex/…).
@@ -278,6 +282,7 @@ async function cmdTokens(argv: string[]): Promise<number> {
     options: {
       config: { type: "string" },
       out: { type: "string" },
+      profile: { type: "boolean" },
     },
     allowPositionals: false,
   });
@@ -286,12 +291,44 @@ async function cmdTokens(argv: string[]): Promise<number> {
     const result = await runTokens({
       configPath: values.config,
       out: values.out,
+      profile: values.profile,
     });
     process.stdout.write(`Exported tokens from ${result.configPath}\n`);
-    process.stdout.write(`  ${result.groupCount} group(s) → ${result.outFile}\n`);
+    if (result.files) {
+      process.stdout.write(`  Refract DTCG profile, ${result.groupCount} subsystem group(s):\n`);
+      for (const f of result.files) process.stdout.write(`  → ${f}\n`);
+    } else {
+      process.stdout.write(`  ${result.groupCount} group(s) → ${result.outFile}\n`);
+    }
     return 0;
   } catch (err) {
     return reportError("tokens", err);
+  }
+}
+
+async function cmdValidate(argv: string[]): Promise<number> {
+  const { positionals } = parseArgs({ args: argv, options: {}, allowPositionals: true });
+  const file = positionals[0];
+  if (!file) {
+    process.stderr.write("refract validate: name a profile file — a resolver.json or a .tokens.json.\n");
+    return 1;
+  }
+  try {
+    const { report, themes, builtTokens } = await runValidate(file);
+    const warnings = report.diagnostics.filter(d => d.severity === "warning");
+    process.stdout.write(`${file}: valid Refract DTCG profile\n`);
+    process.stdout.write(`  ${report.tokens} token(s) read, ${builtTokens} built\n`);
+    if (report.generated.length) process.stdout.write(`  ${report.generated.length} generated token(s), regenerated from their settings\n`);
+    if (report.modes.length) process.stdout.write(`  modes: ${report.modes.join(", ")}\n`);
+    for (const [m, contexts] of Object.entries(themes)) process.stdout.write(`  themes (${m}): ${contexts.join(", ")}\n`);
+    if (report.extensionOnly.length) {
+      process.stdout.write(`  ${report.extensionOnly.length} extension-only value(s) (other DTCG tools don't see these):\n`);
+      for (const p of report.extensionOnly) process.stdout.write(`    ${p}\n`);
+    }
+    for (const w of warnings) process.stdout.write(`  warning ${w.code} ${w.path}: ${w.message}\n`);
+    return 0;
+  } catch (err) {
+    return reportError("validate", err);
   }
 }
 
@@ -536,6 +573,8 @@ export async function main(argv: string[]): Promise<number> {
       return cmdTokens(rest);
     case "diff":
       return cmdDiff(rest);
+    case "validate":
+      return cmdValidate(rest);
     case "audit":
       return cmdAudit(rest);
     case "skills":

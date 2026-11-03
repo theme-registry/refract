@@ -20,6 +20,8 @@ export * from "./prompt";
 export * from "./importCommand";
 export * from "./buildCommand";
 export * from "./tokensCommand";
+export * from "./validateCommand";
+export * from "./loadDTCG";
 export * from "./auditCommand";
 export * from "./diff";
 export * from "./diffCommand";

@@ -25,7 +25,8 @@
   "files": [
     "/dist",
     "/skills",
-    "/src/subsystems/colors/utils.ts"
+    "/src/subsystems/colors/utils.ts",
+    "/schema"
   ],
   "sideEffects": false,
   "exports": {

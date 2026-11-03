@@ -270,3 +270,23 @@ export const readDTCGProfileSet = (input: ProfileSetInput): ProfileSetResult => 
 
   return { raw: out as RawTheme, themes, report: { ...report, modes } };
 };
+
+/** A single profile token file, or a resolver plus its files. */
+export type ProfileInput = DTCGDocument | ProfileSetInput;
+
+const isSetInput = (input: ProfileInput): input is ProfileSetInput =>
+  isObject(input) && isObject((input as Json).resolver) && isObject((input as Json).files);
+
+/**
+ * Read a Refract DTCG profile — a single token file, or `{ resolver, files }` — into a raw theme, the
+ * child themes of any `"as": "themes"` modifier, and a report (generated tokens, extension-only
+ * values, modes, diagnostics). `fromDTCGProfile` is its `raw` half. Throws `REFRACT_E_PROFILE`.
+ */
+export const importDTCGProfile = (input: ProfileInput): ProfileSetResult => {
+  if (isSetInput(input)) return readDTCGProfileSet(input);
+  const { raw, report } = readDTCGProfile(input as DTCGDocument);
+  return { raw, themes: {}, report: { ...report, modes: [] } };
+};
+
+/** {@link importDTCGProfile}'s raw theme: `createTheme(fromDTCGProfile(doc), { adapter })`. */
+export const fromDTCGProfile = (input: ProfileInput): RawTheme => importDTCGProfile(input).raw;
