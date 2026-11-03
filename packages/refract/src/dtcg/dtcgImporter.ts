@@ -3,6 +3,7 @@ import { buildDTCGGraph } from "./graph";
 import type { DTCGGraphToken } from "./graph";
 import { IMPORTER_CONTRACT_VERSION, withLegacyView } from "./importer";
 import type { DTCGImportSubsystem, FromDTCGOptions, ImportContext, Importer, ImportPlacement, ImportSkip } from "./importer";
+import { isDim, toBezier, toFontFamily, toLength, toMs } from "./values";
 
 // --- naming ---
 
@@ -108,23 +109,6 @@ const placementOf = (t: DTCGGraphToken, groupMapping: NonNullable<FromDTCGOption
 };
 
 // --- value conversion ---
-
-type Dim = { value: number; unit: string };
-const isDim = (v: unknown): v is Dim =>
-  typeof v === "object" && v !== null && typeof (v as Dim).value === "number" && typeof (v as Dim).unit === "string";
-
-/** A canonical dimension as refract takes it: a px number, or a CSS length string for other units. */
-const toLength = (v: unknown): number | string | undefined =>
-  isDim(v) ? (v.unit === "px" ? v.value : `${v.value}${v.unit}`) : typeof v === "number" ? v : undefined;
-
-const toMs = (v: unknown): number | undefined =>
-  isDim(v) ? (v.unit === "s" ? v.value * 1000 : v.value) : typeof v === "number" ? v : undefined;
-
-const toBezier = (v: unknown): string | undefined =>
-  Array.isArray(v) && v.length === 4 ? `cubic-bezier(${v.join(", ")})` : undefined;
-
-const toFontFamily = (v: unknown): string | undefined =>
-  Array.isArray(v) ? v.join(", ") : typeof v === "string" ? v : undefined;
 
 const CURLY_REF = /^\{([^{}]+)\}$/;
 const refTarget = (raw: unknown): string | undefined =>
