@@ -1477,6 +1477,38 @@ theme.css;  <span class="c">// unchanged</span></pre>
 });</pre>
           </div>
 
+          <h3>Build from DTCG files</h3>
+          <p>When an export script or a design tool writes the theme as <a href="#dtcg">Refract DTCG profile</a> files, point <code>raw</code> at them instead of importing a <code>theme.raw.ts</code>. The path is relative to the config file. Every command reads it: <code>build</code>, <code>tokens</code>, <code>diff</code>, <code>audit</code>, and the MCP server, which also reloads when the files change.</p>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">project layout · theme.config.ts</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="c">// my-theme/</span>
+<span class="c">//   theme.config.ts</span>
+<span class="c">//   tokens/</span>
+<span class="c">//     resolver.json        ← sets + modifiers (dark mode, brands)</span>
+<span class="c">//     base.tokens.json     ← every token + recipes, components, breakpoints</span>
+<span class="c">//     dark.tokens.json     ← only what changes in dark mode</span>
+
+<span class="k">import</span> { defineConfig } <span class="k">from</span> <span class="s">"@theme-registry/refract/build"</span>;
+<span class="k">import</span> { createCssAdapter } <span class="k">from</span> <span class="s">"@theme-registry/refract-css"</span>;
+
+<span class="k">export default</span> <span class="n">defineConfig</span>({
+  raw: <span class="s">"./tokens/resolver.json"</span>,      <span class="c">// or "./tokens/theme.tokens.json" for a single file with no modes</span>
+  targets: [{ name: <span class="s">"css"</span>, adapter: <span class="n">createCssAdapter</span>(), outDir: <span class="s">"dist/theme"</span> }],
+});</pre>
+          </div>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">terminal</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre>$ npx refract validate tokens/resolver.json   <span class="c"># read + build the files; report problems with the token's path</span>
+$ npx refract build                           <span class="c"># → dist/theme/theme.css</span></pre>
+          </div>
+          <ul>
+            <li><b>Modes</b> (a resolver modifier with <code>"as": "modes"</code>, e.g. dark) build into the same stylesheet, exactly like a raw theme's <code>modes</code>.</li>
+            <li><b>Child themes</b> (<code>"as": "themes"</code>, e.g. brands): the default context builds into <code>outDir</code>, every other context into <code>&lt;outDir&gt;/&lt;context&gt;/</code>, each a complete theme with the same class names.</li>
+            <li><b>A <code>.js</code>/<code>.mjs</code> config</b> works the same way; with only profile files, nothing needs TypeScript.</li>
+            <li><b>In CI,</b> run <code>refract validate</code> before <code>refract build</code>: it fails with exit code 1 and names the token at fault.</li>
+            <li><b>Starting from a raw theme?</b> <code>refract tokens --profile</code> writes its <code>tokens/</code> folder, and the <a href="#translate">Translate page</a> shows both forms side by side.</li>
+          </ul>
+
           <h3><code>defineConfig(config)</code> — config reference</h3>
           <div class="tbl-wrap">
             <table class="doc-table">
