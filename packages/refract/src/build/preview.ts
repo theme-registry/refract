@@ -43,6 +43,7 @@ import type {
   UsageRecipe,
 } from "../core/ThemeAdapter";
 import { convertHexToRGB, rgbToOklch } from "../subsystems/colors/utils";
+import { dtcgValueToCss } from "../dtcg/values";
 
 /** Opt-in preview config (`EmitTarget.preview`). `true` uses every default. */
 export type PreviewConfig = {
@@ -119,11 +120,13 @@ function collectLeaves(node: unknown, path: readonly string[], inherited: string
   const record = node as Record<string, unknown>;
   const type = typeof record.$type === "string" ? record.$type : inherited;
   if ("$value" in record) {
-    out.push({ path, type, value: record.$value });
+    // DTCG 2025.10: a base is the `$root` token and values are objects; the specimen reads `base` and CSS text.
+    const leafPath = path[path.length - 1] === "$root" ? [...path.slice(0, -1), "base"] : path;
+    out.push({ path: leafPath, type, value: dtcgValueToCss(record.$value) });
     return;
   }
   for (const [key, child] of Object.entries(record)) {
-    if (key.startsWith("$")) continue;
+    if (key.startsWith("$") && key !== "$root") continue;
     collectLeaves(child, [...path, key], type, out);
   }
 }

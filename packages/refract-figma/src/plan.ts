@@ -67,6 +67,8 @@ export const hexToRgba = (hex: string): FigmaRGBA | undefined => {
 
 const toNumber = (v: unknown): number | undefined => {
   if (typeof v === "number") return v;
+  // DTCG 2025.10 dimension / duration: `{ value, unit }` (Figma FLOATs are unitless).
+  if (v && typeof v === "object" && typeof (v as { value?: unknown }).value === "number") return (v as { value: number }).value;
   if (typeof v === "string") {
     const n = parseFloat(v); // strips a trailing unit ("8px" → 8; Figma FLOATs are unitless)
     return Number.isNaN(n) ? undefined : n;
@@ -75,7 +77,16 @@ const toNumber = (v: unknown): number | undefined => {
 };
 
 const convert = (type: FigmaVariableType, value: unknown): FigmaValue | undefined => {
-  if (type === "COLOR") return typeof value === "string" ? hexToRgba(value) : undefined;
+  if (type === "COLOR") {
+    if (typeof value === "string") return hexToRgba(value);
+    // DTCG 2025.10 colour object: read its hex, with its alpha.
+    const c = value as { hex?: unknown; alpha?: unknown } | null;
+    if (c && typeof c.hex === "string") {
+      const rgba = hexToRgba(c.hex);
+      return rgba && typeof c.alpha === "number" ? { ...rgba, a: c.alpha } : rgba;
+    }
+    return undefined;
+  }
   if (type === "FLOAT") return toNumber(value);
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.join(", ");
@@ -96,8 +107,9 @@ const walkTokens = (
       return;
     }
     for (const [key, child] of Object.entries(obj)) {
-      if (key.startsWith("$")) continue;
-      recur(child, [...path, key], type);
+      if (key.startsWith("$") && key !== "$root") continue;
+      // A 2025.10 `$root` base keeps the `base` variable name.
+      recur(child, [...path, key === "$root" ? "base" : key], type);
     }
   };
   for (const [key, child] of Object.entries(doc as Record<string, unknown>)) {

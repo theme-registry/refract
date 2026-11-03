@@ -4,6 +4,7 @@ import type { ThemeModel, RuleSetGroup, Keyframe, ContainerModel, PropertyModel 
 import type { DTCGDocument, DTCGTokenType } from "./types";
 import { REFRACT_DTCG_EXTENSION, REFRACT_DTCG_EXTENSION_VERSION } from "./types";
 import { toHexColor } from "../subsystems/colors/utils";
+import { colorStringToObject } from "./color";
 import { RefractError } from "../core/errors";
 import type { RawTheme } from "../core";
 import { writeDTCGProfile } from "./profileWriter";
@@ -119,7 +120,7 @@ const toPlainDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
   if (options?.includeBreakpoints !== false && breakpoints && Object.keys(breakpoints).length) {
     const bp: Record<string, unknown> = { $type: "dimension" as DTCGTokenType };
     for (const [name, value] of Object.entries(breakpoints)) {
-      bp[name] = { $value: `${value}px` };
+      bp[name] = { $value: { value, unit: "px" } };
     }
     doc.breakpoint = bp;
   }
@@ -144,10 +145,10 @@ const toPlainDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
     for (const [name, prop] of colors) {
       const node: Record<string, unknown> = {};
       if (prop.base !== undefined) {
-        node.base = { $value: toHexColor(String(prop.base)) };
+        node.$root = { $value: colorValue(prop.base) };
       }
       for (const [member, value] of Object.entries(prop.members)) {
-        node[member] = { $value: toHexColor(String(value)) };
+        node[member] = { $value: colorValue(value) };
       }
       group[name] = node;
     }
@@ -162,7 +163,7 @@ const toPlainDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
       const type = getTypographyTokenType(propName);
       const group: Record<string, unknown> = { $type: type };
       if (prop.base !== undefined) {
-        group.base = { $value: formatTypoValue(prop.base, prop.baseUnit) };
+        group.$root = { $value: formatTypoValue(prop.base, prop.baseUnit) };
       }
       for (const [variant, value] of Object.entries(prop.members)) {
         group[variant] = { $value: formatTypoValue(value, prop.memberUnits[variant]) };
@@ -185,7 +186,7 @@ const toPlainDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
       // (its `colors.*` color ref resolved to a literal) — consistent with how a string-authored
       // shadow already exports. A fully-structured DTCG composite round-trip is a future enhancement.
       if (prop.base !== undefined) {
-        group.base = { $value: formatEffectsValue(propName, prop.base, resolveColor, prop.baseUnit) };
+        group.$root = { $value: formatEffectsValue(propName, prop.base, resolveColor, prop.baseUnit) };
       }
       for (const [variant, value] of Object.entries(prop.members)) {
         group[variant] = { $value: formatEffectsValue(propName, value, resolveColor, prop.memberUnits[variant]) };
@@ -204,7 +205,7 @@ const toPlainDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
       }
       const group = doc[groupName] as Record<string, unknown>;
       if (prop.base !== undefined) {
-        group.base = { $value: formatBordersValue(prop.base, prop.baseUnit) };
+        group.$root = { $value: formatBordersValue(prop.base, prop.baseUnit) };
       }
       for (const [variant, value] of Object.entries(prop.members)) {
         group[variant] = { $value: formatBordersValue(value, prop.memberUnits[variant]) };
@@ -224,7 +225,7 @@ const toPlainDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
       }
       const group = doc[groupName] as Record<string, unknown>;
       if (prop.base !== undefined) {
-        group.base = { $value: formatDimensionValue(prop.base, prop.baseUnit) };
+        group.$root = { $value: formatDimensionValue(prop.base, prop.baseUnit) };
       }
       for (const [variant, value] of Object.entries(prop.members)) {
         group[variant] = { $value: formatDimensionValue(value, prop.memberUnits[variant]) };
@@ -253,7 +254,7 @@ const toPlainDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
 const dtcgLocation = (path: string): string[] | undefined => {
   const [subsystem, property, ...rest] = path.split(".");
   if (!property) return undefined;
-  const member = rest.length ? rest.join(".") : "base";
+  const member = rest.length ? rest.join(".") : "$root";
   switch (subsystem) {
     case "colors":
       return ["color", property, member];
@@ -304,10 +305,16 @@ type PropTokens = {
   memberUnits: Record<string, string>;
 };
 
-/** A resolved dimension → DTCG text: append the §21 unit baked on the Model leaf; a unit-less value
- *  (lineHeight, opacity, aspectRatio) or a raw string passes through untouched. */
-const dimText = (value: Literal, unit?: string): string | number =>
-  unit !== undefined ? `${value}${unit}` : value;
+/**
+ * A resolved leaf → its DTCG 2025.10 `$value`: a px / rem length is `{ value, unit }`; a unit-less
+ * value (lineHeight, opacity, aspectRatio) or a raw string passes through; a length in a unit DTCG
+ * doesn't define (`em`, `%`, …) stays CSS text.
+ */
+const dimText = (value: Literal, unit?: string): unknown =>
+  unit === "px" || unit === "rem" ? { value, unit } : unit !== undefined ? `${value}${unit}` : value;
+
+/** A canonical colour string → a DTCG 2025.10 colour object (the string itself if it can't be parsed). */
+const colorValue = (value: Literal): unknown => colorStringToObject(String(value)) ?? toHexColor(String(value));
 
 /**
  * Group the flat `theme.tokens` map into `subsystem -> property -> { base, members }`,
@@ -378,7 +385,7 @@ const getTypographyTokenType = (propName: string): DTCGTokenType => {
 
 /** Typography value → DTCG. Length props (fontSize, letterSpacing) carry a resolved unit; the rest
  *  (fontFamily string, fontWeight/lineHeight numbers) are unit-less → pass through. */
-const formatTypoValue = (value: Literal, unit?: string): string | number => dimText(value, unit);
+const formatTypoValue = (value: Literal, unit?: string): unknown => dimText(value, unit);
 
 const getEffectsGroupInfo = (propName: string): { groupName: string; type: DTCGTokenType } => {
   switch (propName) {
@@ -391,10 +398,6 @@ const getEffectsGroupInfo = (propName: string): { groupName: string; type: DTCGT
   }
 };
 
-/** A resolved shadow geometry field (§21 `{value,unit}`, or a bare number) → CSS text. */
-const dtcgShadowDim = (dim: ShadowDimension): string =>
-  typeof dim === "number" ? `${dim}px` : `${dim.value}${dim.unit}`;
-
 /** The layer's shared length unit — from the first resolved geometry field; `px` if none resolved. */
 const dtcgLayerUnit = (layer: ShadowLayer): string => {
   for (const field of [layer.offsetX, layer.offsetY, layer.blur, layer.spread]) {
@@ -402,24 +405,6 @@ const dtcgLayerUnit = (layer: ShadowLayer): string => {
   }
   return "px";
 };
-
-/** Compose a structured shadow value (§15) → a CSS `box-shadow` string with color refs resolved
- * (translucency is carried by the referenced colour — an `alpha` colour variant, §13.3). Geometry
- * fields carry a resolved unit (§21); an absent (required) offset defaults to `0` in the layer's unit. */
-const composeDtcgShadow = (layers: ShadowLayer[], resolveColor: (path: string) => string): string =>
-  layers
-    .map(layer => {
-      const zero = `0${dtcgLayerUnit(layer)}`;
-      const len = (dim: ShadowDimension | undefined): string => (dim === undefined ? zero : dtcgShadowDim(dim));
-      const parts: string[] = [];
-      if (layer.inset) parts.push("inset");
-      parts.push(len(layer.offsetX), len(layer.offsetY));
-      if (layer.spread != null) parts.push(len(layer.blur), len(layer.spread));
-      else if (layer.blur != null) parts.push(len(layer.blur));
-      if (layer.color) parts.push(resolveColor(layer.color));
-      return parts.join(" ");
-    })
-    .join(", ");
 
 /** Compose a structured transition value (§15) → a CSS `transition` string. */
 const composeDtcgTransition = (parts: TransitionPart[]): string =>
@@ -433,17 +418,63 @@ const composeDtcgTransition = (parts: TransitionPart[]): string =>
     })
     .join(", ");
 
+/** A shadow geometry field → a DTCG dimension (`{ value, unit }`); absent = 0 in the layer's unit. */
+const shadowDim = (dim: ShadowDimension | undefined, unit: string): unknown =>
+  dim === undefined ? { value: 0, unit } : typeof dim === "number" ? { value: dim, unit: "px" } : { value: dim.value, unit: dim.unit };
+
+/** Structured shadow layers (§15) → a DTCG 2025.10 shadow value (one object, or an array of layers). */
+const dtcgShadow = (layers: ShadowLayer[], resolveColor: (path: string) => string): unknown => {
+  const out = layers.map(layer => {
+    const unit = dtcgLayerUnit(layer);
+    return {
+      color: layer.color ? colorValue(resolveColor(layer.color)) : colorValue("#000000"),
+      offsetX: shadowDim(layer.offsetX, unit),
+      offsetY: shadowDim(layer.offsetY, unit),
+      blur: shadowDim(layer.blur, unit),
+      spread: shadowDim(layer.spread, unit),
+      ...(layer.inset ? { inset: true } : {}),
+    };
+  });
+  return out.length === 1 ? out[0] : out;
+};
+
+const CSS_EASINGS: Record<string, number[]> = {
+  linear: [0, 0, 1, 1],
+  ease: [0.25, 0.1, 0.25, 1],
+  "ease-in": [0.42, 0, 1, 1],
+  "ease-out": [0, 0, 0.58, 1],
+  "ease-in-out": [0.42, 0, 0.58, 1],
+};
+const bezier = (fn: string | undefined): number[] | undefined => {
+  if (fn === undefined) return CSS_EASINGS.ease;
+  if (CSS_EASINGS[fn]) return CSS_EASINGS[fn];
+  const n = fn.match(/^cubic-bezier\(([^)]+)\)$/)?.[1].split(",").map(x => Number(x.trim()));
+  return n && n.length === 4 && n.every(Number.isFinite) ? n : undefined;
+};
+
+/**
+ * A structured transition (§15) → a DTCG 2025.10 transition (`{ duration, delay, timingFunction }`).
+ * DTCG's transition is a single part with no CSS property, so several parts, a property other than
+ * `all`, or a timing function that isn't a bezier keep the CSS text.
+ */
+const dtcgTransition = (parts: TransitionPart[]): unknown => {
+  const [p] = parts;
+  const fn = bezier(p?.timingFunction);
+  if (parts.length !== 1 || (p.property !== "all" && p.property !== undefined) || !fn) return composeDtcgTransition(parts);
+  return { duration: { value: p.duration ?? 0, unit: "ms" }, delay: { value: p.delay ?? 0, unit: "ms" }, timingFunction: fn };
+};
+
 const formatEffectsValue = (
   propName: string,
   value: Literal,
   resolveColor: (path: string) => string,
   unit?: string,
-): string | number => {
+): unknown => {
   // §15: shadow/transitions arrive as a structured array (cast to `Literal` in groupTokens).
   if (Array.isArray(value)) {
     return propName === "transitions"
-      ? composeDtcgTransition(value as TransitionPart[])
-      : composeDtcgShadow(value as ShadowLayer[], resolveColor);
+      ? dtcgTransition(value as TransitionPart[])
+      : dtcgShadow(value as ShadowLayer[], resolveColor);
   }
   // `blur` carries a resolved length unit (§21); `opacity`/`zIndex` are unit-less → pass through.
   return dimText(value, unit);
@@ -461,7 +492,7 @@ const getBordersGroupInfo = (propName: string): { groupName: string; type: DTCGT
 
 /** Borders geometry: radius/width/offset carry a resolved length unit (§21); `style` is a raw
  *  strokeStyle string (no unit → passes through). */
-const formatBordersValue = (value: Literal, unit?: string): string | number => dimText(value, unit);
+const formatBordersValue = (value: Literal, unit?: string): unknown => dimText(value, unit);
 
 /** Layout dimension: spacing/gutters/sizes carry a resolved unit (§21); aspectRatio is unit-less. */
-const formatDimensionValue = (value: Literal, unit?: string): string | number => dimText(value, unit);
+const formatDimensionValue = (value: Literal, unit?: string): unknown => dimText(value, unit);
