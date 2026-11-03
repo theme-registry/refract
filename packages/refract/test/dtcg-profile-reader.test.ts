@@ -1,7 +1,7 @@
 /**
  * The Refract DTCG profile reader, token layer: a profile token file → a raw theme that builds.
- * Uses the synthetic example in fixtures/dtcg-profile (recipes stripped: the document-level stage
- * comes next and is rejected for now rather than half-read).
+ * Uses the synthetic example in fixtures/dtcg-profile; document-level cases (recipes, components,
+ * globals, keyframes, layout structure) at the end.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -12,11 +12,7 @@ import type { DTCGDocument } from "../src/dtcg/types";
 
 const KEY = "com.theme-registry.refract.profile";
 const read = (rel: string) => JSON.parse(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8"));
-const fixture = (): any => {
-  const doc = read("./fixtures/dtcg-profile/base.tokens.json");
-  delete doc.$extensions[KEY].recipes;
-  return doc;
-};
+const fixture = (): any => read("./fixtures/dtcg-profile/base.tokens.json");
 const doc = (body: Record<string, unknown>, docExt: Record<string, unknown> = {}): DTCGDocument =>
   ({ $extensions: { [KEY]: { version: 1, ...docExt } }, ...body }) as unknown as DTCGDocument;
 const srgb = (hex: string) => {
@@ -166,7 +162,6 @@ describe("profile reader — single cases", () => {
   const rejects: Array<[string, DTCGDocument, RegExp]> = [
     ["a file with no profile key", { colors: {} } as unknown as DTCGDocument, /not a Refract profile file/],
     ["another version", doc({}, { version: 2 }), /version 2 isn't supported/],
-    ["recipes, until the next stage", doc({}, { recipes: {} }), /recipes in the document extension can't be read yet/],
     ["a top-level group that isn't a subsystem", doc({ color: {} }), /"color" isn't a subsystem/],
     ["an unknown layout property", doc({ layout: { padding: { $type: "dimension", $root: { $value: { value: 8, unit: "px" } } } } }), /layout\.padding/],
     ["a property with no base", doc({ colors: { $type: "color", brand: { dark: { $value: srgb("#000000") } } } }), /no base/],
@@ -179,6 +174,75 @@ describe("profile reader — single cases", () => {
   for (const [name, d, message] of rejects) {
     it(`rejects ${name}`, () => {
       const { code, message: m } = failure(d);
+      expect(code).toBe("REFRACT_E_PROFILE");
+      expect(m).toMatch(message);
+    });
+  }
+});
+
+describe("profile reader — document level", () => {
+  const color = (hex: string) => ({ $value: srgb(hex) });
+  const tokens = {
+    colors: { $type: "color", brand: { $extensions: { [KEY]: { tones: false } }, $root: color("#4c6ef5"), dark: color("#334dd2"), text: color("#ffffff") }, link: { $extensions: { [KEY]: { tones: false } }, $root: color("#1c7ed6") } },
+    typography: { fontSize: { $type: "dimension", $root: { $value: { value: 16, unit: "px" } }, lg: { $value: { value: 20, unit: "px" } } } },
+    layout: {
+      spacing: { $type: "dimension", $root: { $value: { value: 4, unit: "px" } }, md: { $value: { value: 12, unit: "px" } }, lg: { $value: { value: 16, unit: "px" } } },
+      sizes: { $type: "dimension", $root: { $value: { value: 8, unit: "px" } }, lg: { $value: { value: 960, unit: "px" } } },
+    },
+    borders: { radius: { $type: "dimension", $root: { $value: { value: 6, unit: "px" } } } },
+  };
+  const withDoc = (docExt: Record<string, unknown>) => doc(tokens, docExt);
+
+  it("reads the example file's recipes and components", () => {
+    const { raw } = readDTCGProfile(fixture());
+    expect((raw.colors as any).recipes.solid.brand).toEqual({
+      background: "brand",
+      color: "brand.text",
+      states: { hover: { background: "brand.dark" } },
+      responsive: [{ breakpoint: "md", query: "min", background: "brand.darker" }],
+    });
+    expect((raw as any).components.recipes.buttons.primary.css.padding).toEqual({ ref: "layout.spacing.md" });
+    const theme = createTheme(raw, { adapter: createNoopAdapter() });
+    expect(theme.model.subsystems.components.ruleSets).toBeDefined();
+  });
+
+  it("maps each subsystem's recipe fields to its raw form", () => {
+    const { raw } = readDTCGProfile(withDoc({
+      recipes: {
+        typography: { text: { body: { fontSize: "{typography.fontSize.lg}" }, base: { fontSize: "{typography.fontSize}" } } },
+        layout: { box: { card: { paddingX: "{layout.spacing.md}", maxWidth: "{layout.sizes.lg}", background: "transparent" } } },
+        borders: { box: { card: { radius: "{borders.radius}", color: "{colors.brand}", width: "base" } } },
+      },
+    }));
+    expect((raw.typography as any).recipes.text).toEqual({ body: { fontSize: "lg" }, base: { fontSize: "base" } });
+    expect((raw.layout as any).recipes.box.card).toEqual({ paddingX: "md", maxWidth: "lg", background: "transparent" });
+    expect((raw.borders as any).recipes.box.card).toEqual({ radius: "base", color: "colors.brand", width: "base" });
+  });
+
+  it("reads globals, keyframes and the layout structure", () => {
+    const { raw } = readDTCGProfile(withDoc({
+      globals: { preset: "preflight", elements: { a: { color: "{colors.link}", textDecoration: "underline", states: { hover: { color: "{colors.brand}" } } } } },
+      keyframes: { fade: { from: { opacity: 0 }, to: { opacity: 1, color: "{colors.brand}" } } },
+      layout: { stacks: { toolbar: { direction: "row", gap: "{layout.spacing.md}" } } },
+    }));
+    expect((raw as any).globals.elements.a).toEqual({ color: { ref: "colors.link" }, textDecoration: "underline", states: { hover: { color: { ref: "colors.brand" } } } });
+    expect((raw.animation as any).keyframes.fade.to).toEqual({ opacity: 1, color: { ref: "colors.brand" } });
+    expect((raw.layout as any).stacks.toolbar).toEqual({ direction: "row", gap: "md" });
+    expect(() => createTheme(raw, { adapter: createNoopAdapter() })).not.toThrow();
+  });
+
+  const rejects: Array<[string, Record<string, unknown>, RegExp]> = [
+    ["a colour recipe pointing at a non-colour", { recipes: { colors: { solid: { a: { background: "{layout.spacing.md}" } } } } }, /colour recipe takes colour tokens/],
+    ["a typography field pointing at another property", { recipes: { typography: { text: { a: { fontSize: "{typography.lineHeight.lg}" } } } } }, /must point into typography\.fontSize/],
+    ["an alias in a literal-only field", { recipes: { layout: { box: { a: { background: "{colors.brand}" } } } } }, /"background" doesn't take a token/],
+    ["a composition field written as an alias", { recipes: { components: { buttons: { a: { colors: "{colors.brand}" } } } } }, /names a recipe/],
+    ["a raw { ref } object in a recipe field", { recipes: { colors: { solid: { a: { background: { ref: "colors.brand" } } } } } }, /takes a \{…\} alias or a literal/],
+    ["recipes for something that isn't a subsystem", { recipes: { buttons: {} } }, /not a subsystem with recipes/],
+    ["an unknown layout structure key", { layout: { padding: {} } }, /takes columns, grids, stacks, container/],
+  ];
+  for (const [name, docExt, message] of rejects) {
+    it(`rejects ${name}`, () => {
+      const { code, message: m } = failure(withDoc(docExt));
       expect(code).toBe("REFRACT_E_PROFILE");
       expect(m).toMatch(message);
     });

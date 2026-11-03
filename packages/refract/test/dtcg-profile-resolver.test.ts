@@ -18,7 +18,6 @@ const srgb = (hex: string) => {
 
 const fixtureFiles = () => {
   const base = read("./fixtures/dtcg-profile/base.tokens.json");
-  delete base.$extensions[KEY].recipes; // the document-level stage comes next
   return { "base.tokens.json": base, "dark.tokens.json": read("./fixtures/dtcg-profile/dark.tokens.json") };
 };
 
