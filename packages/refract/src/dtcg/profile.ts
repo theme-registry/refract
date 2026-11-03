@@ -103,14 +103,13 @@ const convert = (type: DTCGTokenType | "unknown", value: unknown, raw: unknown, 
         if (!color || !color.startsWith("colors.")) {
           return fail(`${where}: a shadow layer's colour must be an alias into colors (e.g. "{colors.shadow.a10}")`);
         }
-        return {
-          offsetX: toLength(l.offsetX) ?? 0,
-          offsetY: toLength(l.offsetY) ?? 0,
-          blur: toLength(l.blur) ?? 0,
-          spread: toLength(l.spread) ?? 0,
-          color,
-          ...(l.inset === true ? { inset: true } : {}),
-        };
+        // DTCG requires every geometry field; a zero one is left out, as a raw theme writes it.
+        const out: Json = {};
+        for (const field of ["offsetX", "offsetY", "blur", "spread"]) {
+          const v = toLength(l[field]);
+          if (v !== undefined && v !== 0) out[field] = v;
+        }
+        return { ...out, color, ...(l.inset === true ? { inset: true } : {}) };
       });
     }
     case "transition": {
@@ -121,7 +120,7 @@ const convert = (type: DTCGTokenType | "unknown", value: unknown, raw: unknown, 
           property: "all",
           duration: toMs(p.duration),
           timingFunction: toBezier(p.timingFunction) ?? "ease",
-          ...(p.delay !== undefined ? { delay: toMs(p.delay) } : {}),
+          ...(p.delay !== undefined && toMs(p.delay) !== 0 ? { delay: toMs(p.delay) } : {}),
         };
       });
     }
@@ -248,7 +247,11 @@ const readProperty = (sub: Subsystem, property: string, group: Json, graphOf: (i
       const own = ref === where ? undefined : ref.startsWith(`${where}.`) ? ref.slice(where.length + 1) : ref;
       value = own === undefined ? { modifiers: tokenExt.derive.modifiers } : { ref: own, modifiers: tokenExt.derive.modifiers };
     }
-    if (tokenExt.keyword !== undefined) value = tokenExt.keyword;
+    if (tokenExt.keyword !== undefined) {
+      // An easing keyword behind a bezier: the whole value for an easing, the timing function of a transition.
+      if (t!.type === "transition" && Array.isArray(value)) value = value.map(p => ({ ...(p as Json), timingFunction: tokenExt.keyword }));
+      else value = tokenExt.keyword;
+    }
 
     if (name === "$root") {
       out.base = value;
@@ -442,8 +445,10 @@ const convertRecipe = (recipe: unknown, field: (key: string, value: unknown, whe
     const at = `${where}.${key}`;
     if (RECIPE_RESERVED.has(key)) out[key] = value;
     else if (key === "states") {
-      if (!isObject(value)) fail(`${at}: must be an object`);
-      out.states = Object.fromEntries(Object.entries(value as Json).map(([s, v]) => [s, convertRecipe(v, field, `${at}.${s}`)]));
+      // `{ hover: {…} }` or the list form `[{ state: "hover", … }]`, as in a raw theme.
+      if (Array.isArray(value)) out.states = value.map((v, i) => convertRecipe(v, field, `${at}[${i}]`));
+      else if (isObject(value)) out.states = Object.fromEntries(Object.entries(value).map(([s, v]) => [s, convertRecipe(v, field, `${at}.${s}`)]));
+      else fail(`${at}: must be an object or a list`);
     } else if (key === "responsive") {
       if (!Array.isArray(value)) fail(`${at}: must be an array`);
       out.responsive = (value as unknown[]).map((v, i) => convertRecipe(v, field, `${at}[${i}]`));
@@ -541,6 +546,7 @@ const readDocumentLevel = (docExt: Json, raw: Json): void => {
 
   if (docExt.layout !== undefined) {
     if (!isObject(docExt.layout)) fail("layout must be an object");
+    sliceOf("layout"); // an empty layout still opts the theme into the default container
     for (const [key, value] of Object.entries(docExt.layout as Json)) {
       if (!["columns", "grids", "stacks", "container"].includes(key)) fail(`layout.${key}: the document level takes columns, grids, stacks, container`);
       sliceOf("layout")[key] = layoutStructure(value);
