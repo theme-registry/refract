@@ -644,6 +644,46 @@ vendored). Off by default — a build with no `guide` is byte-identical.
 { name: "css", adapter: createCssAdapter(), outDir: "dist/theme", guide: true }
 ```
 
+### Build from DTCG files
+
+When an export script or a design tool writes the theme as Refract DTCG profile files (see
+[DTCG interop](#dtcg-interop)), point `raw` at them instead of importing a `theme.raw.ts`. The path is
+relative to the config file, and every command reads it — `build`, `tokens`, `diff`, `audit`, and the
+MCP server, which also reloads when the files change.
+
+```
+my-theme/
+  theme.config.ts
+  tokens/
+    resolver.json        ← sets + modifiers (dark mode, brands)
+    base.tokens.json     ← every token + recipes, components, breakpoints
+    dark.tokens.json     ← only what changes in dark mode
+```
+
+```ts
+// theme.config.ts
+import { defineConfig } from "@theme-registry/refract/build";
+import { createCssAdapter } from "@theme-registry/refract-css";
+
+export default defineConfig({
+  raw: "./tokens/resolver.json",   // or "./tokens/theme.tokens.json": a single file, no modes
+  targets: [{ name: "css", adapter: createCssAdapter(), outDir: "dist/theme" }],
+});
+```
+
+```bash
+npx refract validate tokens/resolver.json   # read + build the files; report problems with the token's path
+npx refract build                           # → dist/theme/theme.css
+```
+
+- **Modes** (a resolver modifier with `"as": "modes"`, e.g. dark) build into the same stylesheet, like a
+  raw theme's `modes`.
+- **Child themes** (`"as": "themes"`, e.g. brands): the default context builds into `outDir`, every other
+  context into `<outDir>/<context>/`, each a complete theme with the same class names.
+- A `.js` / `.mjs` config works the same way; with only profile files, nothing needs TypeScript.
+- In CI, run `refract validate` before `refract build`: it exits 1 and names the token at fault.
+- Starting from a raw theme? `refract tokens --profile` writes its `tokens/` folder.
+
 ### Regression-testing the emitted output
 
 The emit is deterministic — the same theme always produces byte-identical output — so a snapshot
