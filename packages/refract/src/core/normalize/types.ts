@@ -182,6 +182,11 @@ export type NormalizedPropertyValue<
   modes?: NormalizedModeOverride<TValue, TExtra>[];
   /** §W6b — set (to the literal parent var name) when this property is an external-token passthrough. */
   external?: string;
+  /**
+   * Set (to the target's full token path) when the base is a plain `{ ref }` alias. `base` is then
+   * unset until the post-build alias pass fills the model value; subsystems generate nothing from it.
+   */
+  aliasOf?: string;
 } & TExtra;
 
 export type PropertyNormalizationOptions<

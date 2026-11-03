@@ -140,6 +140,32 @@ A `ref()` at a token that doesn't exist fails loud at build time; a bare literal
 validated. (The two contexts are deliberate: name a token where you're composing tokens,
 write a value where you're writing CSS.)
 
+**Aliases.** As a property value, a variant, a mode value or a responsive `base`, a `{ ref }` with no
+`modifiers` makes the value an alias: it *is* that token.
+
+```ts
+colors: {
+  accent: { base: "#e64980", modes: [{ mode: "dark", base: "#f783ac" }] },
+  highlight: { ref: "colors.accent" },              // the whole property
+  link: {
+    base: { ref: "colors.accent" },
+    variants: { hover: { ref: "colors.accent.dark" }, visited: { ref: "hover" } }, // bare name = same property
+    modes: [{ mode: "dark", ref: "colors.accent.light" }],
+  },
+},
+borders: { radius: { base: 6, variants: { card: { ref: "layout.spacing.md" } } } }, // across subsystems
+```
+
+- The CSS adapter writes a live link, `--dt-colors-highlight: var(--dt-colors-accent);`, so the alias
+  follows its target through modes, breakpoints and `override()`. SCSS and styled-components write
+  the target's value (styled-components per mode); `toDTCG` writes a DTCG alias.
+- `theme.tokens` keeps the link and the resolved value: `{ ref: "colors.accent", value: "rgb(230, 73, 128)" }`.
+- An alias must point at an existing token of the same kind (colour, length, duration, number, text);
+  every bad alias is reported at once. A loop throws `REFRACT_E_CYCLE`.
+- An aliased property generates nothing of its own: `tones`, `steps`, `harmony`, a type `ratio` or a
+  layout `ratio`/`step` on it is an error. Use the target's variants instead.
+- With `modifiers`, `{ ref }` is a colour derivation, as before.
+
 **Colour input.** Author a colour as a hex string (`"#4c6ef5"`), an `[r, g, b]` tuple, or any CSS
 colour — `oklch(…)`, `hsl(…)` / `hsla(…)`, `rgb(…)` / `rgba(…)`, or a named keyword
 (`"rebeccapurple"`). All normalize to the canonical form and derive in OKLCH. Only a `var(--…)` is

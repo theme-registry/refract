@@ -240,11 +240,28 @@ const stripScaleKeys = (
  * @param propertyKey The layout property being normalized.
  * @param normalized  The property after the shared property normalize pass.
  */
+
+/** A2 — an aliased property is the same token as its target, so it generates nothing of its own. */
+const rejectGeneratorsOnAlias = (path: string, aliasOf: string | undefined, settings: Record<string, unknown>): void => {
+  if (aliasOf === undefined) return;
+  const asked = Object.keys(settings).filter(key => settings[key] !== undefined && settings[key] !== false);
+  if (!asked.length) return;
+  throw new RefractError(
+    "REFRACT_E_PROPERTY",
+    `${path} is an alias of ${aliasOf} and can't generate its own ${asked.join(" / ")}; ` +
+      `use ${aliasOf}'s variants (e.g. ${aliasOf}.md) or give ${path} a literal base.`,
+  );
+};
+
 export const finalizeLayoutNormalization = (
   propertyKey: string,
   normalized: NormalizedPropertyValue<unknown>,
 ): NormalizedPropertyValue<unknown> => {
   if (!SCALE_PROPERTIES.has(propertyKey)) return normalized;
+
+  const aliasOf = (normalized as { aliasOf?: string }).aliasOf;
+  const n = normalized as unknown as { ratio?: unknown; step?: unknown };
+  rejectGeneratorsOnAlias(`layout.${propertyKey}`, aliasOf, { ratio: n.ratio, step: n.step });
 
   const config = readScaleConfig(propertyKey, normalized);
 

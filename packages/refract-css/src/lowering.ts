@@ -13,12 +13,15 @@ import type {
   MergedRuleSet,
   PropertyModel,
   PropertyResponsiveOverride,
+  PropertyResponsiveOverride as PropertyOverride,
   Ref,
   RuleSet,
   RuleSetGroup,
   RuleSetOverride,
   ShadowLayer,
+  ThemeModel,
   TransitionPart,
+  VariantModel,
 } from "@theme-registry/refract";
 import type { ShadowDimension } from "@theme-registry/refract";
 import type { ContainerDescriptors, MediaDescriptor, MediaVariant } from "@theme-registry/refract";
@@ -314,6 +317,95 @@ const buildSubsystemPathToVar = (
         map[`${subsystem}.${name}.${variant}.${ex}`] = varName(`${subsystem}.${name}.${variant}.${ex}`);
       }
     }
+  }
+  return map;
+};
+
+// ---------------------------------------------------------------------------
+// Raw-theme aliases → live var() links
+// ---------------------------------------------------------------------------
+
+/** A model Ref that is a plain alias (`ref`, no derivation chain, not external). */
+const isAliasRef = (ref: Ref | undefined): ref is Ref & { ref: string } =>
+  !!ref &&
+  ref.ref !== undefined &&
+  ref.fn === undefined &&
+  (ref.modifiers === undefined || ref.modifiers.length === 0) &&
+  ref.external === undefined;
+
+const aliasValue = (ref: Ref & { ref: string }, pathToVar: Record<string, string>, varName: VarNamer): Ref => ({
+  value: `var(${pathToVar[ref.ref] ?? varName(ref.ref)})`,
+});
+
+const inlineFields = (
+  fields: Record<string, Ref> | undefined,
+  pathToVar: Record<string, string>,
+  varName: VarNamer,
+): Record<string, Ref> | undefined => {
+  if (!fields) return undefined;
+  let next: Record<string, Ref> | undefined;
+  for (const [key, ref] of Object.entries(fields)) {
+    if (!isAliasRef(ref)) continue;
+    next = next ?? { ...fields };
+    next[key] = aliasValue(ref, pathToVar, varName);
+  }
+  return next;
+};
+
+/**
+ * Rewrite every alias Ref (base, variants, extras, mode and responsive fields) into a literal
+ * `var(--target)` value, so the variable lowering writes a live link instead of a copied value: the
+ * alias then follows its target through modes, breakpoints and child-theme overrides. Properties
+ * with no alias are returned by reference (byte-identical output).
+ */
+export const inlineAliasRefs = (
+  properties: Record<string, PropertyModel>,
+  pathToVar: Record<string, string>,
+  varName: VarNamer,
+): Record<string, PropertyModel> => {
+  let out: Record<string, PropertyModel> | undefined;
+  for (const [name, pm] of Object.entries(properties)) {
+    if (name.includes("--")) continue; // structural config tokens keep their own ref lowering
+    let next: PropertyModel | undefined;
+    const edit = (): PropertyModel => (next = next ?? { ...pm });
+    if (isAliasRef(pm.base)) edit().base = aliasValue(pm.base, pathToVar, varName);
+    const extras = inlineFields(pm.extras, pathToVar, varName);
+    if (extras) edit().extras = extras;
+    if (pm.variants) {
+      let variants: Record<string, VariantModel> | undefined;
+      for (const [v, variant] of Object.entries(pm.variants)) {
+        const base = isAliasRef(variant.base) ? aliasValue(variant.base, pathToVar, varName) : variant.base;
+        const vExtras = inlineFields(variant.extras, pathToVar, varName);
+        if (base === variant.base && !vExtras) continue;
+        variants = variants ?? { ...pm.variants };
+        variants[v] = { ...variant, base, ...(vExtras ? { extras: vExtras } : {}) };
+      }
+      if (variants) edit().variants = variants;
+    }
+    for (const key of ["modes", "responsive"] as const) {
+      const list = pm[key];
+      if (!list) continue;
+      let changed: PropertyOverride[] | undefined;
+      list.forEach((entry, i) => {
+        const fields = inlineFields(entry.overrides, pathToVar, varName);
+        if (!fields) return;
+        changed = changed ?? [...list];
+        changed[i] = { ...entry, overrides: fields };
+      });
+      if (changed) edit()[key] = changed;
+    }
+    if (!next) continue;
+    out = out ?? { ...properties };
+    out[name] = next;
+  }
+  return out ?? properties;
+};
+
+/** `tokenPath → cssVarName` for every subsystem at once, so an alias can point across subsystems. */
+export const buildAllPathToVar = (model: ThemeModel, varName: VarNamer): Record<string, string> => {
+  const map: Record<string, string> = {};
+  for (const [subsystem, sub] of Object.entries(model.subsystems)) {
+    if (sub.properties) Object.assign(map, buildSubsystemPathToVar(subsystem, sub.properties, varName));
   }
   return map;
 };

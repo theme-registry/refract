@@ -9,3 +9,4 @@
 export type { DerivationFn, DerivationRegistry } from "./resolveTokens";
 export { buildDerivationRegistry, resolveToken, resolveTokenMap } from "./resolveTokens";
 export { bakeCrossPropertyDerivations } from "./crossProperty";
+export { resolveAliases, isAliasRef } from "./aliases";

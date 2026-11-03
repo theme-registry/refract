@@ -3764,10 +3764,14 @@ spacing.responsive: [{ breakpoint: <span class="s">"sm"</span>, target: <span cl
 [ <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span> ]                        <span class="c">// tuple — fixed-length list (today only the [r,g,b] colour tuple)</span>
 { <span class="s">"[leaf field]"</span>: <span class="s">"value"</span> }          <span class="c">// object leaf — flat field map (shadow/transition); an array of these = multi-part</span>
 
-{ external: <span class="s">"[token path]"</span> }          <span class="c">// external — a whole-property passthrough (see below)</span></pre>
+{ external: <span class="s">"[token path]"</span> }          <span class="c">// external — a whole-property passthrough (see below)</span>
+
+{ ref: <span class="s">"[token path]"</span> }               <span class="c">// alias — this value IS that token (see below)</span></pre>
           </div>
           <h3>References</h3>
           <p>In composition fields (recipe props) a bare string names a token, <b>ref-first</b>. In a <code>css</code> block it is <b>literal-first</b> — a bare string is raw CSS; mark a token with <code>ref("[path]")</code> or <code>{ ref: "[path]" }</code>. See <a href="#naming">Token paths &amp; naming</a>.</p>
+          <h3>Aliases</h3>
+          <p>A <code>{ ref: "[token path]" }</code> with no <code>modifiers</code> makes a value an <b>alias</b>: it is that token. It works as a property (<code>highlight: { ref: "colors.accent" }</code>), a variant, a mode value (<code>{ mode: "dark", ref: "…" }</code>) and a responsive <code>base</code>. A dotted path is a full token path; a bare name (<code>"hover"</code>) is a variant of the same property. The CSS adapter writes a live link (<code>--dt-colors-highlight: var(--dt-colors-accent)</code>), so the alias follows its target through modes, breakpoints and <code>override()</code>; SCSS and styled-components write the target's value (per mode for styled-components); <code>toDTCG</code> writes a DTCG alias. An alias can point across subsystems at a token of the same kind (a radius at a spacing step), and generates no tones or scale of its own. With <code>modifiers</code>, a <code>{ ref }</code> is a colour derivation instead.</p>
           <h3>External tokens</h3>
           <p>An <code>external</code> value aliases a variable a <i>parent</i> theme owns — <code>{ external: "[token path]" }</code> lowers to <code>var(--[prefix]-[token-path])</code> (path form, via <a href="#r-registries"><code>extends.prefix</code></a>), or <code>{ external: "--[some var]" }</code> for a literal var (leading <code>--</code>). It replaces the whole property, is referenceable everywhere (including recipes), is never defined locally, and survives <code>override()</code>. See <a href="#cb-whitelabel">White-labeling</a>.</p>
           <div class="note">A <code>var(--…)</code> is <b>not</b> a valid colour leaf — it can't be tonally derived at build. Borrow it as an <code>external</code> token instead.</div>
@@ -4527,7 +4531,9 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
               <tbody>
                 <tr><td><code>Unknown token path "…".</code></td><td><code>theme.resolveToken(path)</code> was called with a path that isn't in the Model. <b>Fix:</b> check the path against <code>theme.tokens</code> (a flat <code>path → Ref</code> map).</td></tr>
                 <tr><td><code>Cyclic token reference: a -&gt; b -&gt; a</code></td><td>Aliases form a loop. <b>Fix:</b> break the alias cycle.</td></tr>
-                <tr><td><code>"…" is a plain { ref } alias (…), which raw themes don't support yet. Use a literal value (colours can also derive: { ref, modifiers: [{ darken: 10 }] }).</code></td><td>A base, variant or mode written as <code>{ ref: "…" }</code> with no <code>modifiers</code>. It used to be misread (an inherited value plus a stray <code>…-ref</code> variable, or nothing at all). <b>Fix:</b> use a literal value, or — for colours — a derivation with a <code>modifiers</code> chain. Plain aliases are planned.</td></tr>
+                <tr><td><code>…: alias { ref: "…" } points at a token that doesn't exist</code></td><td>A <code>{ ref }</code> alias names a token path that isn't in the theme. <b>Fix:</b> correct the path; a bare name (<code>"hover"</code>) means a variant of the same property.</td></tr>
+                <tr><td><code>…: alias { ref: "…" } points at a … token, but … holds a …</code></td><td>The alias and its target hold different kinds of value (a colour pointing at a length). <b>Fix:</b> point at a token of the same kind.</td></tr>
+                <tr><td><code>… is an alias of … and can't generate its own …</code></td><td>An aliased property asked for tones, steps, a harmony or a scale. Its ramp is the target's. <b>Fix:</b> use the target's variants (<code>colors.accent.light</code>), or give the property a literal base.</td></tr>
               </tbody>
             </table>
           </div>
@@ -4759,14 +4765,14 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="note"><b>What the lineage proves — and doesn't.</b> The <b>design</b> (author → override → runtime-or-prebuilt, foundations included) is battle-tested across real multi-brand estates: a flagship + ~130 regional sites on one shared infrastructure; a multi-brand media group with per-brand child overrides side by side; a pan-European NGO federation, override-per-member at federation scale; and a multi-identity civic institution, distinct identities on one platform without forking. <b>The idea has the better part of a decade of production behind it; the published package is new</b> — a clean, standardized rewrite that earns its own miles. Client names are withheld — the credibility is in the shapes, not the logos.</div>
 
           <h3>Tested &amp; gated</h3>
-          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">837</b> tests across <b data-q="testfiles">72</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">856</b> tests across <b data-q="testfiles">75</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
               <tbody>
                 <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
                 <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
-                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">837</b>-case suite</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">856</b>-case suite</td></tr>
                 <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
                 <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
               </tbody>
@@ -4779,7 +4785,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
             <table class="doc-table">
               <thead><tr><th>Package</th><th>Budget (gzip)</th></tr></thead>
               <tbody>
-                <tr data-pkg="@theme-registry/refract"><td class="prop">@theme-registry/refract <span class="st-sub">runtime core</span></td><td><b>≤&nbsp;30&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract"><td class="prop">@theme-registry/refract <span class="st-sub">runtime core</span></td><td><b>≤&nbsp;31&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-css"><td class="prop">@theme-registry/refract-css</td><td><b>≤&nbsp;9&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-styled-components"><td class="prop">@theme-registry/refract-styled-components</td><td><b>≤&nbsp;6.5&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract/dtcg"><td class="prop">@theme-registry/refract/dtcg <span class="st-sub">interop subpath</span></td><td><b>≤&nbsp;10&nbsp;KB</b></td></tr>

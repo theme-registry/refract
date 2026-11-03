@@ -144,7 +144,24 @@ export const finalizePaletteNormalization = (
   // coerce extras). hex / tuple / oklch() / hsl() / rgb() / keyword all normalize to canonical rgb;
   // only a var(--…) throws with a path-labelled error.
   const normalized = coerceTextFields(name, normalized0);
-  const baseParseable = isParseableColor(normalized.base);
+  rejectGeneratorsOnAlias(`colors.${name}`, normalized.aliasOf, {
+    steps: normalized.steps,
+    lightenBy: normalized.lightenBy,
+    darkenBy: normalized.darkenBy,
+    harmony: normalized.harmony,
+    tones: normalized.tones === true ? true : undefined,
+  });
+  if (normalized.aliasOf !== undefined) {
+    const ownBase = Object.entries(derivationSpecs).find(([, spec]) => !spec.ref || spec.ref === "base");
+    if (ownBase) {
+      throw new RefractError(
+        "REFRACT_E_PROPERTY",
+        `colors.${name}.${ownBase[0]} derives from colors.${name}, which is an alias of ${normalized.aliasOf}; ` +
+          `derive from the target instead: { ref: "${normalized.aliasOf}", modifiers: [...] }.`,
+      );
+    }
+  }
+  const baseParseable = normalized.aliasOf === undefined && isParseableColor(normalized.base);
   const hasSteps = !!(normalized.steps && normalized.steps.length);
   const hasDerivations = Object.keys(derivationSpecs).length > 0;
   const hasHarmony = normalized.harmony !== undefined;
@@ -191,6 +208,19 @@ const stripPaletteSettings = (normalized: NormalizedPaletteValue): NormalizedPal
   const out = { ...normalized } as Record<string, unknown>;
   for (const key of PALETTE_SETTINGS) delete out[key];
   return out as NormalizedPaletteValue;
+};
+
+
+/** A2 — an aliased property is the same token as its target, so it generates nothing of its own. */
+const rejectGeneratorsOnAlias = (path: string, aliasOf: string | undefined, settings: Record<string, unknown>): void => {
+  if (aliasOf === undefined) return;
+  const asked = Object.keys(settings).filter(key => settings[key] !== undefined && settings[key] !== false);
+  if (!asked.length) return;
+  throw new RefractError(
+    "REFRACT_E_PROPERTY",
+    `${path} is an alias of ${aliasOf} and can't generate its own ${asked.join(" / ")}; ` +
+      `use ${aliasOf}'s variants (e.g. ${aliasOf}.light) or give ${path} a literal base.`,
+  );
 };
 
 /**
@@ -282,6 +312,8 @@ const bakeDerivedModes = (
     const modeName = mode.mode;
     const derive = mode.derive;
     if (!derive) return mode; // literal mode (base and/or extras) — nothing to bake.
+    // A plain alias (`{ mode, ref }`, no chain) — filled post-build by the alias pass, kept as a link.
+    if (derive.modifiers === undefined && derive.fn === undefined) return mode;
 
     // dec.2 — fold the modifier chain over the resolved source (dec.4). A legacy single `{ fn, arg }`
     // derive is treated as a one-element chain.

@@ -53,11 +53,18 @@ export const buildThemeData = (model: ThemeModel, resolve: (path: string) => Lit
   const tokenPaths = new Set<string>();
   const modeOverridePaths: Record<string, Set<string>> = {};
 
+  // Where each token path lives in the tree, and which tokens are raw-theme aliases (`{ ref }`), so
+  // an alias can follow its target's mode values below (the theme object holds values, not links).
+  const locations = new Map<string, { subsystem: string; key: string }>();
+  const aliases: Array<{ subsystem: string; key: string; path: string; target: string }> = [];
+
   const put = (subsystem: string, key: string, path: string, ref: Ref): void => {
     const value = formatValue(ref, path, resolve);
     if (value === undefined) return; // structured token — deferred
     (tree[subsystem] ??= {})[key] = value;
     tokenPaths.add(path);
+    locations.set(path, { subsystem, key });
+    if (isAliasRef(ref)) aliases.push({ subsystem, key, path, target: ref.ref });
   };
 
   for (const [subsystem, sub] of Object.entries(model.subsystems)) {
@@ -95,8 +102,33 @@ export const buildThemeData = (model: ThemeModel, resolve: (path: string) => Lit
     }
   }
 
+  // An alias takes its target's value in each mode where it has none of its own. Repeat so a chain of
+  // aliases (a → b → target) settles.
+  for (const mode of modeNames) {
+    for (let changed = true, rounds = 0; changed && rounds <= aliases.length; rounds++) {
+      changed = false;
+      for (const alias of aliases) {
+        const own = modes[mode]?.[alias.subsystem]?.[alias.key];
+        if (own !== undefined) continue;
+        const at = locations.get(alias.target);
+        const value = at ? modes[mode]?.[at.subsystem]?.[at.key] : undefined;
+        if (value === undefined) continue;
+        ((modes[mode] ??= {})[alias.subsystem] ??= {})[alias.key] = value;
+        (modeOverridePaths[mode] ??= new Set()).add(alias.path);
+        changed = true;
+      }
+    }
+  }
+
   return { tree, modes, modeNames, tokenPaths, modeOverridePaths };
 };
+
+/** A raw-theme alias Ref: a `ref` with no derivation chain and no external passthrough. */
+const isAliasRef = (ref: Ref): ref is Ref & { ref: string } =>
+  ref.ref !== undefined &&
+  ref.fn === undefined &&
+  (ref.modifiers === undefined || ref.modifiers.length === 0) &&
+  ref.external === undefined;
 
 // ---------------------------------------------------------------------------
 // Serialization to object-literal source (emit)
