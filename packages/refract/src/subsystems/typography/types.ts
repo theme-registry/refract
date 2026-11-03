@@ -26,7 +26,7 @@ export type FontSizeValue = PropertyValue<number, FontSizeExtras>;
  * A typography recipe declaration block. Each value names a **variant** of the
  * matching typography property (`fontSize: "3xl"`, `fontWeight: "bold"`, `fontSize: "base"`
  * for the base value) — the interpreter maps it to a token-path {@link import("../../core/model").Ref}.
- * Only the keys in the property map are lowered; unknown keys are ignored.
+ * Only the keys in the property map are lowered; any other key, or a value naming no variant, throws.
  */
 export type TypographyRecipeProps = {
   fontFamily?: string;

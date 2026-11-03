@@ -11,6 +11,7 @@
  */
 
 import type { Subsystem, NormalizedProperties } from "../../core/subsystem";
+import { RefractError } from "../../core/errors";
 import type { NormalizedPropertyValue, NormalizedRecipeVariant } from "../../core/normalize";
 import {
   normalizePropertyValue,
@@ -25,6 +26,16 @@ import { buildLayoutStructural } from "./structural";
 /** The "regular" property keys layout normalizes (the rest are structural / recipes). */
 const PROPERTY_KEYS: ReadonlySet<string> = new Set(LAYOUT_PROPERTY_KEYS);
 
+/** Every key `raw.layout` accepts — layout is closed, so anything else is a mistake, not a property. */
+const LAYOUT_KEYS: ReadonlySet<string> = new Set([
+  ...LAYOUT_PROPERTY_KEYS,
+  "columns",
+  "grids",
+  "stacks",
+  "container",
+  "recipes",
+]);
+
 export const layoutSubsystem: Subsystem = {
   key: "layout",
   // §10.6 numeric scale synthesis: the fn its synthesized spacing/gutters/sizes steps derive through,
@@ -35,6 +46,15 @@ export const layoutSubsystem: Subsystem = {
   normalizeProperties(rawSlice, ctx): NormalizedProperties {
     const out: NormalizedProperties = {};
     if (!rawSlice) return out;
+
+    const unknown = Object.keys(rawSlice).filter(key => !LAYOUT_KEYS.has(key));
+    if (unknown.length) {
+      throw new RefractError(
+        "REFRACT_E_LAYOUT",
+        `Unknown layout key${unknown.length > 1 ? "s" : ""} ${unknown.map(k => `"${k}"`).join(", ")} — layout takes ` +
+          `${[...LAYOUT_KEYS].join(", ")}. Padding, margins and other spacing uses go in layout.recipes.`,
+      );
+    }
 
     for (const name of LAYOUT_PROPERTY_KEYS) {
       const value = rawSlice[name];

@@ -62,6 +62,32 @@ A declaration key that's neither a real CSS property nor a reserved recipe key �
 typo: `ref:` where you meant a `variant:` swap, or `colr:` for `color:`. refract rejects it so it
 can't ship as a stray literal declaration. Use the CSS property, or the reserved key you meant.
 
+## `Unknown typography recipe property` / `which is not a variant of typography.<prop>`
+
+> `Unknown typography recipe property "<key>" in <path> — expected one of fontFamily, fontSize, … or a reserved key (…).`
+> `Typography recipe <path>.<prop> names "<value>", which is not a variant of typography.<prop> (known: base, …).`
+
+Typography recipes only take typography properties, and each value must **name a variant** of that
+property (or `"base"`) — not a literal. A `css` block isn't accepted either (it used to be dropped
+silently). Add the value as a variant of the property and name it; put literal CSS in a
+`components` recipe — see **recipes-and-composition**.
+
+## `Unknown layout key "<key>"`
+
+> `Unknown layout key "<key>" — layout takes spacing, gutters, aspectRatio, sizes, columns, grids, stacks, container, recipes. …`
+
+`layout` is a closed set; a key like `padding` used to be dropped silently. Use a scale key, or
+express the use (padding, margins, sections) as a layout recipe.
+
+## `"<path>" is a plain { ref } alias`
+
+> `"<path>" is a plain { ref } alias ("<target>"), which raw themes don't support yet. …`
+
+A base, variant or mode written as `{ ref: "…" }` without `modifiers`. Raw themes don't have plain
+aliases yet (planned); it used to be misread — an inherited value plus a stray `…-ref` variable, or
+nothing at all. Use a literal value, or for colours a derivation:
+`{ ref: "accent", modifiers: [{ darken: 10 }] }`.
+
 ## `Recipe variant "<name>" is not defined` / `Cyclic recipe reference`
 
 > `Recipe variant "<name>" is not defined in "<group>".`

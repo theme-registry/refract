@@ -35,7 +35,7 @@ export type RefractErrorCode =
   | "REFRACT_E_MODE" // an appearance-mode override with no base to override
   | "REFRACT_E_PRESET" // an unknown globals preset name
   | "REFRACT_E_EFFECTS" // a malformed effects value (shadow / transition layer)
-  | "REFRACT_E_LAYOUT" // a malformed layout scale (ratio+step, bad rung)
+  | "REFRACT_E_LAYOUT" // a malformed layout scale (ratio+step, bad rung) or an unknown `layout` key
   | "REFRACT_E_UNITS" // a malformed units config
   | "REFRACT_E_PROPERTY" // a property couldn't be normalized (no resolvable base value)
   | "REFRACT_E_REFERENCE" // a composition / rule-set reference didn't resolve
