@@ -3,7 +3,7 @@
 // shown, every other page section is `hidden`, and the <title> / description / canonical are the
 // page's own. A no-JS crawler sees exactly that page's content at a real URL; the client router
 // (path-aware) hydrates for humans. Run: `node website/scripts/prerender.mjs`.
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
@@ -104,6 +104,14 @@ const llms = [
   "",
 ].join("\n");
 writeFileSync(`${distDir}/llms.txt`, llms);
+
+// The Refract DTCG profile JSON Schema, served at its $id
+// (https://theme-registry.github.io/refract/schema/dtcg-profile/v1.json) so editors and CI can fetch it.
+{
+  const schemaOut = `${distDir}/schema/dtcg-profile`;
+  mkdirSync(schemaOut, { recursive: true });
+  copyFileSync(here("../../packages/refract/schema/dtcg-profile/v1.json"), `${schemaOut}/v1.json`);
+}
 
 // manifest.json — machine index of the doc pages (schema-versioned so agents can bind to it).
 const manifest = {

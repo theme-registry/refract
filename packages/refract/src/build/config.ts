@@ -16,7 +16,7 @@
  * for the emit-location + specifier-rewrite details. Rejected jiti/esbuild (both absent → a new dep).
  */
 import { existsSync } from "node:fs";
-import { extname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ThemeAdapter, Emit } from "../core/ThemeAdapter";
 import type { RawTheme } from "../core/rawTheme";
@@ -25,6 +25,7 @@ import type { UnitsConfig } from "../core/units";
 import type { GuideConfig } from "./emitTheme";
 import type { PreviewConfig } from "./preview";
 import { compileTsConfigGraph } from "./paths";
+import { loadDTCGProfile } from "./loadDTCG";
 
 /** One emit target: an adapter + where to write it, plus which shared vendored helpers it wants. */
 export interface EmitTarget {
@@ -54,7 +55,11 @@ export interface EmitTarget {
 
 /** The `theme.config` shape: the raw theme + one or more emit targets. */
 export interface ThemeConfig {
-  readonly raw: RawTheme;
+  /**
+   * The raw theme — or the path of a Refract DTCG profile file to read it from: a `resolver.json` (with
+   * its token files) or a single `.tokens.json`, relative to the config file.
+   */
+  readonly raw: RawTheme | string;
   readonly targets: readonly EmitTarget[];
   /**
    * Media-query output config (§10.5) — `{ unit: "px" | "em" | "rem"; baseFontSize }`. Applies to
@@ -110,8 +115,11 @@ export async function importConfigModule(path: string): Promise<Record<string, u
   }
 }
 
+/** A loaded config: a profile-file `raw` has been read into a raw theme. */
+export type ResolvedThemeConfig = Omit<ThemeConfig, "raw"> & { readonly raw: RawTheme };
+
 export interface LoadedConfig {
-  readonly config: ThemeConfig;
+  readonly config: ResolvedThemeConfig;
   /** Absolute path the config was loaded from. */
   readonly path: string;
 }
@@ -135,5 +143,17 @@ export async function loadConfig(
   if (!config || typeof config !== "object" || !Array.isArray(config.targets)) {
     throw new Error(`"${path}" must export (default) a defineConfig({ raw, targets }) object.`);
   }
-  return { config, path };
+  if (typeof config.raw === "string") {
+    const profilePath = resolve(dirname(path), config.raw);
+    const { raw, themes } = await loadDTCGProfile(profilePath);
+    const themed = Object.keys(themes);
+    if (themed.length) {
+      throw new Error(
+        `"${config.raw}" has "as": "themes" modifier(s) (${themed.join(", ")}); the CLI doesn't build child themes yet. ` +
+          `Build them in code: theme.override(themes.<modifier>.<context>) from loadDTCGProfile().`,
+      );
+    }
+    return { config: { ...config, raw }, path };
+  }
+  return { config: config as ResolvedThemeConfig, path };
 }
