@@ -50,7 +50,7 @@ import { resolveModelUnits, type UnitsConfig, type UnitResolutionConfig } from "
 import type { NormalizedPropertyValue } from "./normalize";
 import type { RawTheme } from "./rawTheme";
 import { normalizeRecipeGroup, createRecipeVariantResolver } from "./normalize";
-import { buildDerivationRegistry, resolveToken, bakeCrossPropertyDerivations } from "./derive";
+import { buildDerivationRegistry, resolveToken, bakeCrossPropertyDerivations, resolveAliases } from "./derive";
 import {
   buildMediaDescriptor,
   buildContainerDescriptors,
@@ -550,7 +550,11 @@ export function createTheme(
   // another property) against the full token map, now that it exists. Byte-identical for a Model with
   // no cross-property derivation (returned by reference). Runs before validation so an unknown-source
   // ref fails loud here.
-  const model = bakeCrossPropertyDerivations(overlaid, derivationRegistry);
+  const baked = bakeCrossPropertyDerivations(overlaid, derivationRegistry);
+
+  // Raw-theme aliases (`{ ref }` with no modifiers): fill each alias's value / unit / struct from its
+  // target now that every token exists. Missing targets and kind mismatches join the validation below.
+  const { model, errors: aliasErrors } = resolveAliases(baked, derivationRegistry);
 
   // §19 / §9 — post-build ref validation, collect-all (P2-3). A component `css` delta and a globals
   // element declaration are literal-first: a bare string is raw CSS; a `ref("…")` / `{ ref }` marks a
@@ -562,6 +566,7 @@ export function createTheme(
     ...collectComponentCssRefErrors(model),
     ...collectGlobalsRefErrors(model),
     ...collectModeErrors(model, allowedModes),
+    ...aliasErrors,
   ];
   if (validationErrors.length > 0) {
     const list = validationErrors.map(e => `  - ${e}`).join("\n");
@@ -834,5 +839,14 @@ function overrideTheme(
   // them when the source property changed (even if the deriving property wasn't in the partial). The
   // pass is immutable, so the parent's shared Refs are never mutated.
   const baked = bakeCrossPropertyDerivations(resolved, engine.derivationRegistry);
-  return assembleTheme(baked, engine);
+  // Re-fill aliases against the merged map, so an alias follows a target the child overrode.
+  const { model: aliased, errors } = resolveAliases(baked, engine.derivationRegistry);
+  if (errors.length) {
+    throw new RefractError(
+      "REFRACT_E_VALIDATION",
+      `refract: ${errors.length} validation error(s):\n${errors.map(e => `  - ${e}`).join("\n")}`,
+      errors,
+    );
+  }
+  return assembleTheme(aliased, engine);
 }

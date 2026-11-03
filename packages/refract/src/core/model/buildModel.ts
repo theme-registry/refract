@@ -145,10 +145,19 @@ const collectFieldRefs = (
   for (const [key, value] of Object.entries(obj)) {
     if (exclude.has(key)) continue;
     if (isLiteral(value)) out[key] = toRef(value);
+    else if (isAliasField(value)) out[key] = { ref: value.ref }; // normalize expanded it to a full path
     else if (isStructuredValue(value)) out[key] = { struct: value };
   }
   return out;
 };
+
+/** A `{ ref: "<full path>" }` alias field (normalize already expanded the path). */
+const isAliasField = (value: unknown): value is { ref: string } =>
+  typeof value === "object" &&
+  value !== null &&
+  !Array.isArray(value) &&
+  typeof (value as { ref?: unknown }).ref === "string" &&
+  Object.keys(value).length === 1;
 
 // ---------------------------------------------------------------------------
 // Properties → PropertyModel
@@ -165,6 +174,8 @@ const PROPERTY_STRUCTURAL_KEYS: ReadonlySet<string> = new Set([
   // §W6b — an external property's `external` (the parent var name) rides on the base Ref, not as a
   // token extra; excluding it here prevents a spurious `<prop>.external` token leaking into the map.
   "external",
+  // An aliased base's target rides on the base Ref (`{ ref }`), not as an extra.
+  "aliasOf",
 ]);
 
 const RESPONSIVE_CONDITION_KEYS: ReadonlySet<string> = new Set([
@@ -202,7 +213,9 @@ export const buildPropertyModel = (
     base:
       normalized.external !== undefined
         ? { value: `var(${normalized.external})`, external: normalized.external }
-        : valueToRef(normalized.base),
+        : normalized.aliasOf !== undefined
+          ? { ref: normalized.aliasOf } // value / unit filled by the post-build alias pass
+          : valueToRef(normalized.base),
   };
 
   const extras = collectScalarRefs(

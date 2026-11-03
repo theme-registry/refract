@@ -23,6 +23,11 @@ Whether a bare string is a token reference or a raw literal depends on the conte
   **`ref()`** helper — `color: ref("colors.brand.text")` — or the JSON-safe **`{ ref: "…" }`**
   object (for a `theme.raw.json`, which can't call a function).
 - A plain **number** is always a literal.
+- **Aliases:** as a property value, variant, mode value or responsive `base`, `{ ref: "colors.accent" }`
+  with no `modifiers` means "this value IS that token". CSS gets a live `var(--…)` link that follows
+  the target through modes, breakpoints and `override()`. A bare name (`"hover"`) is a variant of the
+  same property. Same kind of value only (colour → colour, length → length); an alias generates no
+  tones or scale of its own.
 - **Prefer `ref()` explicitly** when authoring — it makes the intent unmistakable. A `ref()` at a
   token that doesn't exist fails loud at build; a bare literal is never validated.
 - **Trust boundary:** a literal `css` value passes through to the output **verbatim** (refract

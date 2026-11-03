@@ -79,14 +79,20 @@ silently). Add the value as a variant of the property and name it; put literal C
 `layout` is a closed set; a key like `padding` used to be dropped silently. Use a scale key, or
 express the use (padding, margins, sections) as a layout recipe.
 
-## `"<path>" is a plain { ref } alias`
+## `alias { ref: "<path>" } points at a token that doesn't exist` / `… holds a …`
 
-> `"<path>" is a plain { ref } alias ("<target>"), which raw themes don't support yet. …`
+> `colors.a: alias { ref: "colors.nope" } points at a token that doesn't exist`
+> `colors.a: alias { ref: "layout.spacing" } points at a length token, but colors.a holds a colour`
 
-A base, variant or mode written as `{ ref: "…" }` without `modifiers`. Raw themes don't have plain
-aliases yet (planned); it used to be misread — an inherited value plus a stray `…-ref` variable, or
-nothing at all. Use a literal value, or for colours a derivation:
-`{ ref: "accent", modifiers: [{ darken: 10 }] }`.
+A `{ ref }` alias (no `modifiers`) must name a real token of the same kind. Fix the path — a bare
+name (`"hover"`) means a variant of the same property — or point at a token of the right kind.
+Every bad alias is listed at once. A loop of aliases throws `REFRACT_E_CYCLE`.
+
+## `<path> is an alias of <target> and can't generate its own …`
+
+An aliased property asked for `tones` / `steps` / `harmony` / `lightenBy` / `darkenBy`, a type
+`ratio` or a layout `ratio` / `step`. An alias is the same token as its target, so its ramp is the
+target's: use `colors.accent.light`, or give the property a literal base.
 
 ## `Recipe variant "<name>" is not defined` / `Cyclic recipe reference`
 

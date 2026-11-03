@@ -1,7 +1,7 @@
 {
   "@theme-registry/refract (runtime core)": {
     "entry": "packages/refract/dist/index.esm.js",
-    "maxGzip": 30720
+    "maxGzip": 31744
   },
   "@theme-registry/refract/dtcg": {
     "files": ["packages/refract/dist/dtcg.esm.js"],

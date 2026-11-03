@@ -1,7 +1,8 @@
 /**
  * Input that used to be dropped or misread without an error now throws a coded `RefractError`:
  * a typography recipe's `css` block or unknown key, a typography recipe value naming no variant,
- * an unknown `layout` key, and a plain `{ ref }` alias (no `modifiers`) as a base, variant or mode.
+ * and an unknown `layout` key. (Plain `{ ref }` aliases, rejected here at first, are now supported:
+ * see aliases.test.ts.)
  * Each case pairs with a still-valid neighbour so the check stays narrow.
  */
 import { describe, it, expect } from "vitest";
@@ -75,35 +76,5 @@ describe("layout is closed", () => {
     const { code, message } = failure({ layout: { spacing: { base: 4 }, padding: { base: 8 } } });
     expect(code).toBe("REFRACT_E_LAYOUT");
     expect(message).toContain('"padding"');
-  });
-});
-
-describe("plain { ref } aliases are rejected until raw aliases land", () => {
-  it("still accepts a colour derivation { ref, modifiers }", () => {
-    expect(() =>
-      build({ colors: { primary: { base: "#336699", variants: { soft: { modifiers: [{ lighten: 10 }] } } }, accent: "#ff0000" } }),
-    ).not.toThrow();
-  });
-
-  it("rejects a colour variant { ref } (was an inherited base + a junk -ref var)", () => {
-    const { code, message } = failure({ colors: { primary: { base: "#336699", variants: { alias: { ref: "accent" } } }, accent: "#ff0000" } });
-    expect(code).toBe("REFRACT_E_VARIANT");
-    expect(message).toContain("colors.primary.variants.alias");
-  });
-
-  it("rejects a typography variant { ref }", () => {
-    expect(failure({ typography: { fontSize: { base: 16, variants: { lg: 20, big: { ref: "typography.fontSize.lg" } } } } }).code).toBe(
-      "REFRACT_E_VARIANT",
-    );
-  });
-
-  it("rejects a typography base { ref } (was emitting nothing)", () => {
-    expect(failure({ typography: { fontSize: 16, lineHeight: { base: { ref: "typography.fontSize" } } } }).code).toBe("REFRACT_E_PROPERTY");
-    expect(failure({ typography: { fontSize: 16, lineHeight: { ref: "typography.fontSize" } } }).code).toBe("REFRACT_E_PROPERTY");
-  });
-
-  it("rejects a mode { ref } without modifiers", () => {
-    const raw = { colors: { primary: { base: "#336699", modes: [{ mode: "dark", ref: "accent" }] }, accent: "#ff0000" } };
-    expect(failure(raw).code).toBe("REFRACT_E_MODE");
   });
 });

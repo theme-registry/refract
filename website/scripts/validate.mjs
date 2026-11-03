@@ -209,7 +209,9 @@ const fail = (msg) => { console.log("  ✗", msg); failures++; };
       label: "which is not a variant of",
       raw: { typography: { fontFamily: { base: "Arial", variants: { heading: "Georgia" } }, recipes: { text: { body: { fontFamily: "Inter" } } } } },
     },
-    { label: "plain { ref } alias", raw: { colors: { primary: { base: "#336699", variants: { alias: { ref: "accent" } } }, accent: "#ff0000" } } },
+    { label: "points at a token that doesn't exist", raw: { colors: { highlight: { ref: "colors.nope" } } } },
+    { label: "but … holds a", raw: { colors: { a: { ref: "layout.spacing" } }, layout: { spacing: 4 } } },
+    { label: "can't generate its own", raw: { colors: { x: "#000000", a: { base: { ref: "colors.x" }, lightenBy: 5 } } } },
   ];
   let covered = 0;
   for (const d of drivers) {

@@ -8,7 +8,7 @@
  * via `extend`. Core stays CSS-independent; all naming, the node IR, state selectors, and
  * class minting live here.
  */
-import type { ThemeModel } from "@theme-registry/refract";
+import type { PropertyModel, ThemeModel } from "@theme-registry/refract";
 import { mergeComponentRuleSet } from "@theme-registry/refract";
 import { toHexColor, toOklchColor } from "@theme-registry/refract/color-math";
 import type { AdapterSpec, PreviewDescriptor, RenderContext, ThemeAdapter, UsageRecipe } from "@theme-registry/refract";
@@ -17,6 +17,8 @@ import type { CssDeclaration, CssNode, CssRuleNode, CssVariablesNode } from "./n
 import {
   deriveColorsVariableNodes,
   buildColorsPathToVar,
+  buildAllPathToVar,
+  inlineAliasRefs,
   deriveTypographyVariableNodes,
   buildTypographyPathToVar,
   deriveEffectsVariableNodes,
@@ -166,7 +168,7 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
       const colorFormat = options.colorFormat ?? "rgb";
       const formatColor = (value: unknown): string => {
         const s = value == null ? "" : String(value);
-        if (!s || colorFormat === "rgb") return s;
+        if (!s || colorFormat === "rgb" || s.startsWith("var(")) return s; // an alias is a var() link
         return colorFormat === "hex" ? toHexColor(s) : toOklchColor(s);
       };
 
@@ -175,6 +177,10 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
       // Global token-path → var union (all subsystems): a component `css` delta can reference any
       // subsystem's token, so its refs must resolve against every subsystem's naming.
       const globalPathToVar: Record<string, string> = {};
+      // Raw-theme aliases point at any subsystem's token, so their var() targets come from the full map.
+      const aliasPathToVar = buildAllPathToVar(model, varName);
+      const propsOf = (sub: { properties?: Record<string, PropertyModel> }): Record<string, PropertyModel> =>
+        inlineAliasRefs(sub.properties ?? {}, aliasPathToVar, varName);
 
       // Shared recipe loop: every subsystem lowers its rule-set groups the same way — the recipe
       // class name is uniform (`<classToken>-<subsystem>-<group>-<variant>`); only the token-path→var
@@ -201,7 +207,7 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
 
       const colors = model.subsystems.colors;
       if (colors) {
-        const props = colors.properties ?? {};
+        const props = propsOf(colors);
         const pathToVar = buildColorsPathToVar(props, varName);
         Object.assign(globalPathToVar, pathToVar);
         const variableNodes = deriveColorsVariableNodes(props, { varName, media, formatColor });
@@ -211,7 +217,7 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
 
       const typography = model.subsystems.typography;
       if (typography) {
-        const props = typography.properties ?? {};
+        const props = propsOf(typography);
         const pathToVar = buildTypographyPathToVar(props, varName);
         Object.assign(globalPathToVar, pathToVar);
         const variableNodes = deriveTypographyVariableNodes(props, { varName, media });
@@ -221,7 +227,7 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
 
       const effects = model.subsystems.effects;
       if (effects) {
-        const props = effects.properties ?? {};
+        const props = propsOf(effects);
         const pathToVar = buildEffectsPathToVar(props, varName);
         Object.assign(globalPathToVar, pathToVar);
         // §15: shadow/transition tokens compose from structure; a layer's `colors.*` color ref
@@ -238,7 +244,7 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
       //    subsystem-local map, which only knows `borders.*`. ──
       const borders = model.subsystems.borders;
       if (borders) {
-        const props = borders.properties ?? {};
+        const props = propsOf(borders);
         const pathToVar = buildBordersPathToVar(props, varName);
         Object.assign(globalPathToVar, pathToVar);
         const variableNodes = deriveBordersVariableNodes(props, { varName, media });
@@ -250,7 +256,7 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
       //    via lowerRecipeGroup, container via the two-pass lowerContainerGroup) + padding recipes ──
       const layout = model.subsystems.layout;
       if (layout) {
-        const props = layout.properties ?? {};
+        const props = propsOf(layout);
         const pathToVar = buildLayoutPathToVar(props, varName);
         Object.assign(globalPathToVar, pathToVar);
         const { regular, config } = splitLayoutProperties(props);
@@ -281,7 +287,7 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
       //    resolve against the global path→var union. ──
       const animation = model.subsystems.animation;
       if (animation) {
-        const props = animation.properties ?? {};
+        const props = propsOf(animation);
         const pathToVar = buildAnimationPathToVar(props, varName);
         Object.assign(globalPathToVar, pathToVar);
         const variableNodes = deriveAnimationVariableNodes(props, { varName, media });

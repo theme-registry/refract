@@ -7,6 +7,7 @@
  * Non-`fontSize` properties and ratio-less `fontSize` pass through untouched.
  */
 
+import { RefractError } from "../../core/errors";
 import type { NormalizedPropertyValue, NormalizedVariantValue } from "../../core/normalize";
 import type { FontSizeExtras, TypographyRatioKey, TypographyScaleKey } from "./types";
 
@@ -47,13 +48,28 @@ export const finalizeTypographyNormalization = (
   propertyKey: string,
   normalized: NormalizedPropertyValue<unknown>,
 ): NormalizedPropertyValue<unknown> => {
+  const n = normalized as unknown as FontSizeExtras & { aliasOf?: string };
+  rejectGeneratorsOnAlias(`typography.${propertyKey}`, n.aliasOf, { ratio: n.ratio, algorithm: n.algorithm });
   const scaled =
-    propertyKey === "fontSize"
+    propertyKey === "fontSize" && n.aliasOf === undefined
       ? (generateFontSizeScaleVariants(
           normalized as unknown as NormalizedPropertyValue<number, FontSizeExtras>,
         ) as unknown as NormalizedPropertyValue<unknown>)
       : normalized;
   return stripScaleSettings(scaled);
+};
+
+
+/** A2 — an aliased property is the same token as its target, so it generates nothing of its own. */
+const rejectGeneratorsOnAlias = (path: string, aliasOf: string | undefined, settings: Record<string, unknown>): void => {
+  if (aliasOf === undefined) return;
+  const asked = Object.keys(settings).filter(key => settings[key] !== undefined && settings[key] !== false);
+  if (!asked.length) return;
+  throw new RefractError(
+    "REFRACT_E_PROPERTY",
+    `${path} is an alias of ${aliasOf} and can't generate its own ${asked.join(" / ")}; ` +
+      `use ${aliasOf}'s variants (e.g. ${aliasOf}.lg) or give ${path} a literal base.`,
+  );
 };
 
 /**

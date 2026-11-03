@@ -206,6 +206,10 @@ export const toDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
     }
   }
 
+  // Raw-theme aliases: a token that IS another token is written as a DTCG alias (`"{color.accent.base}"`)
+  // instead of the copied value, so other tools keep the link. Both ends must have been written above.
+  writeAliases(doc, theme);
+
   // §DTCG round-trip — opt-in: stash the built rule-set/keyframe/container IR under the refract
   // extension key. Only touched when `includeRecipes` is set AND the theme actually has recipes, so
   // the standard property-token document stays byte-identical by default.
@@ -215,6 +219,50 @@ export const toDTCG = (theme: Theme, options?: ToDTCGOptions): DTCGDocument => {
   }
 
   return doc;
+};
+
+// --- Raw-theme aliases ---
+
+/** Where `toDTCG` writes a refract token path: `[group…, member]`, or undefined for paths it skips. */
+const dtcgLocation = (path: string): string[] | undefined => {
+  const [subsystem, property, ...rest] = path.split(".");
+  if (!property) return undefined;
+  const member = rest.length ? rest.join(".") : "base";
+  switch (subsystem) {
+    case "colors":
+      return ["color", property, member];
+    case "typography":
+      return ["typography", property, member];
+    case "effects":
+      return [getEffectsGroupInfo(property).groupName, member];
+    case "borders":
+      return [getBordersGroupInfo(property).groupName, member];
+    case "layout":
+      return property.includes("--") ? undefined : [property, member];
+    default:
+      return undefined;
+  }
+};
+
+const nodeAt = (doc: Record<string, unknown>, location: string[]): Record<string, unknown> | undefined => {
+  let node: unknown = doc;
+  for (const key of location) {
+    if (typeof node !== "object" || node === null) return undefined;
+    node = (node as Record<string, unknown>)[key];
+  }
+  return typeof node === "object" && node !== null ? (node as Record<string, unknown>) : undefined;
+};
+
+const writeAliases = (doc: Record<string, unknown>, theme: Theme): void => {
+  for (const [path, ref] of Object.entries(theme.tokens)) {
+    if (ref.ref === undefined || ref.fn !== undefined || ref.modifiers?.length || ref.external !== undefined) continue;
+    const own = dtcgLocation(path);
+    const target = dtcgLocation(ref.ref);
+    if (!own || !target) continue;
+    const node = nodeAt(doc, own);
+    if (!node || !nodeAt(doc, target)) continue;
+    node.$value = `{${target.join(".")}}`;
+  }
 };
 
 // --- Flat-token grouping ---

@@ -29,29 +29,41 @@ const isModeDerivation = (value: unknown): value is ModeDerivation =>
   Array.isArray((value as { modifiers?: unknown }).modifiers);
 
 /**
- * A plain `{ ref }` alias — an object naming a `ref` with no `modifiers` chain. Raw themes don't support
- * aliases yet, and without this check the object was misread: as a variant/mode it became an extra
- * field (a junk `…-ref` var, inherited base), as a base it emitted nothing.
+ * A plain `{ ref }` alias — an object naming a `ref` with no `modifiers` chain: "this value IS that
+ * token". (With `modifiers` it is a derivation, which the owning subsystem bakes.)
  */
-const isPlainAlias = (value: unknown): boolean =>
+const isPlainAlias = (value: unknown): value is { ref: unknown } =>
   typeof value === "object" &&
   value !== null &&
   !Array.isArray(value) &&
   Object.prototype.hasOwnProperty.call(value, "ref") &&
   !Array.isArray((value as { modifiers?: unknown }).modifiers);
 
-/** Fail loud on a plain `{ ref }` alias at `path` (see {@link isPlainAlias}). */
-const rejectPlainAlias = (
-  value: unknown,
-  path: string,
-  code: "REFRACT_E_PROPERTY" | "REFRACT_E_VARIANT" | "REFRACT_E_MODE",
-): void => {
-  if (!isPlainAlias(value)) return;
-  throw new RefractError(
-    code,
-    `"${path}" is a plain { ref } alias (${JSON.stringify((value as { ref: unknown }).ref)}), which raw themes ` +
-      `don't support yet. Use a literal value (colours can also derive: { ref, modifiers: [{ darken: 10 }] }).`,
-  );
+/**
+ * The full token path an alias points at. A dotted `ref` is already a full path; a bare name is a
+ * variant of the same property (`"base"` = the property's own base) — the rule derivations use too.
+ */
+const aliasPathOf = (value: unknown, propertyPath: string | undefined, where: string): string | undefined => {
+  if (!isPlainAlias(value)) return undefined;
+  const ref = value.ref;
+  if (typeof ref !== "string" || !ref.trim()) {
+    throw new RefractError("REFRACT_E_REFERENCE", `"${where}" has a { ref } alias without a token path.`);
+  }
+  if (ref.includes(".") || !propertyPath) return ref;
+  return ref === "base" ? propertyPath : `${propertyPath}.${ref}`;
+};
+
+/** Rewrite a responsive entry's `base: { ref }` (or leaf `{ ref }`) to its full alias path. */
+const expandResponsiveAliases = (entry: Record<string, unknown>, propertyPath: string | undefined): Record<string, unknown> => {
+  let next: Record<string, unknown> | undefined;
+  for (const [key, value] of Object.entries(entry)) {
+    if (key === "ref" || key === "modifiers") continue; // dec.5 — the swap source, not an alias
+    const path = aliasPathOf(value, propertyPath, `${propertyPath ?? "property"}.responsive.${key}`);
+    if (path === undefined) continue;
+    next = next ?? { ...entry };
+    next[key] = { ref: path };
+  }
+  return next ?? entry;
 };
 
 /**
@@ -87,8 +99,20 @@ const normalizeMode = <TValue, TExtra extends Record<string, unknown>, TBreakpoi
 ): NormalizedModeOverride<TValue, TExtra> => {
   const { mode: name, target, ...value } = entry as { mode: string; target?: string } & Record<string, unknown>;
   const modePath = options.propertyPath ? `${options.propertyPath}.modes.${name}` : `modes.${name}`;
-  rejectPlainAlias(value, modePath, "REFRACT_E_MODE");
-  rejectPlainAlias((value as { base?: unknown }).base, `${modePath}.base`, "REFRACT_E_MODE");
+  // A `{ mode, ref }` (or `{ mode, base: { ref } }`) with no modifiers aliases a token in that mode: an
+  // unbaked `derive` whose value the post-build alias pass fills in.
+  const modeAlias =
+    aliasPathOf(value, options.propertyPath, modePath) ??
+    aliasPathOf((value as { base?: unknown }).base, options.propertyPath, `${modePath}.base`);
+  if (modeAlias !== undefined) {
+    const { ref: _ref, base: _base, ...extras } = value as Record<string, unknown>;
+    return {
+      mode: name,
+      ...(target !== undefined ? { target } : {}),
+      ...(extras as Partial<TExtra>),
+      derive: { ref: modeAlias },
+    } as NormalizedModeOverride<TValue, TExtra>;
+  }
 
   const normalizedValue = ((): NormalizedModeValue<TValue, TExtra> => {
     // §15: object-leaf subsystems — a flat leaf object (no `base` key, not a derivation) assembles its
@@ -159,7 +183,6 @@ const resolveBaseValue = <TValue, TBreakpoint extends string>(
   options: PropertyNormalizationOptions<TValue, TBreakpoint>,
 ): TValue => {
   const candidate = providedBase ?? fallback ?? options.fallbackBase;
-  rejectPlainAlias(candidate, options.propertyPath ?? "base", "REFRACT_E_PROPERTY");
 
   if (candidate === undefined) {
     throw new RefractError("REFRACT_E_PROPERTY", `Unable to resolve base value${formatPropertyLabel(options.propertyPath)}.`);
@@ -263,7 +286,19 @@ const normalizeVariant = <
   const variantPath = options.propertyPath
     ? `${options.propertyPath}.variants.${name}`
     : `variants.${name}`;
-  rejectPlainAlias(variant, variantPath, "REFRACT_E_VARIANT");
+  // A `{ ref }` variant (or `{ base: { ref }, …extras }`) aliases a token: an unbaked `derive` with no
+  // base, the shape a cross-property derivation already uses; the post-build alias pass fills it.
+  const variantAlias =
+    aliasPathOf(variant, options.propertyPath, variantPath) ??
+    aliasPathOf((variant as { base?: unknown } | null)?.base, options.propertyPath, `${variantPath}.base`);
+  if (variantAlias !== undefined) {
+    const { ref: _ref, base: _base, ...extras } = variant as Record<string, unknown>;
+    return { ...(extras as unknown as TExtra), derive: { ref: variantAlias } } as unknown as NormalizedVariantValue<
+      TValue,
+      TExtra,
+      TBreakpoint
+    >;
+  }
 
   const extended = isExtendedProperty<TValue, TExtra, TBreakpoint>(variant)
     ? variant
@@ -301,18 +336,21 @@ export const normalizePropertyValue = <
   value: PropertyValue<TValue, TExtra, TBreakpoint>,
   options: PropertyNormalizationOptions<TValue, TBreakpoint> = {},
 ): NormalizedPropertyValue<TValue, TExtra, TBreakpoint> => {
-  rejectPlainAlias(value, options.propertyPath ?? "property", "REFRACT_E_PROPERTY");
-  const extended = isExtendedProperty<TValue, TExtra, TBreakpoint>(value)
-    ? value
-    : ({ base: value } as ExtendedProperty<TValue, TExtra, TBreakpoint>);
+  // A bare `{ ref }` property is shorthand for `{ base: { ref } }`.
+  const extended = isPlainAlias(value)
+    ? ({ base: value } as unknown as ExtendedProperty<TValue, TExtra, TBreakpoint>)
+    : isExtendedProperty<TValue, TExtra, TBreakpoint>(value)
+      ? value
+      : ({ base: value } as ExtendedProperty<TValue, TExtra, TBreakpoint>);
 
   const { base, responsive, variants, modes, ...rest } = extended;
-  const { base: resolvedBase, extra } = resolveBaseAndExtra(
-    base,
-    rest as Record<string, unknown>,
-    options.fallbackBase,
-    options,
-  );
+  // An aliased base has no value of its own: `aliasOf` carries the target, `base` stays unset, and the
+  // post-build alias pass fills the value. The owning subsystem generates nothing from it.
+  const aliasOf = aliasPathOf(base, options.propertyPath, `${options.propertyPath ?? "property"}.base`);
+  const { base: resolvedBase, extra } =
+    aliasOf !== undefined
+      ? { base: undefined as unknown as TValue, extra: rest as Record<string, unknown> }
+      : resolveBaseAndExtra(base, rest as Record<string, unknown>, options.fallbackBase, options);
   const normalizedVariants = variants
     ? Object.fromEntries(
         Object.entries(variants).map(([name, definition]) => [
@@ -326,7 +364,9 @@ export const normalizePropertyValue = <
     propertyPath: options.propertyPath,
     allowedBreakpoints: options.allowedBreakpoints,
   } as const;
-  const normalizedResponsive = normalizeResponsiveOverrides(responsive, responsiveContext);
+  const normalizedResponsive = normalizeResponsiveOverrides(responsive, responsiveContext).map(
+    entry => expandResponsiveAliases(entry as Record<string, unknown>, options.propertyPath) as typeof entry,
+  );
   // §15: object-leaf subsystems assemble a responsive entry's inline leaf fields into a `base` value
   // (whole-value replacement). Gated on `leafFields`, so scalar subsystems keep entries verbatim.
   const finalResponsive = options.leafFields?.length
@@ -339,6 +379,7 @@ export const normalizePropertyValue = <
   return {
     ...(extra as unknown as TExtra),
     base: resolvedBase,
+    ...(aliasOf !== undefined ? { aliasOf } : {}),
     responsive: finalResponsive,
     variants: normalizedVariants,
     modes: normalizedModes,
