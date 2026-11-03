@@ -29,6 +29,32 @@ const isModeDerivation = (value: unknown): value is ModeDerivation =>
   Array.isArray((value as { modifiers?: unknown }).modifiers);
 
 /**
+ * A plain `{ ref }` alias — an object naming a `ref` with no `modifiers` chain. Raw themes don't support
+ * aliases yet, and without this check the object was misread: as a variant/mode it became an extra
+ * field (a junk `…-ref` var, inherited base), as a base it emitted nothing.
+ */
+const isPlainAlias = (value: unknown): boolean =>
+  typeof value === "object" &&
+  value !== null &&
+  !Array.isArray(value) &&
+  Object.prototype.hasOwnProperty.call(value, "ref") &&
+  !Array.isArray((value as { modifiers?: unknown }).modifiers);
+
+/** Fail loud on a plain `{ ref }` alias at `path` (see {@link isPlainAlias}). */
+const rejectPlainAlias = (
+  value: unknown,
+  path: string,
+  code: "REFRACT_E_PROPERTY" | "REFRACT_E_VARIANT" | "REFRACT_E_MODE",
+): void => {
+  if (!isPlainAlias(value)) return;
+  throw new RefractError(
+    code,
+    `"${path}" is a plain { ref } alias (${JSON.stringify((value as { ref: unknown }).ref)}), which raw themes ` +
+      `don't support yet. Use a literal value (colours can also derive: { ref, modifiers: [{ darken: 10 }] }).`,
+  );
+};
+
+/**
  * dec.2 — parse an authored `modifiers` chain of single-key `{ [fn]: args }` dials into the
  * canonical `{ fn, arg }[]` the subsystem hook folds. Each element must have exactly one key (the
  * fn name), its value the arg (`{ darken: 10 }` → `{ fn: "darken", arg: 10 }`).
@@ -61,6 +87,8 @@ const normalizeMode = <TValue, TExtra extends Record<string, unknown>, TBreakpoi
 ): NormalizedModeOverride<TValue, TExtra> => {
   const { mode: name, target, ...value } = entry as { mode: string; target?: string } & Record<string, unknown>;
   const modePath = options.propertyPath ? `${options.propertyPath}.modes.${name}` : `modes.${name}`;
+  rejectPlainAlias(value, modePath, "REFRACT_E_MODE");
+  rejectPlainAlias((value as { base?: unknown }).base, `${modePath}.base`, "REFRACT_E_MODE");
 
   const normalizedValue = ((): NormalizedModeValue<TValue, TExtra> => {
     // §15: object-leaf subsystems — a flat leaf object (no `base` key, not a derivation) assembles its
@@ -131,6 +159,7 @@ const resolveBaseValue = <TValue, TBreakpoint extends string>(
   options: PropertyNormalizationOptions<TValue, TBreakpoint>,
 ): TValue => {
   const candidate = providedBase ?? fallback ?? options.fallbackBase;
+  rejectPlainAlias(candidate, options.propertyPath ?? "base", "REFRACT_E_PROPERTY");
 
   if (candidate === undefined) {
     throw new RefractError("REFRACT_E_PROPERTY", `Unable to resolve base value${formatPropertyLabel(options.propertyPath)}.`);
@@ -234,6 +263,7 @@ const normalizeVariant = <
   const variantPath = options.propertyPath
     ? `${options.propertyPath}.variants.${name}`
     : `variants.${name}`;
+  rejectPlainAlias(variant, variantPath, "REFRACT_E_VARIANT");
 
   const extended = isExtendedProperty<TValue, TExtra, TBreakpoint>(variant)
     ? variant
@@ -271,6 +301,7 @@ export const normalizePropertyValue = <
   value: PropertyValue<TValue, TExtra, TBreakpoint>,
   options: PropertyNormalizationOptions<TValue, TBreakpoint> = {},
 ): NormalizedPropertyValue<TValue, TExtra, TBreakpoint> => {
+  rejectPlainAlias(value, options.propertyPath ?? "property", "REFRACT_E_PROPERTY");
   const extended = isExtendedProperty<TValue, TExtra, TBreakpoint>(value)
     ? value
     : ({ base: value } as ExtendedProperty<TValue, TExtra, TBreakpoint>);

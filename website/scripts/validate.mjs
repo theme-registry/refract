@@ -199,6 +199,17 @@ const fail = (msg) => { console.log("  ✗", msg); failures++; };
         components: { recipes: { buttons: { primary: { colors: "solid.ghost" } } } },
       },
     },
+    // Fail-loud input (4I4-10) — each used to be dropped or misread without an error.
+    { label: "Unknown layout key", raw: { layout: { spacing: { base: 4 }, padding: { base: 8 } } } },
+    {
+      label: "Unknown typography recipe property",
+      raw: { typography: { fontSize: { base: 16, variants: { lg: 20 } }, recipes: { text: { body: { fontSize: "lg", css: { textWrap: "balance" } } } } } },
+    },
+    {
+      label: "which is not a variant of",
+      raw: { typography: { fontFamily: { base: "Arial", variants: { heading: "Georgia" } }, recipes: { text: { body: { fontFamily: "Inter" } } } } },
+    },
+    { label: "plain { ref } alias", raw: { colors: { primary: { base: "#336699", variants: { alias: { ref: "accent" } } }, accent: "#ff0000" } } },
   ];
   let covered = 0;
   for (const d of drivers) {
