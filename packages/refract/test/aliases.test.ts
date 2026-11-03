@@ -74,7 +74,7 @@ describe("raw-theme aliases", () => {
 
   it("writes a DTCG alias in toDTCG", () => {
     const doc = toDTCG(theme) as Record<string, any>;
-    expect(doc.color.highlight.base.$value).toBe("{color.accent.base}");
+    expect(doc.color.highlight.$root.$value).toBe("{color.accent.$root}");
     expect(doc.radius.card.$value).toBe("{spacing.md}");
   });
 

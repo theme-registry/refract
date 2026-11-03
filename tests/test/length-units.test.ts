@@ -153,19 +153,23 @@ describe("§21 DTCG export parity — resolved unit, not hardcoded px", () => {
 
   it("blur exports the resolved rem unit (§21 — was hardcoded px)", () => {
     expect(doc.blur.$type).toBe("dimension");
-    expect(doc.blur.base).toEqual({ $value: "0.25rem" });
-    expect(doc.blur.lg).toEqual({ $value: "0.75rem" });
+    expect(doc.blur.$root).toEqual({ $value: { value: 0.25, unit: "rem" } });
+    expect(doc.blur.lg).toEqual({ $value: { value: 0.75, unit: "rem" } });
   });
   it("shadow geometry composes in the resolved rem unit", () => {
     expect(doc.shadow.$type).toBe("shadow");
-    expect(doc.shadow.base.$value).toContain("0rem 0.125rem 0.5rem");
+    expect(doc.shadow.$root.$value).toMatchObject({
+      offsetX: { value: 0, unit: "rem" },
+      offsetY: { value: 0.125, unit: "rem" },
+      blur: { value: 0.5, unit: "rem" },
+    });
   });
   it("default (no units) keeps px", () => {
     const pxDoc = toDTCG(
       createTheme(raw as never, { adapter: createCssAdapter({ prefix: "app" }) }) as never,
       { name: "px" },
     ) as never as Record<string, any>;
-    expect(pxDoc.blur.base).toEqual({ $value: "4px" });
-    expect(pxDoc.blur.lg).toEqual({ $value: "12px" });
+    expect(pxDoc.blur.$root).toEqual({ $value: { value: 4, unit: "px" } });
+    expect(pxDoc.blur.lg).toEqual({ $value: { value: 12, unit: "px" } });
   });
 });

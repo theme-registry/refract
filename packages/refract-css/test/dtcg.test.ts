@@ -76,38 +76,44 @@ describe("dtcg — toDTCG (flat theme.tokens, model-first)", () => {
   it("carries the document name and breakpoints from the Model", () => {
     expect(doc.$name).toBe("reactSc");
     expect((doc.breakpoint as any).$type).toBe("dimension");
-    expect((doc.breakpoint as any).sm).toEqual({ $value: "576px" });
-    expect((doc.breakpoint as any).xl).toEqual({ $value: "1280px" });
+    expect((doc.breakpoint as any).sm).toEqual({ $value: { value: 576, unit: "px" } });
+    expect((doc.breakpoint as any).xl).toEqual({ $value: { value: 1280, unit: "px" } });
   });
 
-  it("emits colors with base, text (as a sibling), and variants", () => {
+  it("emits colors with $root, text (as a sibling), and variants as 2025.10 colour objects", () => {
     const color = doc.color as any;
     expect(color.$type).toBe("color");
-    expect(color.primary.base).toEqual({ $value: "#4dabf7" });
-    expect(color.primary.text).toEqual({ $value: "#ffffff" });
-    expect(color.primary.dark).toEqual({ $value: "#1c7ed6" });
+    expect(color.primary.$root).toEqual({ $value: { colorSpace: "srgb", components: [0.302, 0.6706, 0.9686], hex: "#4dabf7" } });
+    expect(color.primary.text.$value).toMatchObject({ colorSpace: "srgb", hex: "#ffffff" });
+    expect(color.primary.dark.$value).toMatchObject({ colorSpace: "srgb", hex: "#1c7ed6" });
   });
 
   it("emits typography with per-property groups and px-formatted font sizes", () => {
     const typo = doc.typography as any;
     expect(typo.fontSize.$type).toBe("dimension");
-    expect(typo.fontSize.base).toEqual({ $value: "16px" });
-    expect(typo.fontSize.xs).toEqual({ $value: "12px" });
+    expect(typo.fontSize.$root).toEqual({ $value: { value: 16, unit: "px" } });
+    expect(typo.fontSize.xs).toEqual({ $value: { value: 12, unit: "px" } });
     expect(typo.fontWeight.$type).toBe("fontWeight");
     expect(typo.fontFamily.$type).toBe("fontFamily");
   });
 
   it("emits effects grouped/typed by property (transitions → transition)", () => {
     expect((doc.radius as any).$type).toBe("dimension");
-    expect((doc.radius as any).base).toEqual({ $value: "6px" });
-    expect((doc.radius as any).full).toEqual({ $value: "9999px" }); // string kept
+    expect((doc.radius as any).$root).toEqual({ $value: { value: 6, unit: "px" } });
+    expect((doc.radius as any).full).toEqual({ $value: { value: 9999, unit: "px" } });
     expect((doc.shadow as any).$type).toBe("shadow");
+    expect((doc.shadow as any).$root.$value).toMatchObject({ offsetY: { value: 1, unit: "px" }, blur: { value: 3, unit: "px" }, color: { colorSpace: "srgb" } });
     expect((doc.transition as any).$type).toBe("transition"); // "transitions" → "transition"
+    expect((doc.transition as any).$root.$value).toEqual({
+      duration: { value: 150, unit: "ms" },
+      delay: { value: 0, unit: "ms" },
+      timingFunction: [0.25, 0.1, 0.25, 1],
+    });
   });
 
   it("emits layout dimension tokens and skips structural-config knobs", () => {
     expect((doc.spacing as any).$type).toBe("dimension");
-    expect((doc.spacing as any).base).toEqual({ $value: "8px" });
+    expect((doc.spacing as any).$root).toEqual({ $value: { value: 8, unit: "px" } });
     // `layout.container--inset` (a `--` config knob) must not leak into the document.
     expect(doc.container).toBeUndefined();
     const hasDoubleDash = Object.keys(doc).some(k => k.includes("--"));
@@ -128,12 +134,12 @@ describe("dtcg — round-trip (property tokens)", () => {
     const out = toDTCG(theme);
 
     // Dimension groups survive the round-trip byte-for-value (px normalized).
-    expect((out.spacing as any).base).toEqual({ $value: "16px" });
-    expect((out.spacing as any).sm).toEqual({ $value: "8px" });
-    expect((out.spacing as any).lg).toEqual({ $value: "1.5rem" }); // the authored unit survives
-    expect((out.radius as any).base).toEqual({ $value: "6px" });
-    expect((out.radius as any).lg).toEqual({ $value: "12px" });
-    expect((out.breakpoint as any).md).toEqual({ $value: "768px" });
+    expect((out.spacing as any).$root).toEqual({ $value: { value: 16, unit: "px" } });
+    expect((out.spacing as any).sm).toEqual({ $value: { value: 8, unit: "px" } });
+    expect((out.spacing as any).lg).toEqual({ $value: { value: 1.5, unit: "rem" } }); // the authored unit survives
+    expect((out.radius as any).$root).toEqual({ $value: { value: 6, unit: "px" } });
+    expect((out.radius as any).lg).toEqual({ $value: { value: 12, unit: "px" } });
+    expect((out.breakpoint as any).md).toEqual({ $value: { value: 768, unit: "px" } });
   });
 });
 

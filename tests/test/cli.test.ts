@@ -289,9 +289,9 @@ describe("refract tokens", () => {
     // Parses as JSON with the DTCG shape test/dtcg.test.ts proves toDTCG emits.
     const doc = JSON.parse(readFileSync(join(dir, "tokens.json"), "utf8"));
     expect(doc.color.$type).toBe("color");
-    expect(doc.color.primary.base).toEqual({ $value: "#4dabf7" });
-    expect(doc.color.primary.text).toEqual({ $value: "#ffffff" });
-    expect(doc.color.primary.dark).toEqual({ $value: "#1c7ed6" });
+    expect(doc.color.primary.$root.$value).toMatchObject({ colorSpace: "srgb", hex: "#4dabf7" });
+    expect(doc.color.primary.text.$value).toMatchObject({ colorSpace: "srgb", hex: "#ffffff" });
+    expect(doc.color.primary.dark.$value).toMatchObject({ colorSpace: "srgb", hex: "#1c7ed6" });
 
     // Adapter-free: no theme.css (or any other emit artifact) is written.
     expect(existsSync(join(dir, "theme.css"))).toBe(false);
@@ -308,7 +308,7 @@ describe("refract tokens", () => {
     expect(existsSync(join(dir, "tokens.json"))).toBe(false);
 
     const doc = JSON.parse(readFileSync(join(dir, "design/tokens.json"), "utf8"));
-    expect(doc.color.primary.base).toEqual({ $value: "#4dabf7" });
+    expect(doc.color.primary.$root.$value).toMatchObject({ colorSpace: "srgb", hex: "#4dabf7" });
   });
 });
 

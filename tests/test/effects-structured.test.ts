@@ -196,14 +196,20 @@ describe("§15 JSON — struct emission", () => {
 // ---------------------------------------------------------------------------
 
 describe("§15 DTCG — export", () => {
-  it("composes a structured shadow to a string with its color ref resolved to a literal", () => {
+  it("writes a structured shadow as a DTCG 2025.10 shadow with its color ref resolved to a colour", () => {
     const theme = createTheme(
       { breakpoints: { md: 768 }, colors: { shadow: "#101010" }, effects: { shadow: { offsetY: 1, blur: 2, color: "colors.shadow" } } } as never,
       { adapter: createCssAdapter() },
     );
-    const doc = toDTCG(theme) as { shadow?: { $type?: string; base?: { $value?: unknown } } };
+    const doc = toDTCG(theme) as { shadow?: { $type?: string; $root?: { $value?: unknown } } };
     expect(doc.shadow!.$type).toBe("shadow");
-    expect(doc.shadow!.base!.$value).toBe("0px 1px 2px rgb(16, 16, 16)");
+    expect(doc.shadow!.$root!.$value).toEqual({
+      color: { colorSpace: "srgb", components: [0.0627, 0.0627, 0.0627], hex: "#101010" },
+      offsetX: { value: 0, unit: "px" },
+      offsetY: { value: 1, unit: "px" },
+      blur: { value: 2, unit: "px" },
+      spread: { value: 0, unit: "px" },
+    });
   });
 });
 

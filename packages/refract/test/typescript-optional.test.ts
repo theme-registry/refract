@@ -69,7 +69,7 @@ describe("typescript optional peer — build/tokens work when it is unavailable"
     expect(existsSync(result.outFile)).toBe(true);
     const doc = JSON.parse(readFileSync(result.outFile, "utf8"));
     // The DTCG shape `test/dtcg.test.ts` proves — reached with no adapter and no typescript.
-    expect(doc.color.primary.base).toEqual({ $value: "#4dabf7" });
+    expect(doc.color.primary.$root.$value).toMatchObject({ colorSpace: "srgb", hex: "#4dabf7" });
     expect(existsSync(join(dir, "out", "theme.css"))).toBe(false); // tokens is adapter-free
   });
 
