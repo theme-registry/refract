@@ -1,6 +1,6 @@
 ---
 name: dtcg-import
-description: Migrate existing design tokens into refract and export back out via the DTCG (W3C tokens.json) interop. Use when onboarding from Figma / Tokens Studio / Style Dictionary, or exporting a refract theme as standard tokens. Triggers: "import tokens.json", "Figma tokens", "Tokens Studio", "Style Dictionary", "DTCG", "refract import", "refract tokens", "export design tokens".
+description: Migrate existing design tokens into refract and export back out via the DTCG (W3C tokens.json) interop, or read and write a whole theme as Refract DTCG profile files. Use when onboarding from Figma / Tokens Studio / Style Dictionary, exporting a refract theme as standard tokens, or when an export script / design tool produces the theme as DTCG files. Triggers: "import tokens.json", "Figma tokens", "Tokens Studio", "Style Dictionary", "DTCG", "refract import", "refract tokens", "export design tokens", "DTCG profile", "resolver.json", "refract validate".
 tier: core
 ---
 
@@ -118,10 +118,52 @@ refract tokens                 # → tokens.json
 refract tokens --out design-tokens.json
 ```
 
-Walks the built theme's flat token map and writes a DTCG document. It's **adapter-free** (uses
+Walks the built theme's flat token map and writes a DTCG document in **2025.10 value shapes**: colour
+objects (`{ colorSpace, components, hex }`), `{ value, unit }` lengths and breakpoints, shadow and
+transition objects, and `$root` for a group's base (an `em` / `%` length stays CSS text). It's **adapter-free** (uses
 core's built-in noop adapter), reading only `theme.tokens` / `resolveToken` / breakpoints — so it
 ignores recipes and needs no output adapter. Handy for handing tokens back to design tooling, or
 as the machine-readable companion when **publishing a theme** (see **consuming-the-output**).
+
+## Refract DTCG profile — the whole theme as DTCG files (Experimental)
+
+When an export script, a design tool or an agent produces the theme, it can write **profile files**
+that refract reads directly, with no guessing and no `refract import` step: DTCG 2025.10 plus one
+`$extensions` key, `com.theme-registry.refract.profile`, for generator settings, responsive values,
+recipes, components and globals. Modes use the DTCG Resolver (`resolver.json` + one file per mode).
+
+- **Paths:** top-level groups are subsystems (`colors`, `typography`, `layout`, `effects`, `borders`,
+  `animation`); a group is a property, its `$root` the base, other tokens variants. `colors.<p>.text` is
+  the text colour.
+- **References:** a `$value` alias names a token — `"{colors.brand.$root}"` for a base (never
+  `"{colors.brand}"`; other DTCG tools can't resolve a group). Inside the extension (recipes, `derive`)
+  `"{colors.brand}"` is fine. Anything not in braces is a literal.
+- **Generated tokens** (tones, scales) carry `"generated"`; refract regenerates them from the group's
+  settings and reports drift. **Modes:** a Resolver modifier with `"as": "modes"`; `"as": "themes"`
+  gives child themes.
+
+```ts
+// theme.config.ts — every CLI command reads the files
+export default defineConfig({ raw: "./tokens/resolver.json", targets: [/* … */] });
+
+import { fromDTCGProfile, importDTCGProfile, toDTCG } from "@theme-registry/refract/dtcg";
+import { loadDTCG } from "@theme-registry/refract/build"; // Node
+createTheme(fromDTCGProfile(doc), { adapter });            // a token file, or { resolver, files }
+createTheme(await loadDTCG("./tokens/resolver.json"), { adapter });
+const { resolver, files } = toDTCG(raw, { profile: true }); // raw theme → profile files
+```
+
+```
+refract tokens --profile                 # → tokens/resolver.json + base.tokens.json + <mode>.tokens.json
+refract validate tokens/resolver.json    # read + build; report generated, modes, extension-only values
+```
+
+The JSON Schema is `schema/dtcg-profile/v1.json` in the package
+(`https://theme-registry.github.io/refract/schema/dtcg-profile/v1.json`). Errors are
+`REFRACT_E_PROFILE` with the token's path. Not expressible yet (the writer throws): a responsive
+value under a mode, a multi-part transition, a `--var` external. The CLI refuses `"as": "themes"`
+files for now — use `importDTCGProfile(...).themes` with `override()`. A DTCG file that isn't a
+profile file still goes through `refract import`.
 
 ## Lossless round-trip (opt-in) — `refract → DTCG → refract`
 
@@ -163,6 +205,10 @@ The same conversions are on the `@theme-registry/refract/dtcg` subpath:
 - `defineImporter(spec)` → an importer; pass it as `importDTCG(doc, { importer })`. `dtcgImporter` is
   the default; `runImporter(importer, doc, opts)` runs one directly.
 - `toDTCG(theme, opts?)` → a DTCG document (`opts.includeRecipes` adds the round-trip extension).
+- `toDTCG(raw, { profile: true })` → `{ resolver, files }`, profile files for a raw theme.
+- `importDTCGProfile(input)` → `{ raw, themes, report }` for a profile token file or
+  `{ resolver, files }`; `fromDTCGProfile(input)` → its `raw`. (`loadDTCG` / `loadDTCGProfile` from
+  `./build` read them from disk.)
 - `fromDTCGTheme(doc, { adapter, ... })` → a built `Theme` with recipes restored (lossless round-trip).
 - `readRefractExtension(doc)` → the `com.theme-registry.refract` payload, or `undefined`.
 - `parseDTCGGraph(doc)` → the token graph: `tokens` (typed, canonical values, `alias` / `external` /

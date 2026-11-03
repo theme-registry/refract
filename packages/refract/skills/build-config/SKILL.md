@@ -33,7 +33,9 @@ export default defineConfig({
 });
 ```
 
-`ThemeConfig` = `{ raw, targets, media?, units?, baseFontSize? }`. Each `EmitTarget` =
+`ThemeConfig` = `{ raw, targets, media?, units?, baseFontSize? }`. `raw` can also be the path of a
+Refract DTCG profile file, relative to the config — `raw: "./tokens/resolver.json"` (or a
+`.tokens.json`) — and every command reads it (see **dtcg-import**). Each `EmitTarget` =
 `{ adapter, outDir, name?, emit?, helpers?, guide?, preview? }`. Resolution order: `theme.config.ts` → `.mjs` →
 `.js` (a `.ts` config lazy-loads the optional `typescript` peer — it must be **5.x**; a bare
 `npm i -D typescript` resolves to 7.x, whose main entry doesn't expose the compiler API, and the
@@ -61,7 +63,9 @@ tree-shake, so the CSS-only modes are redundant).
 - `refract init [--js|--mjs] [--force]` — scaffold a runnable `theme.config`.
 - `refract build [--config <path>] [--target <name|index>] [--out <dir>]` — emit each target.
 - `refract import <tokens.json> […]` — seed a theme from a DTCG document (see **dtcg-import**).
-- `refract tokens [--config <path>] [--out <file>]` — DTCG export (see **dtcg-import**).
+- `refract tokens [--config <path>] [--out <file>] [--profile]` — DTCG export; `--profile` writes
+  Refract DTCG profile files (`tokens/resolver.json` + token files) instead (see **dtcg-import**).
+- `refract validate <resolver.json | file.tokens.json>` — read and build a profile, report what it found.
 - `refract help`.
 
 Run via `npx refract <cmd>`. `outDir` resolves relative to the config file's directory.
