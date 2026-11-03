@@ -1,0 +1,666 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://theme-registry.github.io/refract/schema/dtcg-profile/v1.json",
+  "title": "Refract DTCG profile, version 1 (token file)",
+  "description": "A DTCG 2025.10 token file that Refract reads directly. Top-level groups are Refract subsystems; Refract data lives under the com.theme-registry.refract.profile $extensions key on the document, a property group, or a token. DTCG value shapes themselves are checked by Refract's DTCG reader, not by this schema. Resolver files use the DTCG Resolver schema; this schema's $defs/modifierExtension describes Refract's key on a modifier.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$description": {
+      "type": "string"
+    },
+    "$extensions": {
+      "type": "object",
+      "properties": {
+        "com.theme-registry.refract.profile": {
+          "$ref": "#/$defs/documentExtension"
+        }
+      }
+    },
+    "colors": {
+      "$ref": "#/$defs/subsystem"
+    },
+    "typography": {
+      "$ref": "#/$defs/subsystem"
+    },
+    "effects": {
+      "$ref": "#/$defs/subsystem"
+    },
+    "borders": {
+      "$ref": "#/$defs/subsystem"
+    },
+    "animation": {
+      "$ref": "#/$defs/subsystem"
+    },
+    "layout": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/subsystem"
+        }
+      ],
+      "propertyNames": {
+        "anyOf": [
+          {
+            "pattern": "^\\$"
+          },
+          {
+            "enum": [
+              "spacing",
+              "gutters",
+              "sizes",
+              "aspectRatio"
+            ]
+          }
+        ]
+      },
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "name": {
+      "description": "A property or variant name: letters, digits and '-', no spaces or dots.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*$"
+    },
+    "alias": {
+      "description": "A token reference, written like a DTCG alias: \"{colors.brand}\", \"{layout.spacing.md}\".",
+      "type": "string",
+      "pattern": "^\\{[A-Za-z0-9][A-Za-z0-9.-]*\\}$"
+    },
+    "subsystem": {
+      "description": "A subsystem group: one child group per property.",
+      "type": "object",
+      "properties": {
+        "$type": {
+          "type": "string"
+        },
+        "$description": {
+          "type": "string"
+        },
+        "$deprecated": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "$extensions": {
+          "type": "object"
+        }
+      },
+      "patternProperties": {
+        "^[A-Za-z0-9][A-Za-z0-9-]*$": {
+          "$ref": "#/$defs/property"
+        }
+      },
+      "propertyNames": {
+        "anyOf": [
+          {
+            "enum": [
+              "$type",
+              "$description",
+              "$deprecated",
+              "$extensions"
+            ]
+          },
+          {
+            "$ref": "#/$defs/name"
+          }
+        ]
+      }
+    },
+    "property": {
+      "description": "A property group: $root is the base, every other token a variant. Groups don't nest below a property. A property whose values have no DTCG type may have no tokens, only extension `values`.",
+      "type": "object",
+      "properties": {
+        "$type": {
+          "type": "string"
+        },
+        "$description": {
+          "type": "string"
+        },
+        "$deprecated": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "$extensions": {
+          "type": "object",
+          "properties": {
+            "com.theme-registry.refract.profile": {
+              "$ref": "#/$defs/groupExtension"
+            }
+          }
+        },
+        "$root": {
+          "$ref": "#/$defs/token"
+        }
+      },
+      "patternProperties": {
+        "^[A-Za-z0-9][A-Za-z0-9-]*$": {
+          "$ref": "#/$defs/token"
+        }
+      },
+      "propertyNames": {
+        "anyOf": [
+          {
+            "enum": [
+              "$type",
+              "$description",
+              "$deprecated",
+              "$extensions",
+              "$root"
+            ]
+          },
+          {
+            "$ref": "#/$defs/name"
+          }
+        ]
+      },
+      "anyOf": [
+        {
+          "required": [
+            "$root"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "object",
+          "required": [
+            "$extensions"
+          ],
+          "properties": {
+            "$extensions": {
+              "type": "object",
+              "required": [
+                "com.theme-registry.refract.profile"
+              ],
+              "properties": {
+                "com.theme-registry.refract.profile": {
+                  "type": "object",
+                  "required": [
+                    "values"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "token": {
+      "type": "object",
+      "properties": {
+        "$type": {
+          "type": "string"
+        },
+        "$description": {
+          "type": "string"
+        },
+        "$deprecated": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "$value": {},
+        "$extensions": {
+          "type": "object",
+          "properties": {
+            "com.theme-registry.refract.profile": {
+              "$ref": "#/$defs/tokenExtension"
+            }
+          }
+        }
+      },
+      "required": [
+        "$value"
+      ],
+      "propertyNames": {
+        "enum": [
+          "$value",
+          "$type",
+          "$description",
+          "$deprecated",
+          "$extensions"
+        ]
+      }
+    },
+    "documentExtension": {
+      "description": "Document-level Refract data. Only in the first token file of the resolver's order.",
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "breakpoints": {
+          "description": "name → min-width in px.",
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "containers": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "inline-size",
+                  "size"
+                ]
+              },
+              "sizes": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            },
+            "required": [
+              "sizes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "extends": {
+          "type": "object",
+          "properties": {
+            "prefix": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "layout": {
+          "description": "Structural generators, same shapes as the raw theme's layout.columns / grids / stacks / container.",
+          "type": "object",
+          "properties": {
+            "columns": {
+              "type": "object"
+            },
+            "grids": {
+              "type": "object"
+            },
+            "stacks": {
+              "type": "object"
+            },
+            "container": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        "keyframes": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "globals": {
+          "type": "object",
+          "properties": {
+            "preset": {
+              "enum": [
+                "preflight",
+                "normalize",
+                "reset",
+                false
+              ]
+            },
+            "elements": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        "recipes": {
+          "description": "recipes.<subsystem>.<group>.<recipe>. Field names and structure follow the raw theme; a token reference is a {…} alias, anything else a literal.",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "colors",
+              "typography",
+              "effects",
+              "borders",
+              "layout",
+              "animation",
+              "components"
+            ]
+          },
+          "additionalProperties": {
+            "type": "object",
+            "propertyNames": {
+              "$ref": "#/$defs/name"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/name"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/recipe"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "recipe": {
+      "type": "object",
+      "properties": {
+        "css": {
+          "type": "object",
+          "additionalProperties": {
+            "not": {
+              "type": "object",
+              "properties": {
+                "ref": {}
+              },
+              "required": [
+                "ref"
+              ]
+            }
+          }
+        },
+        "states": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "responsive": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "breakpoint"
+            ],
+            "properties": {
+              "breakpoint": {
+                "$ref": "#/$defs/name"
+              }
+            }
+          }
+        },
+        "variants": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "ref": false
+      },
+      "description": "A recipe in the raw theme's shape. Token references are {…} alias strings; raw-theme { ref } objects are not allowed."
+    },
+    "groupExtension": {
+      "description": "Property-level Refract data: settings that generate variants, and values with no DTCG type.",
+      "type": "object",
+      "properties": {
+        "tones": {
+          "description": "Colours: generate light/lighter/dark/darker (OKLCH ΔL points), or false for none.",
+          "oneOf": [
+            {
+              "const": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "lightenBy": {
+                  "type": "number"
+                },
+                "darkenBy": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "steps": {
+          "description": "Colours: an absolute-lightness ladder, L = (1000 − label)/10.",
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "minItems": 1
+        },
+        "harmony": {
+          "type": [
+            "string",
+            "object"
+          ]
+        },
+        "scale": {
+          "oneOf": [
+            {
+              "description": "typography.fontSize: modular type scale.",
+              "type": "object",
+              "properties": {
+                "ratio": {
+                  "enum": [
+                    "minor-second",
+                    "major-second",
+                    "minor-third",
+                    "major-third",
+                    "perfect-fourth",
+                    "augmented-fourth",
+                    "perfect-fifth",
+                    "golden"
+                  ]
+                },
+                "precision": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "baseFontSize": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "ratio"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "description": "layout spacing / gutters / sizes: geometric scale.",
+              "type": "object",
+              "properties": {
+                "ratio": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/name"
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "ratio"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "description": "layout spacing / gutters / sizes: linear scale.",
+              "type": "object",
+              "properties": {
+                "step": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "steps": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                }
+              },
+              "required": [
+                "step"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "values": {
+          "description": "Values with no DTCG type (\"uppercase\", \"100%\", \"16/9\"), keyed by member name; $root for the base.",
+          "type": "object",
+          "propertyNames": {
+            "anyOf": [
+              {
+                "const": "$root"
+              },
+              {
+                "$ref": "#/$defs/name"
+              }
+            ]
+          },
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "tokenExtension": {
+      "description": "Token-level Refract data.",
+      "type": "object",
+      "properties": {
+        "generated": {
+          "enum": [
+            "tones",
+            "steps",
+            "harmony",
+            "scale"
+          ]
+        },
+        "derive": {
+          "type": "object",
+          "properties": {
+            "ref": {
+              "$ref": "#/$defs/alias"
+            },
+            "modifiers": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "minProperties": 1,
+                "maxProperties": 1
+              }
+            }
+          },
+          "required": [
+            "ref",
+            "modifiers"
+          ],
+          "additionalProperties": false
+        },
+        "responsive": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "breakpoint": {
+                "$ref": "#/$defs/name"
+              },
+              "query": {
+                "enum": [
+                  "min",
+                  "max",
+                  "exact"
+                ]
+              },
+              "orientation": {
+                "enum": [
+                  "landscape",
+                  "portrait"
+                ]
+              },
+              "$value": {},
+              "variant": {
+                "$ref": "#/$defs/name"
+              }
+            },
+            "required": [
+              "breakpoint"
+            ],
+            "oneOf": [
+              {
+                "required": [
+                  "$value"
+                ],
+                "type": "object"
+              },
+              {
+                "required": [
+                  "variant"
+                ],
+                "type": "object"
+              }
+            ],
+            "additionalProperties": false
+          }
+        },
+        "external": {
+          "type": "string",
+          "pattern": "^--"
+        },
+        "extras": {
+          "type": "object"
+        },
+        "keyword": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "modifierExtension": {
+      "description": "On a DTCG Resolver modifier: how Refract uses its contexts.",
+      "type": "object",
+      "properties": {
+        "as": {
+          "enum": [
+            "modes",
+            "themes"
+          ]
+        }
+      },
+      "required": [
+        "as"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

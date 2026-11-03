@@ -1,7 +1,7 @@
 {
   "name": "@theme-registry/refract",
   "version": "0.1.19",
-  "description": "The framework-agnostic, format-neutral theme compiler core — build a ThemeModel from a RawTheme, then lower it with any adapter package (CSS, SCSS, JSON, styled-components).",
+  "description": "The framework-agnostic, format-neutral theme compiler core \u2014 build a ThemeModel from a RawTheme, then lower it with any adapter package (CSS, SCSS, JSON, styled-components).",
   "author": {
     "name": "Petyo Stoyanov",
     "email": "petyosv@gmail.com"
@@ -75,6 +75,7 @@
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/node": "^24",
+    "ajv": "^8.20.0",
     "rimraf": "^5.0.5",
     "rollup": "^3.29.4",
     "rollup-plugin-peer-deps-external": "^2.2.4",
