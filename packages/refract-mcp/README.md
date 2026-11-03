@@ -29,6 +29,11 @@ and unlinks again), and neither are `node_modules` / `dist` / `out` / `coverage`
 | `diffTheme` | What's the blast radius of a candidate edit — which tokens moved, classes changed, pairings crossed a threshold, targets stopped building? |
 | `reload` | Reload the project's theme config from disk (also happens automatically on change). |
 
+**Refract DTCG profile.** A config whose `raw` is a profile file (`raw: "./tokens/resolver.json"`) loads
+like any other, and the server reloads when those files change, also when they live outside the config's
+folder. `validateTheme` and `diffTheme` take a candidate written as a profile too: a token file, or
+`{ resolver, files }`.
+
 `diffTheme` is the plan-then-apply guardrail: pass a **candidate edit** and it builds it against the
 project's real adapters and reports the blast radius *before* the agent writes — the claim a token file
 can't make. `validateTheme` surfaces refract's collect-all errors with their stable `code` per target, so

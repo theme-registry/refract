@@ -125,6 +125,8 @@ export interface LoadedConfig {
    * theme` (whole changed properties), each built next to the base by `refract build`. Empty otherwise.
    */
   readonly themes: Readonly<Record<string, Readonly<Record<string, Partial<RawTheme>>>>>;
+  /** When `raw` is a profile file path: its absolute path (watchers follow its folder). */
+  readonly profilePath?: string;
   /** Absolute path the config was loaded from. */
   readonly path: string;
 }
@@ -151,7 +153,7 @@ export async function loadConfig(
   if (typeof config.raw === "string") {
     const profilePath = resolve(dirname(path), config.raw);
     const { raw, themes } = await loadDTCGProfile(profilePath);
-    return { config: { ...config, raw }, path, themes };
+    return { config: { ...config, raw }, path, themes, profilePath };
   }
   return { config: config as ResolvedThemeConfig, path, themes: {} };
 }

@@ -9,7 +9,7 @@
  * (unit-testable) — the SDK handler is a thin wrapper over it.
  */
 import { watch, readFileSync, realpathSync } from "node:fs";
-import { dirname, basename } from "node:path";
+import { dirname, basename, relative, isAbsolute } from "node:path";
 import { parseArgs } from "node:util";
 import { argv } from "node:process";
 import { fileURLToPath } from "node:url";
@@ -23,7 +23,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { RawTheme, Theme, ThemeAdapter, UsageDescriptor } from "@theme-registry/refract";
 import { createTheme, createNoopAdapter } from "@theme-registry/refract";
-import { toDTCG } from "@theme-registry/refract/dtcg";
+import { toDTCG, fromDTCGProfile } from "@theme-registry/refract/dtcg";
 import { loadConfig, diffThemes, buildGuide, type ThemeConfig, type ThemeDiff } from "@theme-registry/refract/build";
 import * as tools from "./tools";
 import type { Builder, NamedTheme } from "./tools";
@@ -64,6 +64,22 @@ export interface Held {
   raw: RawTheme;
   path: string;
   buildOpts: BuildOpts;
+  /** The Refract DTCG profile file the config's `raw` points at, if any — its folder is watched too. */
+  profilePath?: string;
+}
+
+const PROFILE_KEY = "com.theme-registry.refract.profile";
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * A candidate `theme` argument as a raw theme. Agents may edit the theme as Refract DTCG profile files,
+ * so a profile token file (its top-level `$extensions` carries the profile key) or `{ resolver, files }`
+ * is read with `fromDTCGProfile`; anything else is taken as a raw theme.
+ */
+export function candidateRaw(theme: unknown): RawTheme {
+  const isSet = isObj(theme) && isObj(theme.resolver) && isObj(theme.files);
+  const isDoc = isObj(theme) && isObj(theme.$extensions) && PROFILE_KEY in theme.$extensions;
+  return isSet || isDoc ? fromDTCGProfile(theme as never) : (theme as RawTheme);
 }
 
 // --- held state ---
@@ -72,7 +88,7 @@ let configPathArg: string | undefined;
 
 /** Load (or reload) the project's theme config and build it once per target. Throws if it can't be resolved/built. */
 export async function loadTheme(configPath?: string): Promise<Held> {
-  const { config, path } = await loadConfig({ configPath });
+  const { config, path, profilePath } = await loadConfig({ configPath });
   // Match what `refract build` emits, so resolved values/classes are the project's real ones.
   const buildOpts: BuildOpts = { units: config.units, baseFontSize: config.baseFontSize, media: config.media };
   const targets: TargetBuild[] = config.targets.map((t, i) => ({
@@ -82,7 +98,7 @@ export async function loadTheme(configPath?: string): Promise<Held> {
   }));
   // A config with no targets still answers token/model queries; build a noop base for them.
   const base = targets[0]?.theme ?? createTheme(config.raw, { adapter: createNoopAdapter(), ...buildOpts });
-  return { targets, base, raw: config.raw, path, buildOpts };
+  return { targets, base, raw: config.raw, path, buildOpts, ...(profilePath ? { profilePath } : {}) };
 }
 
 /** The set of real-adapter themes `getClass` reads class names from. */
@@ -145,6 +161,12 @@ const WATCH_SOURCE = /\.(ts|mjs|cjs|js|json)$/;
  */
 const WATCH_HIDDEN = /(^|[/\\])\./;
 
+/** Is `dir` the same as, or below, `root`? */
+export function isInside(dir: string, root: string): boolean {
+  const r = relative(root, dir);
+  return r === "" || (!r.startsWith("..") && !isAbsolute(r));
+}
+
 /** Is this watch event worth rebuilding the theme for? Pure, so the loop guard above is unit-testable. */
 export function shouldReload(filename: string): boolean {
   return WATCH_SOURCE.test(filename) && !WATCH_HIDDEN.test(filename) && !WATCH_IGNORE.test(filename);
@@ -192,19 +214,23 @@ function watchConfig(): void {
     if (!shouldReload(filename.toString())) return;
     schedule();
   };
-  try {
-    const dir = dirname(held.path);
-    let watcher;
+  // The config's folder, plus a profile's folder when `raw` points outside it.
+  const dirs = [dirname(held.path)];
+  if (held.profilePath && !isInside(dirname(held.profilePath), dirs[0])) dirs.push(dirname(held.profilePath));
+  for (const dir of dirs) {
     try {
-      watcher = watch(dir, { recursive: true }, onChange);
+      let watcher;
+      try {
+        watcher = watch(dir, { recursive: true }, onChange);
+      } catch {
+        // Platform without recursive support — fall back to a flat watch of the dir.
+        watcher = watch(dir, onChange);
+      }
+      // Don't let the watcher keep the process alive: when the client closes stdin, the server should exit.
+      watcher.unref();
     } catch {
-      // Platform without recursive support — fall back to a flat watch of the config dir.
-      watcher = watch(dir, onChange);
+      /* watching is best-effort — a missing dir or platform quirk shouldn't crash the server */
     }
-    // Don't let the watcher keep the process alive: when the client closes stdin, the server should exit.
-    watcher.unref();
-  } catch {
-    /* watching is best-effort — a missing dir or platform quirk shouldn't crash the server */
   }
 }
 
@@ -254,9 +280,9 @@ const TOOL_DEFS = [
   { name: "checkContrast", description: "WCAG-2 contrast audit of the loaded theme's colour pairings (+ advisory APCA). Optional minWcag pass bar (AA|AAA|AA-large).",
     inputSchema: { type: "object", properties: { minWcag: { type: "string", description: "pass bar: AA (default) | AAA | AA-large" } }, required: [] } },
   { name: "validateTheme", description: "Validate a candidate raw theme (or the loaded theme) against every configured target adapter — returns ALL problems per target at once.",
-    inputSchema: { type: "object", properties: { theme: { type: "object", description: "a candidate raw theme; omit to validate the loaded one" } }, required: [] } },
+    inputSchema: { type: "object", properties: { theme: { type: "object", description: "a candidate raw theme, or a Refract DTCG profile (a token file, or { resolver, files }); omit to validate the loaded one" } }, required: [] } },
   { name: "diffTheme", description: "Diff a candidate raw theme against the loaded one — which tokens moved, which classes changed, which contrast pairings crossed a threshold, and whether every target still builds. Plan-then-apply: see the blast radius before you write.",
-    inputSchema: { type: "object", properties: { theme: { type: "object", description: "the candidate raw theme to compare against the loaded one" } }, required: ["theme"] } },
+    inputSchema: { type: "object", properties: { theme: { type: "object", description: "the candidate raw theme, or a Refract DTCG profile (a token file, or { resolver, files }), to compare against the loaded one" } }, required: ["theme"] } },
   { name: "reload", description: "Reload the project's theme config from disk.",
     inputSchema: { type: "object", properties: {}, required: [] } },
 ];
@@ -291,7 +317,7 @@ export function callTool(name: string, args: Json, state: Held | null): unknown 
     case "validateTheme": {
       // A candidate wins; else the loaded theme. With neither, there is nothing to validate — say so
       // rather than green-lighting `{}` (which builds cleanly and would teach the agent to trust it).
-      const candidate = (args.theme as RawTheme | undefined) ?? state?.raw;
+      const candidate = args.theme !== undefined ? candidateRaw(args.theme) : state?.raw;
       if (candidate === undefined) {
         throw new Error("nothing to validate — pass a candidate `theme`, or launch refract-mcp in a project with a theme.config.(ts|js|mjs)");
       }
@@ -299,7 +325,7 @@ export function callTool(name: string, args: Json, state: Held | null): unknown 
     }
     case "diffTheme": {
       // A diff needs a base to compare against — the loaded project theme.
-      const candidate = (args.theme as RawTheme | undefined) ?? state?.raw;
+      const candidate = args.theme !== undefined ? candidateRaw(args.theme) : state?.raw;
       if (candidate === undefined) {
         throw new Error("nothing to diff — pass a candidate `theme`, or launch refract-mcp in a project with a theme.config.(ts|js|mjs)");
       }

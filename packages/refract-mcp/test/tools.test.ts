@@ -25,7 +25,7 @@ import {
   type NamedTheme,
   type Builder,
 } from "../src/tools";
-import { callTool, loadTheme, guideFiles, serverVersion, isBinEntry, shouldReload, type Held } from "../src/server";
+import { callTool, loadTheme, guideFiles, serverVersion, isBinEntry, shouldReload, isInside, candidateRaw, type Held } from "../src/server";
 
 const raw = {
   colors: {
@@ -379,5 +379,42 @@ describe("bin entry guard (isBinEntry)", () => {
   it("does NOT start when imported as a module (a different launched script)", () => {
     expect(isBinEntry("/proj/node_modules/.bin/vitest", self, (p) => p)).toBe(false);
     expect(isBinEntry(undefined, self, (p) => p)).toBe(false);
+  });
+});
+
+describe("Refract DTCG profile — a config whose raw is a profile file", () => {
+  const KEY = "com.theme-registry.refract.profile";
+  const srgb = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return { colorSpace: "srgb", components: [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255], hex };
+  };
+  const profile = (brand: string) => ({
+    $extensions: { [KEY]: { version: 1 } },
+    colors: { $type: "color", brand: { $extensions: { [KEY]: { tones: false } }, $root: { $value: srgb(brand) } } },
+  });
+
+  it("loads the profile, reloads it after an edit, and records its path for the watcher", async () => {
+    const dir = mkTmp();
+    const design = mkTmp(); // the profile lives outside the config's folder
+    writeFileSync(join(design, "theme.tokens.json"), JSON.stringify(profile("#4c6ef5")));
+    writeFileSync(join(dir, "theme.config.mjs"), `export default { raw: ${JSON.stringify(join(design, "theme.tokens.json"))}, targets: [] };\n`);
+    let h = await loadTheme(join(dir, "theme.config.mjs"));
+    expect(h.profilePath).toBe(join(design, "theme.tokens.json"));
+    expect((callTool("resolveToken", { path: "colors.brand" }, h) as { value: string }).value).toBe("rgb(76, 110, 245)");
+    writeFileSync(join(design, "theme.tokens.json"), JSON.stringify(profile("#e8590c")));
+    h = await loadTheme(join(dir, "theme.config.mjs"));
+    expect((callTool("resolveToken", { path: "colors.brand" }, h) as { value: string }).value).toBe("rgb(232, 89, 12)");
+    expect(isInside(design, dir)).toBe(false);
+    expect(isInside(join(dir, "tokens"), dir)).toBe(true);
+  });
+
+  it("validateTheme and diffTheme take a candidate written as a profile", async () => {
+    const dir = mkTmp();
+    writeFileSync(join(dir, "theme.config.mjs"), `export default { raw: { colors: { brand: { base: "#4c6ef5", tones: false } } }, targets: [] };\n`);
+    const h = await loadTheme(join(dir, "theme.config.mjs"));
+    expect((callTool("validateTheme", { theme: profile("#e8590c") }, h) as { ok: boolean }).ok).toBe(true);
+    const diff = callTool("diffTheme", { theme: profile("#e8590c") }, h) as { diff: { tokens: Array<{ path: string }> } };
+    expect(diff.diff.tokens.map(t => t.path)).toContain("colors.brand");
+    expect(candidateRaw({ colors: { brand: "#000" } })).toEqual({ colors: { brand: "#000" } }); // raw passes through
   });
 });
