@@ -1,5 +1,57 @@
 # @theme-registry/refract
 
+## 0.1.20
+
+### Patch Changes
+
+- 53b2543: `refract build` builds the child themes of a Refract DTCG profile's `"as": "themes"` modifiers instead of refusing the profile. The default context builds into each target's `outDir` as before; every other context builds into `<outDir>/<context>/` (`<modifier>-<context>` when there are several such modifiers) as a complete theme with the same class names and its own values. `loadConfig` returns the child themes as `themes`.
+- 1ddc055: Read and write themes as Refract DTCG profile files: DTCG 2025.10 tokens plus one extension key, `com.theme-registry.refract.profile`, for what the spec can't express. Modes use the DTCG Resolver. The format is described by a JSON Schema, `schema/dtcg-profile/v1.json` in the package, also served at `https://theme-registry.github.io/refract/schema/dtcg-profile/v1.json`.
+
+  - `raw` in a build config can be a profile file path: `raw: "./tokens/resolver.json"` (or a `.tokens.json`).
+  - `./dtcg`: `importDTCGProfile(input)` and `fromDTCGProfile(input)` read a token file or `{ resolver, files }`; `toDTCG(raw, { profile: true })` writes a raw theme as profile files that read back into the same theme.
+  - `./build`: `loadDTCG(path)` and `loadDTCGProfile(path)` read a resolver and its files from disk.
+  - CLI: `refract tokens --profile` writes `resolver.json` plus token files; `refract validate <file>` reads and builds a profile and reports what it found.
+  - New error code `REFRACT_E_PROFILE`.
+
+  The `./dtcg` size budget moves from 10 KB to 19 KB gzip for the profile reader and writer. Plain `toDTCG(theme)` output is unchanged.
+
+- f2839f3: Fail loud on input that used to be dropped or misread without an error. Each now throws a coded `RefractError`:
+
+  - A typography recipe key that isn't a typography property, including a `css` block (`REFRACT_E_RECIPE_PROPERTY`). It used to be dropped.
+  - A typography recipe value that names no variant of its property, e.g. `fontFamily: "Inter"`, or a property the theme doesn't define (`REFRACT_E_VARIANT_REF`). It used to emit an invalid `var(typography.fontFamily.Inter)`.
+  - An unknown `layout` key such as `padding` (`REFRACT_E_LAYOUT`). It used to be dropped.
+
+  A theme that hit any of these was already producing wrong or missing CSS, so it now fails at build time instead.
+
+- 55857e6: Generator settings no longer show up as tokens. A colour's `lightenBy`, `darkenBy` and `harmony`, and the type scale's `ratio`, `precision`, `baseFontSize` and `unit`, were listed in `theme.tokens` (`colors.brand.lightenBy = 10`, `typography.fontSize.ratio = "major-third"`), so `toDTCG`, the MCP tools and the emitted manifest reported them as design tokens. They were never written to CSS, and the tokens they generate are unchanged.
+- ca9e736: refract-mcp works with Refract DTCG profile files: a config whose `raw` is a profile path loads and reloads like any other, and the server also watches the profile's folder when it's outside the config's. `validateTheme` and `diffTheme` accept a candidate written as a profile (a token file, or `{ resolver, files }`). `loadConfig` returns the profile's absolute path as `profilePath`.
+- 4577d7d: Raw themes can alias tokens. A `{ ref: "colors.accent" }` with no `modifiers` makes a property, a variant, a mode value or a responsive `base` the same token as its target:
+
+  ```ts
+  colors: {
+    accent: { base: "#e64980", modes: [{ mode: "dark", base: "#f783ac" }] },
+    highlight: { ref: "colors.accent" },
+    link: { base: { ref: "colors.accent" }, variants: { hover: { ref: "colors.accent.dark" } } },
+  }
+  ```
+
+  - The CSS adapter writes a live link, `--dt-colors-highlight: var(--dt-colors-accent);`, so the alias follows its target through dark mode, breakpoints and `override()`.
+  - SCSS writes the target's value; styled-components writes it per mode; `toDTCG` writes a DTCG alias (`"{color.accent.base}"`).
+  - `theme.tokens` keeps the link and the resolved value.
+  - An alias can point across subsystems at a token of the same kind (`borders.radius.card → layout.spacing.md`). A missing target or a different kind of value is a validation error, a loop is `REFRACT_E_CYCLE`, and an aliased property can't generate its own tones or scale.
+
+  A plain `{ ref }` used to be misread (as a variant it inherited the base and emitted a stray `…-ref` variable; as a base it emitted nothing). The core size budget moves from 30 KB to 31 KB gzip.
+
+- 5040ea4: `toDTCG(theme)` and `refract tokens` now write DTCG 2025.10 value shapes:
+
+  - a colour is a colour object, `{ colorSpace: "srgb", components: [...], hex: "#4dabf7" }` (with `alpha` when translucent), instead of a hex string;
+  - a px or rem length, and each breakpoint, is `{ value, unit }` instead of `"16px"`;
+  - a shadow is a layer object (an array for several layers) instead of a CSS string;
+  - a single transition on `all` is `{ duration, delay, timingFunction }`; several parts, another property, or a non-bezier timing function keep the CSS text;
+  - a group's base token is `$root` instead of `base`.
+
+  Group names are unchanged. A length in a unit DTCG doesn't define (`em`, `%`) stays CSS text. `fromDTCG` / `importDTCG` read both the old and the new output. A script that reads `refract tokens` output and expects strings needs updating.
+
 ## 0.1.19
 
 ### Patch Changes

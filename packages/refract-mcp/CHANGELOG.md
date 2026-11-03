@@ -1,5 +1,19 @@
 # @theme-registry/refract-mcp
 
+## 0.1.20
+
+### Patch Changes
+
+- ca9e736: refract-mcp works with Refract DTCG profile files: a config whose `raw` is a profile path loads and reloads like any other, and the server also watches the profile's folder when it's outside the config's. `validateTheme` and `diffTheme` accept a candidate written as a profile (a token file, or `{ resolver, files }`). `loadConfig` returns the profile's absolute path as `profilePath`.
+- Updated dependencies [53b2543]
+- Updated dependencies [1ddc055]
+- Updated dependencies [f2839f3]
+- Updated dependencies [55857e6]
+- Updated dependencies [ca9e736]
+- Updated dependencies [4577d7d]
+- Updated dependencies [5040ea4]
+  - @theme-registry/refract@0.1.20
+
 ## 0.1.19
 
 ### Patch Changes
