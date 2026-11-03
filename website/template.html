@@ -809,6 +809,7 @@ document.head.<span class="n">append</span>(
                 <tr><td>You have a project, it needs a theme</td><td class="prop">refract create</td><td><code>theme.raw.ts</code> · <code>.js</code> · <code>.json</code></td></tr>
                 <tr><td>Nothing exists yet</td><td class="prop">npm create refract-theme</td><td>a whole publishable theme package</td></tr>
                 <tr><td>Tokens already exist elsewhere</td><td class="prop">refract import</td><td>see <a href="#dtcg">DTCG interop</a></td></tr>
+                <tr><td>An export script or design tool writes the theme as DTCG files</td><td class="prop">nothing — point <code>raw</code> at them</td><td>see <a href="#dtcg">Refract DTCG profile</a></td></tr>
               </tbody>
             </table>
           </div>
@@ -1022,6 +1023,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
                 <tr><td>Reuse one rule-set inside another component</td><td>composition (<code>colors: "solid.brand"</code>)</td><td><a href="#p-components">Components</a></td></tr>
                 <tr><td>Guarantee refract loses no cascade fights</td><td>the CSS adapter <code>layer</code> option</td><td><a href="#naming">Precedence</a></td></tr>
                 <tr><td>Check colour contrast</td><td><code>refract audit</code> / <code>audit(theme)</code></td><td><a href="#c-audit">Contrast audit</a></td></tr>
+                <tr><td>Build the theme from DTCG files (a resolver + token files)</td><td><code>raw: "./tokens/resolver.json"</code></td><td><a href="#dtcg">Refract DTCG profile</a></td></tr>
               </tbody>
             </table>
           </div>
@@ -1407,7 +1409,7 @@ theme.css;  <span class="c">// unchanged</span></pre>
             <table class="doc-table">
               <thead><tr><th>Property</th><th>Type</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
               <tbody>
-                <tr><td class="prop">raw</td><td class="ty">RawTheme</td><td><span class="req-yes">Required</span></td><td class="def">—</td><td>The theme you author — the single source compiled for every target.</td></tr>
+                <tr><td class="prop">raw</td><td class="ty">RawTheme | string</td><td><span class="req-yes">Required</span></td><td class="def">—</td><td>The theme you author — the single source compiled for every target. Or the path of a <a href="#dtcg">Refract DTCG profile</a> file, relative to the config: a <code>resolver.json</code> (with its token files) or a <code>.tokens.json</code>.</td></tr>
                 <tr><td class="prop">targets</td><td class="ty">EmitTarget[]</td><td><span class="req-yes">Required</span></td><td class="def">—</td><td>One or more output targets. A single theme can emit CSS + SCSS + styled-components at once.</td></tr>
                 <tr><td class="prop">media</td><td class="ty">MediaConfig</td><td><span class="req-no">Optional</span></td><td class="def">{ unit: "px" }</td><td>Media-query output unit for <code>@media</code> + <code>@container</code> widths — <code>{ unit: "px" | "em" | "rem"; baseFontSize?: number }</code> (thresholds are authored in px; <code>baseFontSize</code> defaults to 16).</td></tr>
                 <tr><td class="prop">units</td><td class="ty">UnitsConfig</td><td><span class="req-no">Optional</span></td><td class="def">px seed</td><td>Length units for declaration <b>values</b> (§21) — the build-time twin of <code>createTheme</code>'s <code>units</code>, so <code>refract build</code> emits the same unit to disk. A token-path role map (<code>units.default</code>, <code>units["&lt;subsystem&gt;"]</code>, <code>units["&lt;subsystem&gt;.&lt;property&gt;"]</code>; most-specific wins over the built-in px seed). Resolved once, format-neutrally, so every target emits the same unit. See <a href="#c-units">Length units</a>.</td></tr>
@@ -1597,6 +1599,8 @@ document.head.<span class="n">append</span>(Object.<span class="n">assign</span>
               <tbody>
                 <tr><td class="prop">Import</td><td class="ty">importDTCG(doc)</td><td>A transform <b>into</b> a <code>RawTheme</code>, plus a <b>report</b> of where every token landed and what was left out. <code>fromDTCG(doc)</code> returns just the raw theme.</td></tr>
                 <tr><td class="prop">Export</td><td class="ty">toDTCG(theme)</td><td>A built theme's property tokens <b>out</b> as a DTCG document (also the <code>refract tokens</code> CLI).</td></tr>
+                <tr><td class="prop">Profile in</td><td class="ty">fromDTCGProfile(input)</td><td>A whole theme written as <b>Refract DTCG profile</b> files (a token file, or <code>{ resolver, files }</code>) <b>into</b> a <code>RawTheme</code>, recipes and modes included. <code>importDTCGProfile</code> adds child themes and a report; <code>loadDTCG(path)</code> reads from disk.</td></tr>
+                <tr><td class="prop">Profile out</td><td class="ty">toDTCG(raw, { profile: true })</td><td>A raw theme <b>out</b> as profile files that read back into the same theme (also <code>refract tokens --profile</code>).</td></tr>
                 <tr><td class="prop">Parse</td><td class="ty">parseDTCGGraph(doc)</td><td>A DTCG doc as a typed <b>token graph</b>: canonical values, alias edges kept, <code>$extensions</code> preserved, and a diagnostic for anything it can't read.</td></tr>
                 <tr><td class="prop">Resolve</td><td class="ty">parseDTCGDocument(doc)</td><td>The graph flattened to resolved tokens with string values — the view <code>fromDTCG</code> maps from.</td></tr>
               </tbody>
@@ -1734,13 +1738,12 @@ report.unmapped;   <span class="c">// [{ path: "dimension.350", reason: "no plac
   <span class="va">"color"</span>: {
     <span class="va">"$type"</span>: <span class="s">"color"</span>,
     <span class="va">"brand"</span>: {
-      <span class="va">"base"</span>:  { <span class="va">"$value"</span>: <span class="s">"#4c6ef5"</span> },
-      <span class="va">"light"</span>: { <span class="va">"$value"</span>: <span class="s">"#708bf7"</span> },   <span class="c">// synthesized, resolved to hex</span>
-      <span class="va">"dark"</span>:  { <span class="va">"$value"</span>: <span class="s">"#3d58c4"</span> },
-      <span class="va">"text"</span>:  { <span class="va">"$value"</span>: <span class="s">"#ffffff"</span> }
+      <span class="va">"$root"</span>: { <span class="va">"$value"</span>: { <span class="va">"colorSpace"</span>: <span class="s">"srgb"</span>, <span class="va">"components"</span>: [0.298, 0.4314, 0.9608], <span class="va">"hex"</span>: <span class="s">"#4c6ef5"</span> } },
+      <span class="va">"light"</span>: { <span class="va">"$value"</span>: { <span class="c">/* … synthesized, resolved */</span> } },
+      <span class="va">"text"</span>:  { <span class="va">"$value"</span>: { <span class="va">"colorSpace"</span>: <span class="s">"srgb"</span>, <span class="va">"components"</span>: [1, 1, 1], <span class="va">"hex"</span>: <span class="s">"#ffffff"</span> } }
     }
   },
-  <span class="va">"breakpoint"</span>: { <span class="va">"$type"</span>: <span class="s">"dimension"</span>, <span class="va">"md"</span>: { <span class="va">"$value"</span>: <span class="s">"768px"</span> } <span class="c">/* … */</span> }
+  <span class="va">"breakpoint"</span>: { <span class="va">"$type"</span>: <span class="s">"dimension"</span>, <span class="va">"md"</span>: { <span class="va">"$value"</span>: { <span class="va">"value"</span>: 768, <span class="va">"unit"</span>: <span class="s">"px"</span> } } <span class="c">/* … */</span> }
 }</pre>
           </div>
           <div class="tbl-wrap">
@@ -1752,6 +1755,33 @@ report.unmapped;   <span class="c">// [{ path: "dimension.350", reason: "no plac
               </tbody>
             </table>
           </div>
+
+          <h3>Refract DTCG profile <span class="req-no">Experimental</span></h3>
+          <p>A whole theme can be written <b>as DTCG files</b>, so a design tool or an export script can produce the theme directly, with no raw theme in between. The files are plain <b>DTCG 2025.10</b> plus one <code>$extensions</code> key, <code>com.theme-registry.refract.profile</code>, for what the spec can't express: generator settings, responsive values, recipes, components, globals. Modes use the <b>DTCG Resolver</b>. Every token carries a real <code>$value</code>, so other DTCG tools still read a complete token set.</p>
+          <ul>
+            <li><b>Paths are refract's.</b> Top-level groups are the subsystems (<code>colors</code>, <code>typography</code>, <code>layout</code>, …), a group is a property, its <code>$root</code> token the base, every other token a variant. No guessing from names.</li>
+            <li><b>References are aliases.</b> In a <code>$value</code>, <code>"{colors.brand.$root}"</code>; in recipes, <code>"{colors.brand}"</code>. Anything else is a literal.</li>
+            <li><b>Generated tokens are written out</b> (tone ramps, scales) with a <code>generated</code> marker; refract regenerates them from the group's settings and reports any that drifted.</li>
+            <li><b>Modes:</b> a Resolver modifier marked <code>"as": "modes"</code> becomes in-place modes (dark, high contrast); <code>"as": "themes"</code> gives child themes for <code>override()</code>.</li>
+          </ul>
+          <div class="codeblock">
+            <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">consume · produce · check</span><button class="cb-copy" data-copy>Copy</button></div>
+            <pre><span class="c">// theme.config.ts — every CLI command reads the files</span>
+<span class="k">export default</span> <span class="n">defineConfig</span>({ raw: <span class="s">"./tokens/resolver.json"</span>, targets: [<span class="c">/* … */</span>] });
+
+<span class="c">// in code</span>
+<span class="k">import</span> { fromDTCGProfile, toDTCG } <span class="k">from</span> <span class="s">"@theme-registry/refract/dtcg"</span>;
+<span class="k">import</span> { loadDTCG } <span class="k">from</span> <span class="s">"@theme-registry/refract/build"</span>;   <span class="c">// Node</span>
+
+<span class="n">createTheme</span>(<span class="n">fromDTCGProfile</span>(doc), { adapter });                 <span class="c">// a token file, or { resolver, files }</span>
+<span class="n">createTheme</span>(<span class="k">await</span> <span class="n">loadDTCG</span>(<span class="s">"./tokens/resolver.json"</span>), { adapter });
+<span class="k">const</span> { resolver, files } = <span class="n">toDTCG</span>(raw, { profile: <span class="k">true</span> });     <span class="c">// raw theme → profile files</span>
+
+<span class="c">// $ refract tokens --profile          → tokens/resolver.json + base.tokens.json + one file per mode</span>
+<span class="c">// $ refract validate tokens/resolver.json</span></pre>
+          </div>
+          <p>The format is specified by a JSON Schema at <code>https://theme-registry.github.io/refract/schema/dtcg-profile/v1.json</code> (also <code>schema/dtcg-profile/v1.json</code> in the package): point an editor or CI at it. <code>refract validate</code> checks what the schema can't — references, scale targets, mode files, generated-value drift — and lists values only refract sees (an <code>em</code> length, a <code>textTransform</code> keyword: DTCG has no type for them). A plain DTCG file that doesn't follow the profile still goes through <code>importDTCG</code> / <code>refract import</code> above.</p>
+          <div class="note"><b>Experimental.</b> Profile version 1 may still change in a patch release while it settles. Not expressible yet: a responsive value under a mode condition, a multi-part transition, a literal-form (<code>--var</code>) external. The CLI doesn't build <code>"as": "themes"</code> child themes yet; build them in code with <code>override()</code>.</div>
 
           <h3>Supported token types</h3>
           <p>Import and export cover the DTCG <code>$type</code>s that map onto refract's subsystems:</p>
@@ -4812,6 +4842,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
                 <tr><td class="prop">styled-components adapter<span class="st-sub">outputs TS/JS theme modules</span></td><td><span class="kind">Adapter</span></td><td><span class="req-yes">Stable</span></td><td><a href="#a-sc">SC adapter</a></td></tr>
                 <tr><td class="prop">DTCG interop<span class="st-sub">DTCG token import + export</span></td><td><span class="kind">Interop</span></td><td><span class="req-yes">Stable</span></td><td><a href="#dtcg">DTCG interop</a></td></tr>
                 <tr><td class="prop">Importer contract<span class="st-sub">defineImporter · ImporterSpec · ImportPlacement · ImportContext</span></td><td><span class="kind">Interop</span></td><td><span class="req-no">Experimental</span></td><td><a href="#dtcg">DTCG interop</a></td></tr>
+                <tr><td class="prop">Refract DTCG profile<span class="st-sub">fromDTCGProfile · importDTCGProfile · toDTCG(raw, { profile }) · loadDTCG · profile v1 schema</span></td><td><span class="kind">Interop</span></td><td><span class="req-no">Experimental</span></td><td><a href="#dtcg">DTCG interop</a></td></tr>
                 <tr><td class="prop">MCP server<span class="st-sub">live theme queries for AI agents</span></td><td><span class="kind">Tooling</span></td><td><span class="req-yes">Stable</span></td><td><a href="#mcp">MCP server</a></td></tr>
               </tbody>
             </table>

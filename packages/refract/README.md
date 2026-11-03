@@ -232,6 +232,13 @@ const raw   = fromDTCG(designTokensJson);        // DTCG document → createThem
 const doc   = toDTCG(theme);                     // built theme's tokens → DTCG document
 ```
 
+`toDTCG` writes 2025.10 value shapes. **Refract DTCG profile** (Experimental): a whole theme —
+recipes, modes, generator settings included — can also be written *as* DTCG files that refract reads
+directly. Point the config at them (`raw: "./tokens/resolver.json"`), or call
+`createTheme(fromDTCGProfile(doc), { adapter })`; `toDTCG(raw, { profile: true })` and
+`refract tokens --profile` write them, `refract validate <file>` checks them. The format's JSON Schema
+ships at `schema/dtcg-profile/v1.json`.
+
 ## Package entry points
 
 | Subpath | Contents |
