@@ -12,3 +12,5 @@ export { createCssAdapter } from "@theme-registry/refract-css";
 export { createScssAdapter } from "@theme-registry/refract-scss";
 export { createJsonAdapter } from "@theme-registry/refract-json";
 export { createStyledComponentsAdapter } from "@theme-registry/refract-styled-components";
+// The Translate page: Refract DTCG profile reader + writer.
+export { importDTCGProfile, toDTCG } from "@theme-registry/refract/dtcg";
