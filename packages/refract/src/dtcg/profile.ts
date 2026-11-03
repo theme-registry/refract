@@ -7,11 +7,10 @@
  * token path. Refract-only data lives under the `com.theme-registry.refract.profile` `$extensions` key
  * on the document, a property group or a token.
  *
- * This stage reads tokens, aliases, generator settings, generated tokens (the rule wins; drift is
- * reported), derivations, responsive values, externals, extension-only values, breakpoints, containers
- * and `extends`. Recipes, globals, keyframes and the layout structure are the next stage; a file that
- * uses them is rejected rather than half-read. Values are converted through the token graph, so a
- * malformed DTCG value is a diagnostic, never a guess.
+ * It reads tokens, aliases, generator settings, generated tokens (the rule wins; drift is reported),
+ * derivations, responsive values, externals, extension-only values, and the document level:
+ * breakpoints, containers, `extends`, recipes, components, globals, keyframes and the layout structure.
+ * Values are converted through the token graph, so a malformed DTCG value is an error, never a guess.
  */
 import type { DTCGDocument, DTCGTokenType } from "./types";
 import { buildDTCGGraph } from "./graph";
@@ -29,8 +28,6 @@ export const PROFILE_VERSION = 1;
 const SUBSYSTEMS = ["colors", "typography", "layout", "effects", "borders", "animation"] as const;
 type Subsystem = (typeof SUBSYSTEMS)[number];
 const LAYOUT_PROPERTIES = new Set(["spacing", "gutters", "sizes", "aspectRatio"]);
-/** Document-level keys this stage doesn't read yet. */
-const NOT_YET = ["recipes", "globals", "keyframes", "layout"] as const;
 
 export type ProfileDiagnostic = {
   readonly severity: "error" | "warning";
@@ -332,8 +329,6 @@ export const readDTCGProfile = (doc: DTCGDocument): ProfileReadResult => {
   if (docExt!.version !== PROFILE_VERSION) {
     fail(`profile version ${JSON.stringify(docExt!.version)} isn't supported; this reader reads version ${PROFILE_VERSION}`);
   }
-  const notYet = NOT_YET.filter(key => docExt![key] !== undefined);
-  if (notYet.length) fail(`${notYet.join(", ")} in the document extension can't be read yet (coming with the next profile stage)`);
 
   for (const key of Object.keys(doc)) {
     if (!key.startsWith("$") && !(SUBSYSTEMS as readonly string[]).includes(key)) {
@@ -383,6 +378,172 @@ export const readDTCGProfile = (doc: DTCGDocument): ProfileReadResult => {
     if (Object.keys(slice).length) raw[sub] = slice;
   }
 
+  readDocumentLevel(docExt!, raw);
   checkGenerated(raw as RawTheme, r);
   return { raw: raw as RawTheme, report: r.report };
+};
+
+// ---------------------------------------------------------------------------
+// Document level: recipes, components, globals, keyframes, layout structure
+// ---------------------------------------------------------------------------
+
+/** Keys inside a recipe (or responsive / state entry) that are conditions or modifiers, not fields. */
+const RECIPE_RESERVED = new Set(["breakpoint", "query", "state", "variant", "target", "orientation", "container", "size", "as", "side"]);
+const COMPOSITION_FIELDS = new Set(["colors", "typography", "layout", "effects", "borders", "animation"]);
+
+/** A `{…}` alias in a recipe field → the variant name of `property` it points into (`"base"` for the property). */
+const variantIn = (property: string, alias: string, where: string): string => {
+  if (alias === property) return "base";
+  if (alias.startsWith(`${property}.`) && !alias.slice(property.length + 1).includes(".")) return alias.slice(property.length + 1);
+  return fail(`${where}: "{${alias}}" must point into ${property} (e.g. "{${property}.md}")`);
+};
+
+/**
+ * How one subsystem's recipe field takes a token, given its `{…}` alias: the raw-theme string it writes.
+ * `undefined` = the field doesn't take a token (a literal-only field).
+ */
+type FieldRef = (field: string, alias: string, where: string) => string | undefined;
+
+const LAYOUT_SCALE: Record<string, string> = {
+  paddingY: "spacing", paddingX: "spacing", marginY: "spacing", marginX: "spacing", gap: "spacing",
+  width: "sizes", minWidth: "sizes", maxWidth: "sizes", height: "sizes", minHeight: "sizes", maxHeight: "sizes",
+};
+const EFFECTS_PROPERTY: Record<string, string> = { boxShadow: "shadow", opacity: "opacity", blur: "blur", transition: "transitions", zIndex: "zIndex" };
+const ANIMATION_PROPERTY: Record<string, string> = { duration: "duration", easing: "easing", delay: "delay" };
+
+const FIELD_REFS: Record<string, FieldRef> = {
+  colors: (_f, alias, where) =>
+    alias.startsWith("colors.") ? alias.slice("colors.".length) : fail(`${where}: a colour recipe takes colour tokens, not "{${alias}}"`),
+  typography: (field, alias, where) => variantIn(`typography.${field}`, alias, where),
+  layout: (field, alias, where) => (LAYOUT_SCALE[field] ? variantIn(`layout.${LAYOUT_SCALE[field]}`, alias, where) : undefined),
+  effects: (field, alias, where) => (EFFECTS_PROPERTY[field] ? variantIn(`effects.${EFFECTS_PROPERTY[field]}`, alias, where) : undefined),
+  borders: (field, alias, where) => {
+    if (field === "color") return alias.startsWith("colors.") ? alias : fail(`${where}: a border colour must be a colour token`);
+    return ["width", "style", "offset", "radius"].includes(field) ? variantIn(`borders.${field}`, alias, where) : undefined;
+  },
+  animation: (field, alias, where) => (ANIMATION_PROPERTY[field] ? variantIn(`animation.${ANIMATION_PROPERTY[field]}`, alias, where) : undefined),
+};
+
+/** A literal-first value (components `css`, globals, keyframes): `{…}` → `{ ref }`, else the literal. */
+const cssValue = (v: unknown): unknown => {
+  const alias = aliasPath(v);
+  return alias !== undefined ? { ref: alias } : v;
+};
+const cssBlock = (block: unknown, where: string): Json => {
+  if (!isObject(block)) return fail(`${where}: must be an object`);
+  return Object.fromEntries(Object.entries(block).map(([k, v]) => [k, cssValue(v)]));
+};
+
+/** Convert one recipe-shaped object (a recipe, a state, a responsive entry, a variant delta). */
+const convertRecipe = (recipe: unknown, field: (key: string, value: unknown, where: string) => unknown, where: string): Json => {
+  if (!isObject(recipe)) return fail(`${where}: a recipe must be an object`);
+  const out: Json = {};
+  for (const [key, value] of Object.entries(recipe)) {
+    const at = `${where}.${key}`;
+    if (RECIPE_RESERVED.has(key)) out[key] = value;
+    else if (key === "states") {
+      if (!isObject(value)) fail(`${at}: must be an object`);
+      out.states = Object.fromEntries(Object.entries(value as Json).map(([s, v]) => [s, convertRecipe(v, field, `${at}.${s}`)]));
+    } else if (key === "responsive") {
+      if (!Array.isArray(value)) fail(`${at}: must be an array`);
+      out.responsive = (value as unknown[]).map((v, i) => convertRecipe(v, field, `${at}[${i}]`));
+    } else if (key === "variants") {
+      if (!isObject(value)) fail(`${at}: must be an object`);
+      out.variants = Object.fromEntries(Object.entries(value as Json).map(([n, v]) => [n, convertRecipe(v, field, `${at}.${n}`)]));
+    } else out[key] = field(key, value, at);
+  }
+  return out;
+};
+
+/** A subsystem recipe field: a `{…}` alias becomes that subsystem's raw reference; literals pass through. */
+const subsystemField = (sub: string) => (key: string, value: unknown, where: string): unknown => {
+  if (isObject(value) || Array.isArray(value)) return fail(`${where}: a recipe field takes a {…} alias or a literal`);
+  const alias = aliasPath(value);
+  if (alias === undefined) return value;
+  const written = FIELD_REFS[sub](key, alias, where);
+  return written ?? fail(`${where}: "${key}" doesn't take a token; write a literal value`);
+};
+
+/** A components recipe field: composition fields name recipes, `css` is literal-first. */
+const componentField = (key: string, value: unknown, where: string): unknown => {
+  if (key === "css") return cssBlock(value, where);
+  if (COMPOSITION_FIELDS.has(key)) {
+    if (value === null || typeof value === "string") {
+      if (typeof value === "string" && aliasPath(value) !== undefined) {
+        fail(`${where}: a composition field names a recipe ("solid.brand"), not a token`);
+      }
+      return value;
+    }
+    return fail(`${where}: a composition field names a recipe as "<group>.<recipe>", or null`);
+  }
+  return fail(`${where}: components recipes take composition fields (${[...COMPOSITION_FIELDS].join(", ")}) and css`);
+};
+
+/** A globals element field: literal-first declarations. */
+const globalsField = (_key: string, value: unknown, where: string): unknown => {
+  if (isObject(value) || Array.isArray(value)) return fail(`${where}: a declaration takes a {…} alias or a literal`);
+  return cssValue(value);
+};
+
+/** Layout structure (columns / grids / stacks / container): raw shapes; a `{layout.<scale>.<step>}` alias becomes the step name. */
+const layoutStructure = (v: unknown): unknown => {
+  if (Array.isArray(v)) return v.map(layoutStructure);
+  if (isObject(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, layoutStructure(x)]));
+  const alias = aliasPath(v);
+  if (alias === undefined) return v;
+  const m = alias.match(/^layout\.(spacing|gutters|sizes)(?:\.([^.]+))?$/);
+  return m ? (m[2] ?? "base") : fail(`layout structure: "{${alias}}" must point into layout spacing, gutters or sizes`);
+};
+
+const readDocumentLevel = (docExt: Json, raw: Json): void => {
+  const sliceOf = (sub: string): Json => (isObject(raw[sub]) ? (raw[sub] as Json) : (raw[sub] = {}) as Json);
+
+  if (docExt.recipes !== undefined) {
+    if (!isObject(docExt.recipes)) fail("recipes must be an object");
+    for (const [sub, groups] of Object.entries(docExt.recipes as Json)) {
+      if (!isObject(groups)) fail(`recipes.${sub}: must be an object`);
+      const field = sub === "components" ? componentField : FIELD_REFS[sub] ? subsystemField(sub) : undefined;
+      if (!field) fail(`recipes.${sub}: not a subsystem with recipes`);
+      const recipes: Json = {};
+      for (const [group, members] of Object.entries(groups as Json)) {
+        if (!isObject(members)) fail(`recipes.${sub}.${group}: must be an object`);
+        recipes[group] = Object.fromEntries(
+          Object.entries(members as Json).map(([name, recipe]) => [name, convertRecipe(recipe, field!, `recipes.${sub}.${group}.${name}`)]),
+        );
+      }
+      sliceOf(sub).recipes = recipes;
+    }
+  }
+
+  if (docExt.globals !== undefined) {
+    const g = docExt.globals;
+    if (!isObject(g)) fail("globals must be an object");
+    const out: Json = {};
+    if ((g as Json).preset !== undefined) out.preset = (g as Json).preset;
+    if ((g as Json).elements !== undefined) {
+      if (!isObject((g as Json).elements)) fail("globals.elements must be an object");
+      out.elements = Object.fromEntries(
+        Object.entries((g as Json).elements as Json).map(([sel, el]) => [sel, convertRecipe(el, globalsField, `globals.elements.${sel}`)]),
+      );
+    }
+    raw.globals = out;
+  }
+
+  if (docExt.keyframes !== undefined) {
+    if (!isObject(docExt.keyframes)) fail("keyframes must be an object");
+    sliceOf("animation").keyframes = Object.fromEntries(
+      Object.entries(docExt.keyframes as Json).map(([name, stops]) => {
+        if (!isObject(stops)) fail(`keyframes.${name}: must be an object of stops`);
+        return [name, Object.fromEntries(Object.entries(stops as Json).map(([stop, decls]) => [stop, cssBlock(decls, `keyframes.${name}.${stop}`)]))];
+      }),
+    );
+  }
+
+  if (docExt.layout !== undefined) {
+    if (!isObject(docExt.layout)) fail("layout must be an object");
+    for (const [key, value] of Object.entries(docExt.layout as Json)) {
+      if (!["columns", "grids", "stacks", "container"].includes(key)) fail(`layout.${key}: the document level takes columns, grids, stacks, container`);
+      sliceOf("layout")[key] = layoutStructure(value);
+    }
+  }
 };
