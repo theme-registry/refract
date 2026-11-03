@@ -289,7 +289,11 @@
           "type": "object",
           "properties": {
             "columns": {
-              "type": "object"
+              "description": "The column grid: a count (12) or the raw theme's columns object.",
+              "type": [
+                "integer",
+                "object"
+              ]
             },
             "grids": {
               "type": "object"
@@ -383,10 +387,29 @@
           }
         },
         "states": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object"
-          }
+          "description": "States by name ({ hover: {…} }) or as a list ([{ state: \"hover\", … }]), as in a raw theme.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              }
+            }
+          ]
         },
         "responsive": {
           "type": "array",
