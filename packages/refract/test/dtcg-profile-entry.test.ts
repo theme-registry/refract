@@ -89,4 +89,31 @@ describe("./build", () => {
     expect(await main(["validate", join(fixtures, "resolver.json")])).toBe(0);
     expect(existsSync(bad)).toBe(true);
   });
+
+  it("refract validate fails names that collide once an adapter names them, as refract build would", async () => {
+    const dir = tmp();
+    const ext = { "com.theme-registry.refract.profile": { version: 1 } };
+    const color = (hex: string) => ({ $value: { colorSpace: "srgb", components: [0, 0, 0], hex } });
+    const tones = { "com.theme-registry.refract.profile": { tones: false } };
+
+    // Two properties that differ only in case → the same CSS variable.
+    const caseClash = join(dir, "case.tokens.json");
+    writeFileSync(caseClash, JSON.stringify({
+      $extensions: ext,
+      colors: { $type: "color", Brand: { $extensions: tones, $root: color("#000000") }, brand: { $extensions: tones, $root: color("#000001") } },
+    }));
+    await expect(runValidate(caseClash)).rejects.toThrow(/naming collision: token paths "colors\.(Brand|brand)" and "colors\.(Brand|brand)"/);
+    expect(await main(["validate", caseClash])).toBe(1);
+
+    // Two component recipes that differ only in case → the same class.
+    const recipeClash = join(dir, "recipes.tokens.json");
+    writeFileSync(recipeClash, JSON.stringify({
+      $extensions: { "com.theme-registry.refract.profile": { version: 1, recipes: { components: { button: {
+        "Label-Level": { css: { color: "red" } },
+        "label-level": { css: { color: "blue" } },
+      } } } } },
+      colors: { $type: "color", brand: { $extensions: tones, $root: color("#000000") } },
+    }));
+    await expect(runValidate(recipeClash)).rejects.toThrow(/naming collision: rule-sets .* both produce the class name "dt-components-button-label-level"/);
+  });
 });

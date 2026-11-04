@@ -681,7 +681,9 @@ npx refract build                           # → dist/theme/theme.css
 - **Child themes** (`"as": "themes"`, e.g. brands): the default context builds into `outDir`, every other
   context into `<outDir>/<context>/`, each a complete theme with the same class names.
 - A `.js` / `.mjs` config works the same way; with only profile files, nothing needs TypeScript.
-- In CI, run `refract validate` before `refract build`: it exits 1 and names the token at fault.
+- In CI, run `refract validate` before `refract build`: it exits 1 and names the token at fault. It also
+  catches names that would collide once written as CSS variables or classes (two names differing only in
+  case, or `a-b` + `c` vs `a` + `b-c`), which `refract build` would otherwise be the first to reject.
 - Starting from a raw theme? `refract tokens --profile` writes its `tokens/` folder.
 
 ### Regression-testing the emitted output
