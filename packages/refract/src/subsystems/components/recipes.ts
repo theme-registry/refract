@@ -36,6 +36,8 @@ export const interpretComponentsRecipeVariant = (
       container?: string;
       size?: string;
       target?: string;
+      has?: string;
+      within?: string;
     };
     const override: InterpretedRecipeOverride<string> = {
       declarations: interpretCssDelta(e.css),
@@ -52,6 +54,8 @@ export const interpretComponentsRecipeVariant = (
     if (e.state) override.state = e.state;
     if (e.orientation) override.orientation = e.orientation;
     if (e.target) override.target = e.target; // dec.8 — scope onto the `<item>-<target>` sibling
+    if (e.has) override.has = e.has; // what the element contains (`:has(<state>)`), validated in normalize
+    if (e.within) override.within = e.within; // whose condition: a sibling recipe (its root), validated in normalize
     return override;
   });
 

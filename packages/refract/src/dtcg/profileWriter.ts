@@ -255,7 +255,7 @@ const LAYOUT_SCALE: Record<string, string> = {
 };
 const EFFECTS_PROPERTY: Record<string, string> = { boxShadow: "shadow", opacity: "opacity", blur: "blur", transition: "transitions", zIndex: "zIndex" };
 const ANIMATION_PROPERTY: Record<string, string> = { duration: "duration", easing: "easing", delay: "delay" };
-const RESERVED = new Set(["breakpoint", "query", "state", "variant", "target", "orientation", "container", "size", "as", "side"]);
+const RESERVED = new Set(["breakpoint", "query", "state", "has", "within", "variant", "target", "orientation", "container", "size", "as", "side"]);
 const COMPOSITION = new Set(["colors", "typography", "layout", "effects", "borders", "animation"]);
 
 const scaleAlias = (property: string, name: unknown): unknown =>

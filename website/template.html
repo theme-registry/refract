@@ -3298,7 +3298,7 @@ sizes:       { base: <span class="s">"40rem"</span>, variants: { sm: <span class
                   <tr><td class="prop">effects</td><td class="ty">string</td><td>An <code>effects</code> recipe ref — e.g. <code>"surface.card"</code>.</td></tr>
                   <tr><td class="prop"><i>&lt;subsystem&gt;</i></td><td class="ty">string</td><td>Any subsystem key → its <code>&lt;group&gt;.&lt;variant&gt;</code> recipe (e.g. <code>animation: "motion.enter"</code>).</td></tr>
                   <tr><td class="prop">css</td><td class="ty">Record&lt;string, CssDeltaValue&gt;</td><td>The own CSS delta rendered on the <code>dt-components-…</code> class. <b>Literal-first</b> (see the note above): a bare string / number is a raw literal, and <code>ref("…")</code> / <code>{ ref: "…" }</code> is a token reference → <code>var(--…)</code>.</td></tr>
-                  <tr><td class="prop">states</td><td class="ty">StateEntry[]</td><td>Own-delta state overrides — a list of <code>{ state, target?, … }</code>; each carries a <code>css</code> block (e.g. <code>{ state: "hover", css: {…} }</code>). Optional <code>target</code> scopes onto a variant sibling.</td></tr>
+                  <tr><td class="prop">states</td><td class="ty">StateEntry[]</td><td>Own-delta state overrides — a list of <code>{ state?, has?, within?, target?, … }</code>; each carries a <code>css</code> block (e.g. <code>{ state: "hover", css: {…} }</code>). <code>state</code> is a CSS state or <code>aria-&lt;name&gt;</code>; <code>has</code> is what the element contains; <code>within</code> names the sibling recipe whose condition it is; <code>target</code> scopes onto a variant sibling.</td></tr>
                   <tr><td class="prop">responsive</td><td class="ty">ResponsiveEntry[]</td><td>Own-delta <code>@media</code> overrides; each carries a <code>css</code> block.</td></tr>
                 </tbody>
               </table>
@@ -3361,6 +3361,20 @@ button.className = theme.classes.components.buttons.primary.className;</pre>
 <span class="n">.dt-typography-button-base</span> { <span class="p">/* … */</span> }
 <span class="n">.dt-layout-padding-button</span> { <span class="p">/* … */</span> }
 <span class="n">.dt-effects-surface-focusable</span> { <span class="p">/* … */</span> }</pre>
+            </div>
+            <h3>States across a component's parts</h3>
+            <p>A component is usually several recipes in one group: a checkbox has a <code>root</code>, a <code>box</code> and a <code>tick</code>. Each state entry answers up to four questions: <code>state</code> — what the element is (<code>hover</code>, <code>focus-visible</code>, <code>aria-selected</code>, …); <code>has</code> — what it contains (<code>has: "checked"</code> → <code>:has(:checked)</code>); <code>within</code> — whose element it is (a sibling recipe, usually <code>root</code>, and each of its variants); <code>target</code> — which variant. State names are a CSS state or <code>aria-&lt;name&gt;</code>; anything else fails the build. <code>has</code> takes Refract state names, never CSS selectors. <code>within</code> is CSS adapter only for now.</p>
+            <div class="codeblock">
+              <div class="cb-head"><span class="cb-dots"><i></i><i></i><i></i></span><span class="cb-file">components.recipes.ts  ·  a checkbox</span><button class="cb-copy" data-copy>Copy</button></div>
+              <pre>checkbox: {
+  root: { css: { display: <span class="s">"inline-flex"</span> } },
+  box:  { css: { borderColor: ref(<span class="s">"colors.neutral"</span>) },
+          states: [{ has: <span class="s">"focus-visible"</span>, within: <span class="s">"root"</span>, css: { outline: <span class="s">"2px solid"</span> } }] },
+  tick: { css: { opacity: <span class="s">"0"</span> },
+          states: [{ has: <span class="s">"checked"</span>, within: <span class="s">"root"</span>, css: { opacity: <span class="s">"1"</span> } }] },
+}
+<span class="c">// .dt-components-checkbox-root:has(:focus-visible) .dt-components-checkbox-box { outline: 2px solid; }</span>
+<span class="c">// .dt-components-checkbox-root:has(:checked) .dt-components-checkbox-tick { opacity: 1; }</span></pre>
             </div>
           </div>
         </section>
@@ -4902,14 +4916,14 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
           <div class="note"><b>What the lineage proves — and doesn't.</b> The <b>design</b> (author → override → runtime-or-prebuilt, foundations included) is battle-tested across real multi-brand estates: a flagship + ~130 regional sites on one shared infrastructure; a multi-brand media group with per-brand child overrides side by side; a pan-European NGO federation, override-per-member at federation scale; and a multi-identity civic institution, distinct identities on one platform without forking. <b>The idea has the better part of a decade of production behind it; the published package is new</b> — a clean, standardized rewrite that earns its own miles. Client names are withheld — the credibility is in the shapes, not the logos.</div>
 
           <h3>Tested &amp; gated</h3>
-          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">911</b> tests across <b data-q="testfiles">81</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
+          <p>Beta doesn't mean untested. refract ships with a real safety net: <b data-q="testcases">926</b> tests across <b data-q="testfiles">84</b> files (unit · golden-output · integration), and <b>every push to <code>main</code> runs five gates in CI</b> — a green run is a precondition for merge and for the docs deploy. The counts and budgets on this page are <b>drift-gated against a live compile</b>, so they can't quietly go stale.</p>
           <div class="tbl-wrap">
             <table class="doc-table">
               <thead><tr><th>CI gate</th><th>What every push must pass</th></tr></thead>
               <tbody>
                 <tr><td class="prop">Build</td><td><code>pnpm -r build</code> — every package compiles</td></tr>
                 <tr><td class="prop">Typecheck</td><td><code>pnpm -r typecheck</code> — no <code>tsc</code> errors across the monorepo</td></tr>
-                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">911</b>-case suite</td></tr>
+                <tr><td class="prop">Test</td><td><code>pnpm -r test</code> — the full <b data-q="testcases">926</b>-case suite</td></tr>
                 <tr><td class="prop">Docs drift</td><td><code>docs:validate</code> — every documented error message, emitted name, perf figure, and the counts above are checked against the live library</td></tr>
                 <tr><td class="prop">Size budget</td><td><code>pnpm run size</code> — the gzip footprint stays under a committed ceiling (below)</td></tr>
               </tbody>
@@ -4923,7 +4937,7 @@ JSON.<span class="n">stringify</span>(theme.json);  <span class="c">// { breakpo
               <thead><tr><th>Package</th><th>Budget (gzip)</th></tr></thead>
               <tbody>
                 <tr data-pkg="@theme-registry/refract"><td class="prop">@theme-registry/refract <span class="st-sub">runtime core</span></td><td><b>≤&nbsp;31&nbsp;KB</b></td></tr>
-                <tr data-pkg="@theme-registry/refract-css"><td class="prop">@theme-registry/refract-css</td><td><b>≤&nbsp;9&nbsp;KB</b></td></tr>
+                <tr data-pkg="@theme-registry/refract-css"><td class="prop">@theme-registry/refract-css</td><td><b>≤&nbsp;9.5&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-styled-components"><td class="prop">@theme-registry/refract-styled-components</td><td><b>≤&nbsp;6.5&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract/dtcg"><td class="prop">@theme-registry/refract/dtcg <span class="st-sub">interop subpath</span></td><td><b>≤&nbsp;19&nbsp;KB</b></td></tr>
                 <tr data-pkg="@theme-registry/refract-scss"><td class="prop">@theme-registry/refract-scss</td><td><b>≤&nbsp;4&nbsp;KB</b></td></tr>

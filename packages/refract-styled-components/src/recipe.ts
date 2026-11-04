@@ -16,7 +16,8 @@
  */
 import type { MediaDescriptor, MediaVariant } from "@theme-registry/refract";
 import type { Ref, RuleSet, RuleSetGroup, ThemeModel } from "@theme-registry/refract";
-import { SC_STATE_SELECTORS, orderStateOverrides, resolveMediaQuery, DEFAULT_MEDIA_QUERY } from "./lowering";
+import { orderStateOverrides, resolveMediaQuery, DEFAULT_MEDIA_QUERY } from "./lowering";
+import { conditionSuffix, isStateCondition } from "@theme-registry/refract/adapter-kit";
 import { themeAccess } from "./identifiers";
 import type { ThemeData } from "./theme-object";
 
@@ -131,7 +132,7 @@ export const buildRecipeIR = (ruleSet: RuleSet, ctx: RecipeContext): RecipeNode[
 
   // Breakpoint-only overrides → a media block.
   for (const override of ruleSet.overrides) {
-    if (override.state !== undefined || !override.breakpoint) continue;
+    if (isStateCondition(override) || !override.breakpoint) continue;
     const children = declNodes(override.declarations, ctx.data);
     if (children.length) {
       nodes.push({
@@ -145,9 +146,16 @@ export const buildRecipeIR = (ruleSet: RuleSet, ctx: RecipeContext): RecipeNode[
   }
 
   // State (+ state×breakpoint) overrides → a `&:hover`-style block, canonical LVHA order.
-  const stateOverrides = ruleSet.overrides.filter(o => o.state !== undefined);
+  // `within` (a part following its root's state) needs the sibling's class: not supported here yet.
+  const within = ruleSet.overrides.find(o => o.within);
+  if (within) {
+    throw new Error(
+      `styled-components adapter: a recipe state with \`within: "${within.within}"\` is not supported yet (use the CSS adapter).`,
+    );
+  }
+  const stateOverrides = ruleSet.overrides.filter(isStateCondition);
   for (const override of orderStateOverrides(stateOverrides)) {
-    const stateSelector = SC_STATE_SELECTORS[override.state as string];
+    const stateSelector = conditionSuffix(override);
     const children = declNodes(override.declarations, ctx.data);
     if (!stateSelector || !children.length) continue;
     const block: RecipeNode = { type: "block", selector: `&${stateSelector}`, children };
@@ -169,7 +177,7 @@ export const buildRecipeIR = (ruleSet: RuleSet, ctx: RecipeContext): RecipeNode[
     const baseMode = modeDeclNodes(ruleSet.declarations, mode, ctx.data);
     const stateModeBlocks: RecipeNode[] = [];
     for (const override of orderStateOverrides(stateOverrides)) {
-      const stateSelector = SC_STATE_SELECTORS[override.state as string];
+      const stateSelector = conditionSuffix(override);
       if (!stateSelector) continue;
       const children = modeDeclNodes(override.declarations, mode, ctx.data);
       if (children.length) stateModeBlocks.push({ type: "block", selector: `&${stateSelector}`, children });

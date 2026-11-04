@@ -25,25 +25,13 @@ import type { MergedRuleSet } from "@theme-registry/refract";
 import type { MediaDescriptor, MediaVariant } from "@theme-registry/refract";
 import type { AdapterSpec, PreviewDescriptor, RenderContext, ThemeAdapter, UsageDescriptor, UsageRecipe } from "@theme-registry/refract";
 import { defineAdapter } from "@theme-registry/refract";
+import { KNOWN_STATES, conditionSuffix, isStateCondition, orderStateOverrides } from "@theme-registry/refract/adapter-kit";
 import type { ResolvedComponentClass, ScssAdapterOptions, ScssUnit } from "./types";
 
 export type { ResolvedComponentClass, ScssAdapterOptions, ScssUnit } from "./types";
 
-/** `state → selector suffix`, nested as `&<suffix>`. SCSS compiles to CSS, so it knows the CSS states. */
-const SCSS_STATE_SELECTORS: Record<string, string> = {
-  link: ":link",
-  visited: ":visited",
-  hover: ":hover",
-  focus: ":focus",
-  active: ":active",
-  disabled: "[disabled]",
-  pressed: "[aria-pressed]",
-};
-const SCSS_KNOWN_STATES: ReadonlyArray<string> = Object.keys(SCSS_STATE_SELECTORS);
-const STATE_ORDER: Record<string, number> = SCSS_KNOWN_STATES.reduce<Record<string, number>>(
-  (acc, s, i) => ((acc[s] = i), acc),
-  {},
-);
+/** `state → selector suffix`, nested as `&<suffix>` — the shared CSS-family table (SCSS compiles to CSS). */
+const SCSS_KNOWN_STATES: ReadonlyArray<string> = KNOWN_STATES;
 
 /** Sanitize one identifier segment to `[a-z0-9-]` (drops `.` / `--` collisions to single dashes). */
 const sanitizeSegment = (segment: string): string =>
@@ -160,8 +148,14 @@ export const createScssAdapter = (options: ScssAdapterOptions = {}): ThemeAdapte
 
       /** One override → its nested block (`&:hover { … }`, `@media (…) { … }`, or both). */
       const renderOverride = (override: RuleSetOverride, level: number, inline: boolean): string => {
+        // `within` (a part following its root's state) needs the sibling's class: not supported here yet.
+        if (override.within) {
+          throw new Error(
+            `scss adapter: a recipe state with \`within: "${override.within}"\` is not supported yet (use the CSS adapter).`,
+          );
+        }
         const decls = override.declarations ?? {};
-        const stateSuffix = override.state ? SCSS_STATE_SELECTORS[override.state] : undefined;
+        const stateSuffix = isStateCondition(override) ? conditionSuffix(override) : undefined;
         const atRule = override.breakpoint !== undefined ? mediaQueryFor(override) : undefined;
         // Nothing renderable (e.g. a pure variant/target swap — not expressible in a $var recipe class).
         if (!Object.keys(decls).length) return "";
@@ -184,15 +178,15 @@ export const createScssAdapter = (options: ScssAdapterOptions = {}): ThemeAdapte
       };
 
       /** Order overrides: canonical state order, base-state (no bp) before responsive. */
-      const orderOverrides = (overrides: RuleSetOverride[]): RuleSetOverride[] =>
-        [...overrides].sort((a, b) => {
+      const orderOverrides = (overrides: RuleSetOverride[]): RuleSetOverride[] => {
+        const rank = new Map(orderStateOverrides(overrides.filter(isStateCondition)).map((o, i) => [o, i]));
+        return [...overrides].sort((a, b) => {
           const abp = a.breakpoint !== undefined ? 1 : 0;
           const bbp = b.breakpoint !== undefined ? 1 : 0;
           if (abp !== bbp) return abp - bbp;
-          const as = a.state ? STATE_ORDER[a.state] ?? 99 : -1;
-          const bs = b.state ? STATE_ORDER[b.state] ?? 99 : -1;
-          return as - bs;
+          return (rank.get(a) ?? -1) - (rank.get(b) ?? -1);
         });
+      };
 
       /** Render a `{ declarations, overrides }` block under a selector (recipe class / reset selector). */
       const renderRuleSet = (

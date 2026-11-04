@@ -200,3 +200,14 @@ export const createNamer = (naming: AdapterNaming, overrides?: NamingOverrides):
     },
   };
 };
+
+// Recipe state vocabulary shared by the CSS-family adapters (state names, `has`, canonical order).
+export {
+  ARIA_STATES,
+  STATE_SELECTORS,
+  KNOWN_STATES,
+  conditionSuffix,
+  isStateCondition,
+  orderStateOverrides,
+} from "./core/states";
+export type { StateCondition } from "./core/states";

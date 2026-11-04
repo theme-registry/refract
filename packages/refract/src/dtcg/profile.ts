@@ -391,7 +391,7 @@ export const readDTCGProfile = (doc: DTCGDocument): ProfileReadResult => {
 // ---------------------------------------------------------------------------
 
 /** Keys inside a recipe (or responsive / state entry) that are conditions or modifiers, not fields. */
-const RECIPE_RESERVED = new Set(["breakpoint", "query", "state", "variant", "target", "orientation", "container", "size", "as", "side"]);
+const RECIPE_RESERVED = new Set(["breakpoint", "query", "state", "has", "within", "variant", "target", "orientation", "container", "size", "as", "side"]);
 const COMPOSITION_FIELDS = new Set(["colors", "typography", "layout", "effects", "borders", "animation"]);
 
 /** A `{…}` alias in a recipe field → the variant name of `property` it points into (`"base"` for the property). */

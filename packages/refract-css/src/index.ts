@@ -574,6 +574,7 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
           // pinnable selector. These rules exist ONLY for the preview and are inlined into the page,
           // never added to the emitted stylesheet a consumer ships.
           const PIN_PREFIX = "rfp-s-";
+          const PIN_SUFFIXES = Object.entries(CSS_STATE_SELECTORS).sort((a, b) => b[1].length - a[1].length);
           const statePinClass = (state: string): string | undefined =>
             CSS_STATE_SELECTORS[state] ? `${PIN_PREFIX}${state}` : undefined;
 
@@ -583,13 +584,16 @@ export const createCssAdapter = (options: CssAdapterOptions = {}): ThemeAdapter<
             for (const sub of Object.values(lowered)) {
               for (const node of sub?.recipeNodes ?? []) {
                 if (node.kind !== "rule") continue;
-                for (const [state, suffix] of Object.entries(CSS_STATE_SELECTORS)) {
-                  if (!node.selector.includes(suffix)) continue;
+                // Only a rule's OWN state is pinnable: the suffix ends the selector. `has` and `within`
+                // rules (`:has(:checked)`, `.root:hover .label`) are shown at rest only. Longest suffix
+                // first, so `:focus-visible` isn't read as `:focus`.
+                for (const [state, suffix] of PIN_SUFFIXES) {
+                  if (!node.selector.endsWith(suffix)) continue;
                   pinned.push({
                     ...node,
-                    selector: node.selector.split(suffix).join(`.${PIN_PREFIX}${state}`),
+                    selector: `${node.selector.slice(0, -suffix.length)}.${PIN_PREFIX}${state}`,
                   });
-                  break; // one state per selector — the first match is the suffix that built it
+                  break;
                 }
               }
             }

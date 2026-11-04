@@ -113,8 +113,9 @@ so `globals` element rules and recipes never need their own `modes` axis.
 
 ## states — recipe conditions
 
-`states` is a **recipe-only** axis (hover, focus, disabled, …), a **LIST of override entries**,
-each `{ state, target?, …deltas }`. The **allowed set is owned by the adapter** — an unknown state
+`states` is a **recipe-only** axis (hover, focus-visible, disabled, `aria-selected`, …), a **LIST of
+override entries**, each `{ state, target?, …deltas }` (components also take `has` and `within`, see
+**recipes-and-composition** → States). The **allowed set is owned by the adapter** — an unknown state
 throws at build. `state` is the WHEN; the optional `target` scopes the override onto a recipe
 variant's sibling (`<item>-<variant>`), so two same-state entries can behave differently per
 variant.

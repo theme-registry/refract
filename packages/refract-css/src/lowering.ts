@@ -25,6 +25,13 @@ import type {
 } from "@theme-registry/refract";
 import type { ShadowDimension } from "@theme-registry/refract";
 import type { ContainerDescriptors, MediaDescriptor, MediaVariant } from "@theme-registry/refract";
+import {
+  KNOWN_STATES,
+  STATE_SELECTORS,
+  conditionSuffix,
+  isStateCondition,
+  orderStateOverrides,
+} from "@theme-registry/refract/adapter-kit";
 import type { CssDeclaration, CssKeyframesNode, CssRuleNode, CssVariablesNode } from "./nodes";
 import type { VarNamer } from "./naming";
 
@@ -789,7 +796,7 @@ export const lowerContainerGroup = <TBreakpoint extends string = string>(
   const mediaNodes: CssRuleNode[] = [];
   for (const [name, ruleSet] of entries) {
     for (const override of ruleSet.overrides) {
-      if (override.state !== undefined || !override.breakpoint) continue;
+      if (isStateCondition(override) || !override.breakpoint) continue;
       const mediaQuery = resolveMediaQuery(
         media,
         override.breakpoint as TBreakpoint,
@@ -883,7 +890,7 @@ const emitGlobalsRule = <TBreakpoint extends string>(
   if (base.length) nodes.push({ kind: "rule", selector, declarations: base });
 
   for (const override of overrides) {
-    if (override.state !== undefined || override.container !== undefined || !override.breakpoint) continue;
+    if (isStateCondition(override) || override.container !== undefined || !override.breakpoint) continue;
     const mediaQuery = resolveMediaQuery(
       media,
       override.breakpoint as TBreakpoint,
@@ -895,9 +902,9 @@ const emitGlobalsRule = <TBreakpoint extends string>(
     if (decls.length) nodes.push({ kind: "rule", selector, media: mediaQuery, declarations: decls });
   }
 
-  const stateOverrides = overrides.filter(o => o.state !== undefined);
+  const stateOverrides = overrides.filter(isStateCondition);
   for (const override of orderStateOverrides(stateOverrides)) {
-    const stateSelector = CSS_STATE_SELECTORS[override.state as string];
+    const stateSelector = conditionSuffix(override);
     if (!stateSelector) continue;
     const decls = declarationsFromRefs(override.declarations ?? {}, pathToVar);
     if (!decls.length) continue;
@@ -988,41 +995,13 @@ export const deriveContainerContextNodes = (
 
 // --- State → selector table + canonical ordering ---
 
-/** state name → its CSS selector suffix. Exported so the preview can build pinnable twins. */
-export const CSS_STATE_SELECTORS: Record<string, string> = {
-  link: ":link",
-  visited: ":visited",
-  hover: ":hover",
-  focus: ":focus",
-  active: ":active",
-  disabled: "[disabled]",
-  pressed: "[aria-pressed]",
-};
+/** State name → selector suffix (canonical order) — the shared CSS-family table in `adapter-kit`. */
+export const CSS_STATE_SELECTORS: Readonly<Record<string, string>> = STATE_SELECTORS;
 
 /** The states the CSS adapter can render (the validation set for recipe normalization). */
-export const CSS_KNOWN_STATES: ReadonlyArray<string> = Object.keys(CSS_STATE_SELECTORS);
+export const CSS_KNOWN_STATES: ReadonlyArray<string> = KNOWN_STATES;
 
-const STATE_ORDER: Record<string, number> = CSS_KNOWN_STATES.reduce<Record<string, number>>(
-  (acc, name, index) => {
-    acc[name] = index;
-    return acc;
-  },
-  {},
-);
-
-const orderStateOverrides = (overrides: RuleSetOverride[]): RuleSetOverride[] =>
-  [...overrides]
-    .map((override, index) => ({ override, index }))
-    .sort((a, b) => {
-      const orderA = STATE_ORDER[a.override.state as string] ?? Number.MAX_SAFE_INTEGER;
-      const orderB = STATE_ORDER[b.override.state as string] ?? Number.MAX_SAFE_INTEGER;
-      if (orderA !== orderB) return orderA - orderB;
-      const bpA = a.override.breakpoint ? 1 : 0;
-      const bpB = b.override.breakpoint ? 1 : 0;
-      if (bpA !== bpB) return bpA - bpB;
-      return a.index - b.index;
-    })
-    .map(({ override }) => override);
+const STATE_ORDER: Record<string, number> = Object.fromEntries(KNOWN_STATES.map((name, i) => [name, i]));
 
 const deriveStateNodes = <TBreakpoint extends string>(
   ruleSet: RuleSet,
@@ -1032,12 +1011,12 @@ const deriveStateNodes = <TBreakpoint extends string>(
 ): CssRuleNode[] => {
   // dec.8 — `target`ed state overrides emit against a SIBLING selector, appended last by the caller
   // so they win; the base state rules here are the un-targeted ones (byte-identical to before).
-  const stateOverrides = ruleSet.overrides.filter(o => o.state !== undefined && !o.target);
+  const stateOverrides = ruleSet.overrides.filter(o => isStateCondition(o) && !o.target && !o.within);
   if (!stateOverrides.length) return [];
 
   const nodes: CssRuleNode[] = [];
   for (const override of orderStateOverrides(stateOverrides)) {
-    const stateSelector = CSS_STATE_SELECTORS[override.state as string];
+    const stateSelector = conditionSuffix(override);
     if (!stateSelector) continue;
 
     const declarations = declarationsFromRefs(override.declarations ?? {}, pathToVar);
@@ -1109,7 +1088,7 @@ export const lowerRecipeGroup = <TBreakpoint extends string = string>(
     if (baseDeclarations.length) nodes.push({ kind: "rule", selector, declarations: baseDeclarations });
 
     for (const override of ruleSet.overrides) {
-      if (override.state !== undefined || !override.breakpoint) continue;
+      if (isStateCondition(override) || !override.breakpoint) continue;
       const mediaQuery = resolveMediaQuery(
         media,
         override.breakpoint as TBreakpoint,
@@ -1128,14 +1107,47 @@ export const lowerRecipeGroup = <TBreakpoint extends string = string>(
     stateNodes.push(...deriveStateNodes(ruleSet, selectorBuilder(name), media, pathToVar));
   }
 
+  // `within` state overrides (components): the condition is a sibling recipe's (its root, and each
+  // root variant — core expanded those) — `.<group>-<within><cond> .<group>-<part>`, or the part's
+  // `target` variant. After the parts' own states, in canonical order.
+  for (const [name, ruleSet] of Object.entries(group)) {
+    const within = ruleSet.overrides.filter(o => isStateCondition(o) && o.within);
+    for (const override of orderStateOverrides(within)) {
+      if (!(override.within! in group))
+        throw new Error(
+          `css adapter: recipe "${name}": a state is within "${override.within}", which is not a recipe of the same group.`,
+        );
+      const condition = conditionSuffix(override);
+      if (!condition) continue;
+      const declarations = declarationsFromRefs(override.declarations ?? {}, pathToVar);
+      if (!declarations.length) continue;
+      const part = override.target ? `${name}-${override.target}` : name;
+      const node: CssRuleNode = {
+        kind: "rule",
+        selector: `${selectorBuilder(override.within!)}${condition} ${selectorBuilder(part)}`,
+        declarations,
+      };
+      if (override.breakpoint) {
+        const mediaQuery = resolveMediaQuery(
+          media,
+          override.breakpoint as TBreakpoint,
+          (override.query ?? "exact") as MediaVariant,
+          override.orientation,
+        );
+        if (mediaQuery) node.media = mediaQuery;
+      }
+      stateNodes.push(node);
+    }
+  }
+
   // dec.8 — `target`ed state overrides: emit `<item>-<target>:state` against the desugared sibling
   // (§7A), collected across the whole group and appended LAST so they beat the sibling's inherited
   // (un-targeted) state rules by source order.
   const targetedStateNodes: CssRuleNode[] = [];
   for (const [name, ruleSet] of Object.entries(group)) {
     for (const override of ruleSet.overrides) {
-      if (override.state === undefined || !override.target) continue;
-      const stateSelector = CSS_STATE_SELECTORS[override.state];
+      if (!isStateCondition(override) || !override.target || override.within) continue;
+      const stateSelector = conditionSuffix(override);
       if (!stateSelector) continue;
       const declarations = declarationsFromRefs(override.declarations ?? {}, pathToVar);
       if (!declarations.length) continue;
@@ -1298,7 +1310,7 @@ export const lowerAnimationRecipeGroup = <TBreakpoint extends string = string>(
     if (base) nodes.push(base);
 
     for (const override of ruleSet.overrides) {
-      if (override.state !== undefined || !override.breakpoint) continue;
+      if (isStateCondition(override) || !override.breakpoint) continue;
       const mediaQuery = resolveMediaQuery(
         media,
         override.breakpoint as TBreakpoint,
@@ -1314,9 +1326,9 @@ export const lowerAnimationRecipeGroup = <TBreakpoint extends string = string>(
   const stateNodes: CssRuleNode[] = [];
   for (const [name, ruleSet] of Object.entries(group)) {
     const selector = selectorBuilder(name);
-    const stateOverrides = ruleSet.overrides.filter(o => o.state !== undefined);
+    const stateOverrides = ruleSet.overrides.filter(isStateCondition);
     for (const override of orderStateOverrides(stateOverrides)) {
-      const stateSelector = CSS_STATE_SELECTORS[override.state as string];
+      const stateSelector = conditionSuffix(override);
       if (!stateSelector) continue;
       let mediaQuery: string | undefined;
       if (override.breakpoint) {
@@ -1398,19 +1410,23 @@ export const lowerMergedRuleSet = <TBreakpoint extends string = string>(
   for (const entry of merged.responsive) {
     // A viewport bucket → `@media`; a container bucket (§10.5) → `@container` (carried on the same
     // generic `media` field). Both may still carry a state selector.
-    const atRule = entry.container
-      ? containerQueryFor(entry as RuleSetOverride, containers)
-      : resolveMediaQuery(
-          media,
-          entry.breakpoint as TBreakpoint,
-          (entry.query ?? "exact") as MediaVariant,
-          entry.orientation,
-        );
-    if (!atRule) continue;
+    // A `has` bucket with no breakpoint / container is a plain rule (no at-rule).
+    const conditioned = entry.container !== undefined || entry.breakpoint !== undefined;
+    const atRule = !conditioned
+      ? undefined
+      : entry.container
+        ? containerQueryFor(entry as RuleSetOverride, containers)
+        : resolveMediaQuery(
+            media,
+            entry.breakpoint as TBreakpoint,
+            (entry.query ?? "exact") as MediaVariant,
+            entry.orientation,
+          );
+    if (conditioned && !atRule) continue;
     const declarations = declarationsFromRefs(entry.declarations, pathToVar);
     if (!declarations.length) continue;
-    const stateSelector = entry.state ? CSS_STATE_SELECTORS[entry.state] ?? "" : "";
-    nodes.push({ kind: "rule", selector: `${selector}${stateSelector}`, media: atRule, declarations });
+    const stateSelector = conditionSuffix(entry) ?? "";
+    nodes.push({ kind: "rule", selector: `${selector}${stateSelector}`, ...(atRule ? { media: atRule } : {}), declarations });
   }
 
   return nodes;
