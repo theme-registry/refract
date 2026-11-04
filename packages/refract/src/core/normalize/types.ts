@@ -235,7 +235,17 @@ export type RecipeResponsiveOverride<
  */
 export type RecipeStateOverride<
   TProps extends Record<string, unknown>,
-> = { state: string; target?: string } & Partial<TProps>;
+> = {
+  state: string;
+  target?: string;
+  /**
+   * Components only: the state is the **component's** — the override applies to this part while
+   * the named sibling recipe of the same group (usually `root`) is in that state:
+   * `.<group>-<within>:<state> .<group>-<part>`. Lets an inner part (a checkbox tick, an input's
+   * text) follow its component's hover / checked / invalid state without JavaScript.
+   */
+  within?: string;
+} & Partial<TProps>;
 
 /**
  * The authored `states` value — the canonical **array** of {@link RecipeStateOverride}s (dec.8), or a

@@ -1045,7 +1045,7 @@ const deriveStateNodes = <TBreakpoint extends string>(
 ): CssRuleNode[] => {
   // dec.8 — `target`ed state overrides emit against a SIBLING selector, appended last by the caller
   // so they win; the base state rules here are the un-targeted ones (byte-identical to before).
-  const stateOverrides = ruleSet.overrides.filter(o => o.state !== undefined && !o.target);
+  const stateOverrides = ruleSet.overrides.filter(o => o.state !== undefined && !o.target && !o.within);
   if (!stateOverrides.length) return [];
 
   const nodes: CssRuleNode[] = [];
@@ -1139,6 +1139,38 @@ export const lowerRecipeGroup = <TBreakpoint extends string = string>(
   const stateNodes: CssRuleNode[] = [];
   for (const [name, ruleSet] of Object.entries(group)) {
     stateNodes.push(...deriveStateNodes(ruleSet, selectorBuilder(name), media, pathToVar));
+  }
+
+  // `within` state overrides (components): the component's state, read from a sibling recipe of
+  // the group (its root) — `.<group>-<within>:state .<group>-<part>`. After the parts' own states,
+  // in the canonical state order.
+  for (const [name, ruleSet] of Object.entries(group)) {
+    const within = ruleSet.overrides.filter(o => o.state !== undefined && o.within);
+    for (const override of orderStateOverrides(within)) {
+      if (!(override.within! in group))
+        throw new Error(
+          `css adapter: recipe "${name}": state "${override.state}" is within "${override.within}", which is not a recipe of the same group.`,
+        );
+      const stateSelector = CSS_STATE_SELECTORS[override.state as string];
+      if (!stateSelector) continue;
+      const declarations = declarationsFromRefs(override.declarations ?? {}, pathToVar);
+      if (!declarations.length) continue;
+      const node: CssRuleNode = {
+        kind: "rule",
+        selector: `${selectorBuilder(override.within!)}${stateSelector} ${selectorBuilder(name)}`,
+        declarations,
+      };
+      if (override.breakpoint) {
+        const mediaQuery = resolveMediaQuery(
+          media,
+          override.breakpoint as TBreakpoint,
+          (override.query ?? "exact") as MediaVariant,
+          override.orientation,
+        );
+        if (mediaQuery) node.media = mediaQuery;
+      }
+      stateNodes.push(node);
+    }
   }
 
   // dec.8 — `target`ed state overrides: emit `<item>-<target>:state` against the desugared sibling

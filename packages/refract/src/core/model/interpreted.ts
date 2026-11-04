@@ -26,6 +26,8 @@ export type InterpretedRecipeOverride<TBreakpoint extends string> = {
   state?: string;
   variant?: string;
   target?: string;
+  /** components: the sibling recipe whose state this is (`.<within>:<state> .<self>`). */
+  within?: string;
   orientation?: "landscape" | "portrait";
   /** Container-query axis (§10.5): the named container + its size-name (in place of `breakpoint`). */
   container?: string;

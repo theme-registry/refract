@@ -173,6 +173,8 @@ export const createScssAdapter = (options: ScssAdapterOptions = {}): ThemeAdapte
 
       /** One override → its nested block (`&:hover { … }`, `@media (…) { … }`, or both). */
       const renderOverride = (override: RuleSetOverride, level: number, inline: boolean): string => {
+        // `within` (a component's state read from its root) needs the sibling's class: CSS only.
+        if (override.within) return "";
         const decls = override.declarations ?? {};
         const stateSuffix = override.state ? SCSS_STATE_SELECTORS[override.state] : undefined;
         const atRule = override.breakpoint !== undefined ? mediaQueryFor(override) : undefined;

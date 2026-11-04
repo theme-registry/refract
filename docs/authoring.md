@@ -274,7 +274,30 @@ at equal specificity):
 
 The `has-*` states style a wrapper from the control inside it: a label from its checkbox
 (`has-checked`), a field box from its input (`has-focus-visible`, `has-invalid`), so a design
-system's composite components need no JavaScript for their states. The JSON adapter keeps any
+system's composite components need no JavaScript for their states.
+
+**`within` — a part follows its component's state** (components, CSS adapter). A component is
+usually several recipes in one group (`root`, `box`, `tick`, `text`, …). A state entry with
+`within: "<recipe>"` applies while that sibling recipe is in the state, not the part itself:
+
+```ts
+components: { recipes: { checkbox: {
+  root: { css: { display: "inline-flex" } },
+  tick: {
+    css: { opacity: "0" },
+    states: [
+      { state: "has-checked", within: "root", css: { opacity: "1" } }, // checkbox ticked
+      { state: "hover", within: "root", css: { color: ref("colors.primary") } },
+    ],
+  },
+} } }
+// .t-components-checkbox-root:has(:checked) .t-components-checkbox-tick { opacity: 1; }
+// .t-components-checkbox-root:hover .t-components-checkbox-tick { color: var(--t-colors-primary); }
+```
+
+`within` must name a recipe of the same group (else the build fails). The rules follow the parts'
+own states, in the state order above. The SCSS and styled-components adapters skip `within`
+entries for now (their recipe blocks don't know a sibling's class). The JSON adapter keeps any
 state name as a data key.
 
 ### Variants — modifiers on a recipe

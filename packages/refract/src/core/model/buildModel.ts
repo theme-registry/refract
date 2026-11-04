@@ -332,6 +332,7 @@ export const buildRuleSetFromInterpreted = (
     if (entry.size !== undefined) override.size = entry.size;
     if (entry.variant !== undefined) override.variant = entry.variant;
     if (entry.target !== undefined) override.target = entry.target;
+    if (entry.within !== undefined) override.within = entry.within;
     if (Object.keys(entry.declarations).length) override.declarations = { ...entry.declarations };
     return override;
   });

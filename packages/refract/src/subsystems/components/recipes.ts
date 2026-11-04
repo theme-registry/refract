@@ -13,6 +13,7 @@
  */
 import type { InterpretedRecipeVariant, InterpretedRecipeOverride, Ref } from "../../core/model";
 import type { NormalizedRecipeVariant } from "../../core/normalize";
+import { RefractError } from "../../core/errors";
 import type { RecipeInterpretContext } from "../../core/subsystem";
 import type { ComponentsRecipeProps, CssDeltaValue } from "./types";
 
@@ -36,6 +37,7 @@ export const interpretComponentsRecipeVariant = (
       container?: string;
       size?: string;
       target?: string;
+      within?: string;
     };
     const override: InterpretedRecipeOverride<string> = {
       declarations: interpretCssDelta(e.css),
@@ -52,6 +54,11 @@ export const interpretComponentsRecipeVariant = (
     if (e.state) override.state = e.state;
     if (e.orientation) override.orientation = e.orientation;
     if (e.target) override.target = e.target; // dec.8 — scope onto the `<item>-<target>` sibling
+    if (e.within) {
+      if (!e.state)
+        throw new RefractError("REFRACT_E_STATE", `Component recipe "${_variantName}": \`within\` needs a \`state\`.`);
+      override.within = e.within; // the component's state, read from a sibling recipe (its root)
+    }
     return override;
   });
 

@@ -145,7 +145,8 @@ export const buildRecipeIR = (ruleSet: RuleSet, ctx: RecipeContext): RecipeNode[
   }
 
   // State (+ state×breakpoint) overrides → a `&:hover`-style block, canonical LVHA order.
-  const stateOverrides = ruleSet.overrides.filter(o => o.state !== undefined);
+  // `within` (a component's state read from its root) needs the sibling's class: CSS adapter only.
+  const stateOverrides = ruleSet.overrides.filter(o => o.state !== undefined && !o.within);
   for (const override of orderStateOverrides(stateOverrides)) {
     const stateSelector = SC_STATE_SELECTORS[override.state as string];
     const children = declNodes(override.declarations, ctx.data);
