@@ -113,6 +113,33 @@ interface TokenLeaf {
   /** The DTCG `$type`, inherited from the nearest ancestor that declares one. */
   readonly type?: string;
   readonly value: unknown;
+  /** Set when the token is a DTCG alias: the path it points at (its `value` is the target's, resolved). */
+  readonly aliasOf?: string;
+}
+
+const ALIAS = /^\{([^{}]+)\}$/;
+
+/**
+ * Resolve DTCG alias leaves (`"{color.brand.base}"`) to their target's value, so a swatch, a measure
+ * or a type sample shows the real value instead of the reference text. The alias target is kept
+ * in `aliasOf`. Chains are followed; a missing target or a cycle leaves the leaf as it was.
+ */
+function resolveLeafAliases(leaves: readonly TokenLeaf[]): TokenLeaf[] {
+  const byPath = new Map(leaves.map(leaf => [leaf.path.join("."), leaf] as const));
+  const lookup = (target: string): TokenLeaf | undefined =>
+    byPath.get(target) ?? byPath.get(target.replace(/\.\$root$/, ".base")) ?? byPath.get(`${target}.base`);
+  return leaves.map(leaf => {
+    const first = typeof leaf.value === "string" ? ALIAS.exec(leaf.value.trim()) : null;
+    if (!first) return leaf;
+    let current: TokenLeaf | undefined = leaf;
+    const seen = new Set<TokenLeaf>();
+    while (current && typeof current.value === "string" && ALIAS.test(current.value.trim())) {
+      if (seen.has(current)) return leaf;
+      seen.add(current);
+      current = lookup(ALIAS.exec(current.value.trim())![1]);
+    }
+    return current ? { ...leaf, value: current.value, aliasOf: first[1] } : leaf;
+  });
 }
 
 function collectLeaves(node: unknown, path: readonly string[], inherited: string | undefined, out: TokenLeaf[]): void {
@@ -291,15 +318,16 @@ function contrastRatio(a: string, b: string): number | undefined {
  * derivation chain). It has to be read from the MODEL: the DTCG export resolves both kinds down to
  * a literal, so by the time a token reaches the token plates the distinction is gone.
  */
-type Provenance = "src" | "gen";
+type Provenance = "src" | "gen" | "alias";
 
 function colorProvenance(model: ThemeModel): Map<string, Provenance> {
   const out = new Map<string, Provenance>();
   const properties = model.subsystems.colors?.properties ?? {};
   const mark = (path: string, ref: Ref | undefined): void => {
     if (!ref) return;
-    const derived = ref.ref !== undefined || ref.fn !== undefined || (ref.modifiers?.length ?? 0) > 0;
-    out.set(path, derived ? "gen" : "src");
+    const modified = ref.fn !== undefined || (ref.modifiers?.length ?? 0) > 0;
+    // A bare `ref` (no fn, no modifiers) is an authored alias, not a synthesised value.
+    out.set(path, modified ? "gen" : ref.ref !== undefined ? "alias" : "src");
   };
   for (const [family, property] of Object.entries(properties)) {
     mark(`colors.${family}`, property.base);
@@ -1430,7 +1458,7 @@ const CHROME_CSS = `
 /* ── Provenance tags ── */
 .rfp-tag{font-family:var(--rfp-mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
  padding:1px 5px;border-radius:4px}
-.rfp-src{background:color-mix(in srgb,var(--rfp-focus) 12%,transparent);color:var(--rfp-focus)}
+.rfp-src,.rfp-alias{background:color-mix(in srgb,var(--rfp-focus) 12%,transparent);color:var(--rfp-focus)}
 .rfp-gen{background:var(--rfp-sunk);color:var(--rfp-ink-3);border:1px solid var(--rfp-line)}
 /* ── Palette ── */
 .rfp-pal-top{display:flex;align-items:center;gap:16px}
@@ -1495,7 +1523,7 @@ const CHROME_CSS = `
 .rfp-matrix{min-width:560px}
 .rfp-matrix th{text-align:center;padding:0 8px 10px}
 .rfp-matrix th:first-child{text-align:left}
-.rfp-matrix td{padding:13px 8px;border-top:1px solid var(--rfp-line);text-align:center}
+.rfp-matrix td{padding:13px 8px;border-top:1px solid var(--rfp-line);text-align:center;position:relative;overflow:hidden}
 .rfp-matrix td:first-child{text-align:left;width:208px}
 .rfp-none{font-family:var(--rfp-mono);font-size:11px;color:var(--rfp-ink-3);opacity:.55}
 .rfp-swatch-cell{display:flex;align-items:center;gap:8px}
@@ -1504,7 +1532,7 @@ const CHROME_CSS = `
 /* ── Recipes + prose ── */
 .rfp-recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .rfp-recipe{border:1px solid var(--rfp-line);border-radius:12px;overflow:hidden;background:var(--rfp-card)}
-.rfp-recipe-stage{min-height:92px;display:grid;place-items:center;padding:18px;background:var(--rfp-sunk)}
+.rfp-recipe-stage{min-height:92px;display:grid;place-items:center;padding:18px;background:var(--rfp-sunk);position:relative;overflow:hidden}
 /* A dimensionless recipe (a pure colour rule) has nothing to size it, so it collapses to its text.
    Stretch it edge to edge instead — for a swatch that IS the specimen. Recipes that declare their
    own padding or width keep their natural size, because that size is what is being shown. */
@@ -1623,8 +1651,9 @@ export function buildPreview(source: PreviewSource, options: PreviewOptions): Pr
   const live = stylesheets.length > 0;
   const tokenName = preview?.tokenName;
 
-  const leaves: TokenLeaf[] = [];
-  collectLeaves(tokens, [], undefined, leaves);
+  const collected: TokenLeaf[] = [];
+  collectLeaves(tokens, [], undefined, collected);
+  const leaves = resolveLeafAliases(collected);
   const groups = groupLeaves(leaves);
 
   // Build each section from the groups that map to it; a section with no content is omitted

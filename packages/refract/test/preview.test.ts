@@ -322,4 +322,30 @@ describe("preview.html", () => {
     // with :where(), giving it zero specificity for any theme rule to override.
     expect(html).toContain(":where(.rfp-stage-fill>.rfp-fill,.rfp-matrix td>.rfp-fill){border-radius:8px}");
   });
+  it("resolves an aliased colour to its target's value and tags it alias, not gen", async () => {
+    const outDir = makeTmp();
+    const raw = {
+      colors: {
+        primary: { base: "#4dabf7", variants: { dark: "#1c7ed6" } },
+        accent: { base: { ref: "colors.primary" }, variants: { strong: { ref: "colors.primary.dark" } } },
+      },
+    };
+    await emitTheme({ raw, adapter: plainAdapter, outDir, preview: true });
+
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+    // The swatch paints the target's colour; the alias text never lands in a style attribute.
+    expect(html).not.toMatch(/background:\s*\{?colou?rs?\./);
+    expect(html).toContain('<div class="rfp-pal-base" style="background:#4dabf7"');
+    expect(html).toContain("background:#1c7ed6");
+    expect(html).toContain('<span class="rfp-tag rfp-alias">alias</span>');
+  });
+
+  it("keeps a recipe specimen inside its stage, even one that positions itself absolutely", async () => {
+    const outDir = makeTmp();
+    await emitTheme({ raw: RAW, adapter: plainAdapter, outDir, preview: true });
+
+    const html = readFileSync(join(outDir, "preview.html"), "utf8");
+    expect(html).toMatch(/\.rfp-recipe-stage\{[^}]*position:relative;overflow:hidden/);
+    expect(html).toMatch(/\.rfp-matrix td\{[^}]*position:relative;overflow:hidden/);
+  });
 });
