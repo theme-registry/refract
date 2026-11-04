@@ -20,7 +20,7 @@ import type {
 } from "./ThemeAdapter";
 
 /** Every rule-set address in the Model — `(subsystem, group, variant)` triples. */
-function eachRuleSet(model: ThemeModel): Array<{ subsystem: string; group: string; variant: string }> {
+export function eachRuleSet(model: ThemeModel): Array<{ subsystem: string; group: string; variant: string }> {
   const out: Array<{ subsystem: string; group: string; variant: string }> = [];
   for (const [subsystem, sub] of Object.entries(model.subsystems)) {
     for (const [group, ruleSet] of Object.entries(sub.ruleSets ?? {})) {
