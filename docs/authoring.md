@@ -256,6 +256,27 @@ States and responsive entries flatten into one ordered `overrides` list internal
 adapter renders each as the right selector (`:hover`, `[disabled]`, …) optionally wrapped
 in `@media`. Unknown state names throw at build time.
 
+The CSS, SCSS and styled-components adapters know these states, emitted in this order (later wins
+at equal specificity):
+
+| State | Selector | | State | Selector |
+| --- | --- | --- | --- | --- |
+| `link` | `:link` | | `indeterminate` | `:indeterminate` |
+| `visited` | `:visited` | | `has-indeterminate` | `:has(:indeterminate)` |
+| `hover` | `:hover` | | `selected` | `[aria-selected="true"]` |
+| `focus` | `:focus` | | `expanded` | `[aria-expanded="true"]` |
+| `focus-visible` | `:focus-visible` | | `placeholder-shown` | `:placeholder-shown` |
+| `focus-within` | `:focus-within` | | `invalid` | `[aria-invalid="true"]` |
+| `has-focus-visible` | `:has(:focus-visible)` | | `has-invalid` | `:has([aria-invalid="true"])` |
+| `active` | `:active` | | `disabled` | `[disabled]` |
+| `checked` | `:checked` | | `has-disabled` | `:has(:disabled)` |
+| `has-checked` | `:has(:checked)` | | `pressed` | `[aria-pressed]` |
+
+The `has-*` states style a wrapper from the control inside it: a label from its checkbox
+(`has-checked`), a field box from its input (`has-focus-visible`, `has-invalid`), so a design
+system's composite components need no JavaScript for their states. The JSON adapter keeps any
+state name as a data key.
+
 ### Variants — modifiers on a recipe
 
 A recipe may carry an optional **`variants`** map of modifier deltas — DRY siblings that
