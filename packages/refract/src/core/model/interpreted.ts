@@ -26,6 +26,8 @@ export type InterpretedRecipeOverride<TBreakpoint extends string> = {
   state?: string;
   variant?: string;
   target?: string;
+  /** components: a condition on what the element contains — a state name (`:has(<state>)`). */
+  has?: string;
   /** components: the sibling recipe whose state this is (`.<within>:<state> .<self>`). */
   within?: string;
   orientation?: "landscape" | "portrait";

@@ -44,6 +44,14 @@ gate on a breakpoint too. An optional `target` scopes a state onto a recipe **va
 (`<item>-<variant>`), so two same-state entries can differ per variant:
 `states: [{ state: "hover", … }, { state: "hover", target: "lg", … }]`.
 
+State names: a CSS state (`hover`, `focus-visible`, `checked`, `disabled`, …) or `aria-<name>`
+(`aria-selected` → `[aria-selected="true"]`). Component recipes also take:
+- `has: "<state>"` — what the element **contains**: `{ has: "checked" }` → `.x:has(:checked)`. Refract
+  state names only, never CSS selectors. An entry needs `state`, `has` or both.
+- `within: "<recipe>"` — the condition belongs to a sibling recipe of the same component (usually
+  `root`, and each of its variants): `{ has: "checked", within: "root" }` on `tick` →
+  `.root:has(:checked) .tick`. CSS adapter only for now.
+
 ## Variants — a modifier map on any recipe
 
 Add a `variants` map of deltas to any recipe in any subsystem. Each desugars to a flat sibling

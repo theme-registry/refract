@@ -50,8 +50,9 @@ desugars to siblings that `variant:`/`target:` can then reach — see **recipes-
 
 > `Responsive recipe entry … references unknown state "<name>".`
 
-The state isn't in the **adapter's** allowed set. Use a state the adapter supports (CSS knows
-`hover`/`focus`/`disabled`/…), or choose an adapter that renders it. States are adapter-owned, not
+The state isn't in the **adapter's** allowed set. Use a state the adapter supports (the CSS family
+knows `hover`/`focus-visible`/`checked`/`disabled`/… and `aria-<name>` such as `aria-selected`), or
+choose an adapter that renders it. ARIA states need the `aria-` prefix (`selected` fails). States are adapter-owned, not
 authored — see **theme-foundations** → states.
 
 ## `Unknown recipe property "<prop>" in <path>`

@@ -179,7 +179,9 @@ export type OverrideCondition = {
   variant?: string;
   /** WHERE — scope the override into a variant's var / a sibling rule-set's rule. */
   target?: string;
-  /** components: apply while this sibling recipe of the group (its root) is in `state`. */
+  /** components: a condition on what the element contains — a state name (`:has(<state>)`). */
+  has?: string;
+  /** components: apply while this sibling recipe of the group (its root) meets the condition. */
   within?: string;
 };
 

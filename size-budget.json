@@ -13,7 +13,7 @@
     "files": [
       "packages/refract-css/dist/index.esm.js"
     ],
-    "maxGzip": 9216
+    "maxGzip": 9728
   },
   "@theme-registry/refract-styled-components": {
     "files": [

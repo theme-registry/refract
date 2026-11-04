@@ -387,7 +387,7 @@
           }
         },
         "states": {
-          "description": "States by name ({ hover: {…} }) or as a list ([{ state: \"hover\", … }]), as in a raw theme.",
+          "description": "States as a list ([{ state: \"hover\", … }]) or by name ({ hover: {…} }), as in a raw theme. A list entry has `state` (a CSS state or aria-<name>), `has` (what the element contains: a state name), or both; components also take `within` (the sibling recipe whose condition it is) and `target`.",
           "oneOf": [
             {
               "type": "object",
@@ -401,11 +401,48 @@
                 "type": "object",
                 "properties": {
                   "state": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "What the element is: a CSS state (hover, focus-visible, checked, …) or aria-<name> (aria-selected, …)."
+                  },
+                  "has": {
+                    "description": "Components: what the element contains — a state name, or { state }.",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "state"
+                        ]
+                      }
+                    ]
+                  },
+                  "within": {
+                    "type": "string",
+                    "description": "Components: the recipe of the same component whose condition this is (usually root)."
+                  },
+                  "target": {
+                    "type": "string",
+                    "description": "The variant of this recipe the state applies to."
                   }
                 },
-                "required": [
-                  "state"
+                "anyOf": [
+                  {
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "has"
+                    ]
+                  }
                 ]
               }
             }

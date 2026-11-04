@@ -10,60 +10,21 @@
  * (`${({ theme }) => theme.…}`) and the theme object *is* the indirection.
  */
 import type { MediaDescriptor, MediaVariant } from "@theme-registry/refract";
+import { KNOWN_STATES, STATE_SELECTORS, orderStateOverrides as orderShared } from "@theme-registry/refract/adapter-kit";
 import type { Orientation, RuleSetOverride } from "@theme-registry/refract";
 
 // ---------------------------------------------------------------------------
 // State selector table (adapter-owned)
 // ---------------------------------------------------------------------------
 
-export const SC_STATE_SELECTORS: Record<string, string> = {
-  link: ":link",
-  visited: ":visited",
-  hover: ":hover",
-  focus: ":focus",
-  "focus-visible": ":focus-visible",
-  "focus-within": ":focus-within",
-  "has-focus-visible": ":has(:focus-visible)",
-  active: ":active",
-  checked: ":checked",
-  "has-checked": ":has(:checked)",
-  indeterminate: ":indeterminate",
-  "has-indeterminate": ":has(:indeterminate)",
-  selected: '[aria-selected="true"]',
-  expanded: '[aria-expanded="true"]',
-  "placeholder-shown": ":placeholder-shown",
-  invalid: '[aria-invalid="true"]',
-  "has-invalid": ':has([aria-invalid="true"])',
-  disabled: "[disabled]",
-  "has-disabled": ":has(:disabled)",
-  pressed: "[aria-pressed]",
-};
+/** State name → selector suffix (canonical order) — the shared CSS-family table in `adapter-kit`. */
+export const SC_STATE_SELECTORS: Readonly<Record<string, string>> = STATE_SELECTORS;
 
 /** The states the SC adapter can render (the validation set core threads into normalization). */
-export const SC_KNOWN_STATES: ReadonlyArray<string> = Object.keys(SC_STATE_SELECTORS);
+export const SC_KNOWN_STATES: ReadonlyArray<string> = KNOWN_STATES;
 
-const STATE_ORDER: Record<string, number> = SC_KNOWN_STATES.reduce<Record<string, number>>(
-  (acc, name, index) => {
-    acc[name] = index;
-    return acc;
-  },
-  {},
-);
-
-/** Order state overrides in canonical LVHA order (breakpoint-scoped ones after the base state). */
-export const orderStateOverrides = (overrides: RuleSetOverride[]): RuleSetOverride[] =>
-  overrides
-    .map((override, index) => ({ override, index }))
-    .sort((a, b) => {
-      const oa = STATE_ORDER[a.override.state as string] ?? Number.MAX_SAFE_INTEGER;
-      const ob = STATE_ORDER[b.override.state as string] ?? Number.MAX_SAFE_INTEGER;
-      if (oa !== ob) return oa - ob;
-      const bpa = a.override.breakpoint ? 1 : 0;
-      const bpb = b.override.breakpoint ? 1 : 0;
-      if (bpa !== bpb) return bpa - bpb;
-      return a.index - b.index;
-    })
-    .map(({ override }) => override);
+/** Order state overrides in canonical order (breakpoint-scoped ones after the base state). */
+export const orderStateOverrides = (overrides: RuleSetOverride[]): RuleSetOverride[] => orderShared(overrides);
 
 // ---------------------------------------------------------------------------
 // Breakpoint → concrete @media query resolution

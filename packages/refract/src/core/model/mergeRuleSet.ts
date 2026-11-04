@@ -36,6 +36,8 @@ export type MergedResponsiveEntry = {
   query?: ResponsiveQueryKind;
   orientation?: Orientation;
   state?: string;
+  /** A `has` condition (a state name): the bucket renders as `:has(<state>)`, with no at-rule if unconditioned. */
+  has?: string;
   container?: string;
   size?: string;
   declarations: Record<string, Ref>;
@@ -87,7 +89,7 @@ const mergeDeclarations = (target: Record<string, Ref>, source: Record<string, R
 
 /** Stable string key for a conditioned bucket — `(breakpoint, query, orientation, state, container, size)`. */
 const responsiveKey = (o: RuleSetOverride): string =>
-  `${o.breakpoint ?? ""}|${o.query ?? ""}|${o.orientation ?? ""}|${o.state ?? ""}|${o.container ?? ""}|${o.size ?? ""}`;
+  `${o.breakpoint ?? ""}|${o.query ?? ""}|${o.orientation ?? ""}|${o.state ?? ""}|${o.has ?? ""}|${o.container ?? ""}|${o.size ?? ""}`;
 
 /**
  * Flatten one component variant into a self-contained {@link MergedRuleSet}.
@@ -128,7 +130,15 @@ export const mergeComponentRuleSet = (
       if (!override.declarations) continue;
       // A breakpoint OR container condition → a conditioned bucket (viewport → @media, container →
       // @container). Container overrides MUST route here, not fold into base (§10.5 correctness).
-      if (override.breakpoint !== undefined || override.container !== undefined) {
+      if (override.within !== undefined) {
+        // `within` reads a sibling recipe's class; a flattened component has no siblings to read.
+        throw new RefractError(
+          "REFRACT_E_STATE",
+          `Component "${group}.${variant}": \`within\` can't be flattened.`,
+        );
+      }
+      // A `has` condition (with or without a breakpoint) → its own bucket, rendered as `:has(…)`.
+      if (override.breakpoint !== undefined || override.container !== undefined || override.has !== undefined) {
         const key = responsiveKey(override);
         let entry = responsiveByKey.get(key);
         if (!entry) {
@@ -137,6 +147,7 @@ export const mergeComponentRuleSet = (
             ...(override.query !== undefined ? { query: override.query } : {}),
             ...(override.orientation !== undefined ? { orientation: override.orientation } : {}),
             ...(override.state !== undefined ? { state: override.state } : {}),
+            ...(override.has !== undefined ? { has: override.has } : {}),
             ...(override.container !== undefined ? { container: override.container } : {}),
             ...(override.size !== undefined ? { size: override.size } : {}),
             declarations: {},

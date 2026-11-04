@@ -216,6 +216,10 @@ export type RecipeResponsiveOverride<
   query?: ResponsiveQuery;
   /** Recipe-only condition axis; validated against the adapter's known-state set in normalize. */
   state?: string;
+  /** components: what the element contains — a validated state name (`:has(<state>)`). */
+  has?: string;
+  /** components: the sibling recipe whose condition this is (expanded over its variants). */
+  within?: string;
   variant?: string;
   target?: string;
   orientation?: ResponsiveOrientation;
@@ -236,16 +240,25 @@ export type RecipeResponsiveOverride<
 export type RecipeStateOverride<
   TProps extends Record<string, unknown>,
 > = {
-  state: string;
+  /** What the element IS: a CSS state from the adapter's list or `aria-<name>`. Needs `state`, `has` or both. */
+  state?: string;
   target?: string;
   /**
-   * Components only: the state is the **component's** — the override applies to this part while
-   * the named sibling recipe of the same group (usually `root`) is in that state:
-   * `.<group>-<within>:<state> .<group>-<part>`. Lets an inner part (a checkbox tick, an input's
-   * text) follow its component's hover / checked / invalid state without JavaScript.
+   * Components only: a condition on what the element CONTAINS (not a state of its own) — a state name
+   * (`"checked"`, or `{ state: "checked" }`) → `:has(:checked)`. Refract names, never CSS selectors.
+   */
+  has?: RecipeHasCondition;
+  /**
+   * Components only: whose element it is — the override applies to this part while the named sibling
+   * recipe of the same component (usually `root`, and each of its variants) meets the condition:
+   * `.<group>-<within>:<state> .<group>-<part>`. Lets an inner part (a checkbox tick, a button label)
+   * follow its component's hover / checked state without JavaScript.
    */
   within?: string;
 } & Partial<TProps>;
+
+/** A recipe state entry's `has` condition: a state name, or its long form `{ state }`. */
+export type RecipeHasCondition = string | { state: string };
 
 /**
  * The authored `states` value — the canonical **array** of {@link RecipeStateOverride}s (dec.8), or a

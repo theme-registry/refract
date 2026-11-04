@@ -256,49 +256,83 @@ States and responsive entries flatten into one ordered `overrides` list internal
 adapter renders each as the right selector (`:hover`, `[disabled]`, …) optionally wrapped
 in `@media`. Unknown state names throw at build time.
 
-The CSS, SCSS and styled-components adapters know these states, emitted in this order (later wins
-at equal specificity):
+A state entry in the list form can carry four keys, each answering one question:
 
-| State | Selector | | State | Selector |
-| --- | --- | --- | --- | --- |
-| `link` | `:link` | | `indeterminate` | `:indeterminate` |
-| `visited` | `:visited` | | `has-indeterminate` | `:has(:indeterminate)` |
-| `hover` | `:hover` | | `selected` | `[aria-selected="true"]` |
-| `focus` | `:focus` | | `expanded` | `[aria-expanded="true"]` |
-| `focus-visible` | `:focus-visible` | | `placeholder-shown` | `:placeholder-shown` |
-| `focus-within` | `:focus-within` | | `invalid` | `[aria-invalid="true"]` |
-| `has-focus-visible` | `:has(:focus-visible)` | | `has-invalid` | `:has([aria-invalid="true"])` |
-| `active` | `:active` | | `disabled` | `[disabled]` |
-| `checked` | `:checked` | | `has-disabled` | `:has(:disabled)` |
-| `has-checked` | `:has(:checked)` | | `pressed` | `[aria-pressed]` |
+| Key | Answers | Example | CSS adapter |
+| --- | --- | --- | --- |
+| `state` | What is this element? | `state: "hover"` | `.x:hover` |
+| `has` | What does it contain? (components) | `has: "checked"` | `.x:has(:checked)` |
+| `within` | Whose element is it? (components) | `within: "root"` | `.root:hover .x` |
+| `target` | Which variant of this recipe? | `target: "big"` | `.x-big:hover` |
 
-The `has-*` states style a wrapper from the control inside it: a label from its checkbox
-(`has-checked`), a field box from its input (`has-focus-visible`, `has-invalid`), so a design
-system's composite components need no JavaScript for their states.
+An entry needs `state`, `has` or both (`{ state: "hover", has: "checked" }` → `.x:hover:has(:checked)`).
+`has` and `within` only exist in the list form; the `{ hover: {…} }` map form takes `state` names only.
 
-**`within` — a part follows its component's state** (components, CSS adapter). A component is
-usually several recipes in one group (`root`, `box`, `tick`, `text`, …). A state entry with
-`within: "<recipe>"` applies while that sibling recipe is in the state, not the part itself:
+**State names.** A state is something the element *is*. The CSS, SCSS and styled-components adapters
+accept two forms, and an unknown name fails the build (so a typo never becomes a silent selector):
+
+- a CSS state from this list, emitted in this order (later wins at equal specificity):
+  `link`, `visited`, `hover`, `focus`, `focus-visible`, `focus-within`, `active`, `checked`,
+  `indeterminate`, `placeholder-shown`, `disabled` (→ `[disabled]`); each renders as its pseudo-class;
+- `aria-<name>` for a WAI-ARIA state: `aria-selected`, `aria-expanded`, `aria-invalid`,
+  `aria-checked`, `aria-current`, `aria-busy`, `aria-hidden`, `aria-readonly`, `aria-required`,
+  `aria-disabled`, `aria-pressed` → `[aria-<name>="true"]`. They sort among the CSS states
+  (`aria-selected` after `indeterminate`, `aria-disabled` just before `disabled`).
+
+`pressed` is an alias of `aria-pressed`.
+
+**`has` — what the element contains** (components). `has` is a condition, not a state: it styles a
+wrapper from a control inside it, such as a label from its checkbox or a field box from its input.
+It takes a state name (`has: "checked"`, or the long form `has: { state: "checked" }`) and renders
+`:has(<that state's selector>)`. It sorts right after its state (`checked`, then `has: "checked"`).
+`has` takes Refract names, never CSS selectors: a class belongs to the adapter (its prefix and naming),
+and Refract checks the name. `has: { recipe }` (contains another recipe's element) is not supported yet.
+
+```ts
+components: { recipes: { field: {
+  box: {
+    css: { borderColor: ref("colors.line") },
+    states: [
+      { has: "focus-visible", css: { boxShadow: ref("effects.shadow.focus") } },
+      { has: "aria-invalid", css: { borderColor: ref("colors.danger") } },
+    ],
+  },
+} } }
+// .t-components-field-box:has(:focus-visible) { box-shadow: var(--t-effects-shadow-focus); }
+// .t-components-field-box:has([aria-invalid="true"]) { border-color: var(--t-colors-danger); }
+```
+
+**`within` — a part follows its component** (components, CSS adapter). A component is usually
+several recipes in one group (`root`, `box`, `tick`, `label`, …). With `within: "<recipe>"`, the
+entry's `state` / `has` belongs to that sibling recipe, not to the part itself:
 
 ```ts
 components: { recipes: { checkbox: {
-  root: { css: { display: "inline-flex" } },
+  root: { css: { display: "inline-flex" }, variants: { compact: { css: { gap: "4px" } } } },
   tick: {
     css: { opacity: "0" },
     states: [
-      { state: "has-checked", within: "root", css: { opacity: "1" } }, // checkbox ticked
+      { has: "checked", within: "root", css: { opacity: "1" } }, // checkbox ticked
       { state: "hover", within: "root", css: { color: ref("colors.primary") } },
     ],
   },
 } } }
 // .t-components-checkbox-root:has(:checked) .t-components-checkbox-tick { opacity: 1; }
+// .t-components-checkbox-root-compact:has(:checked) .t-components-checkbox-tick { opacity: 1; }
 // .t-components-checkbox-root:hover .t-components-checkbox-tick { color: var(--t-colors-primary); }
+// .t-components-checkbox-root-compact:hover .t-components-checkbox-tick { color: var(--t-colors-primary); }
 ```
 
-`within` must name a recipe of the same group (else the build fails). The rules follow the parts'
-own states, in the state order above. The SCSS and styled-components adapters skip `within`
-entries for now (their recipe blocks don't know a sibling's class). The JSON adapter keeps any
-state name as a data key.
+- `within` must name a recipe of the same component, or the build fails. Another component's part
+  (`within: "button.root"`) is not supported yet.
+- A variant is a full sibling class, so the rule is written for the named recipe and for each of its
+  variants (`root`, `root-compact`). The part's own variants inherit the entry; with `target`, it
+  applies to that one variant only (`.root:hover .tick-big`).
+- The rules come after the parts' own states, in the state order above.
+- The SCSS and styled-components adapters fail on `within` for now (their recipe blocks don't know a
+  sibling's class), and so does the CSS adapter's flattened `components` export plan.
+
+The JSON adapter keeps any state name as a data key.
 
 ### Variants — modifiers on a recipe
 

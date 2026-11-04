@@ -33,6 +33,27 @@ const cases: Record<string, unknown> = {
     layout: { spacing: { base: 4, step: 4, steps: { sm: 2, md: 3 }, responsive: [{ breakpoint: "sm", query: "max", target: "md", base: 8 }] } },
     animation: { duration: { base: 200, variants: { slow: 400 } }, easing: { base: "ease-out", variants: { spring: "cubic-bezier(0.2, 0.8, 0.2, 1)" } } },
   },
+  "recipe states: aria, has, within": {
+    components: {
+      recipes: {
+        checkbox: {
+          root: {
+            css: { display: "inline-flex" },
+            variants: { compact: { css: { gap: "4px" } } },
+            states: [{ has: "focus-visible", css: { outline: "2px solid" } }],
+          },
+          tick: {
+            css: { opacity: "0" },
+            states: [
+              { has: "checked", within: "root", css: { opacity: "1" } },
+              { state: "hover", has: { state: "aria-invalid" }, within: "root", css: { color: "red" } },
+              { state: "aria-selected", css: { color: "blue" } },
+            ],
+          },
+        },
+      },
+    },
+  },
 };
 
 describe("profile round trip: raw → DTCG → raw", () => {
